@@ -1,0 +1,2 @@
+"use strict";(globalThis.webpackChunknextcloud_mail||=[]).push([[3731],{83731(e,i,l){const s=(0,l(85471).$V)((()=>Promise.all([l.e(1225),l.e(7639),l.e(434),l.e(933)]).then(l.bind(l,60933))));l.d(i,["FilePickerVue",0,s])}}]);
+//# sourceMappingURL=mail.3731.850154dc42108bbac108.js.map

@@ -1,0 +1,72 @@
+<?php
+
+/**
+ * SPDX-FileCopyrightText: 2025 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
+use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
+
+$nextcloudDir = dirname(__DIR__);
+
+return (require __DIR__ . '/rector-shared.php')
+	->withPaths([
+		$nextcloudDir . '/build/rector-strict.php',
+		$nextcloudDir . '/core/BackgroundJobs/ExpirePreviewsJob.php',
+		$nextcloudDir . '/lib/public/IContainer.php',
+		$nextcloudDir . '/apps/appstore',
+		$nextcloudDir . '/apps/dav/lib/Connector/Sabre/Node.php',
+		$nextcloudDir . '/apps/files_versions/lib/Versions/IMetadataVersion.php',
+		$nextcloudDir . '/lib/private/Settings/AuthorizedGroup.php',
+		$nextcloudDir . '/lib/private/Settings/AuthorizedGroupMapper.php',
+		$nextcloudDir . '/apps/settings/lib/Service/AuthorizedGroupService.php',
+		$nextcloudDir . '/lib/private/Files/Storage/Storage.php',
+		$nextcloudDir . '/lib/private/Files/Cache/Storage.php',
+		$nextcloudDir . '/lib/private/Files/Cache/StorageGlobal.php',
+		$nextcloudDir . '/lib/private/Files/Storage/Wrapper/Wrapper.php',
+		$nextcloudDir . '/build/psalm/ITypedQueryBuilderTest.php',
+		$nextcloudDir . '/lib/private/DB/QueryBuilder/TypedQueryBuilder.php',
+		$nextcloudDir . '/lib/public/DB/QueryBuilder/ITypedQueryBuilder.php',
+		$nextcloudDir . '/lib/public/Interaction',
+		$nextcloudDir . '/tests/lib/Interaction',
+		$nextcloudDir . '/apps/files/lib/Listener/RestrictInteractionListener.php',
+		$nextcloudDir . '/apps/files/tests/Listener/RestrictInteractionListenerTest.php',
+		$nextcloudDir . '/apps/files_sharing/lib/Listener/RestrictInteractionListener.php',
+		$nextcloudDir . '/apps/files_sharing/tests/Listener/RestrictInteractionListenerTest.php',
+		$nextcloudDir . '/core/Listener/RestrictInteractionListener.php',
+		$nextcloudDir . '/tests/Core/Listener/RestrictInteractionListenerTest.php',
+		$nextcloudDir . '/lib/public/SystemReport',
+		$nextcloudDir . '/lib/private/SystemReport',
+		$nextcloudDir . '/tests/lib/SystemReport',
+	])
+	->withAutoloadPaths([
+		// ensure rector properly autoload the public interfaces
+		$nextcloudDir . '/lib/public',
+	])
+	->withPreparedSets(
+		deadCode: true,
+		codeQuality: true,
+		codingStyle: true,
+		typeDeclarations: true,
+		typeDeclarationDocblocks: true,
+		privatization: true,
+		instanceOf: true,
+		earlyReturn: true,
+		rectorPreset: true,
+		phpunitCodeQuality: true,
+		doctrineCodeQuality: true,
+		symfonyCodeQuality: true,
+		symfonyConfigs: true,
+	)->withPhpSets(
+		php82: true,
+	)->withSkip([
+		ReadOnlyPropertyRector::class => [
+			$nextcloudDir . '/core/Listener/RestrictInteractionListener.php',
+			$nextcloudDir . '/apps/files_sharing/lib/Listener/RestrictInteractionListener.php',
+		],
+		ReadOnlyClassRector::class => [
+			$nextcloudDir . '/core/Listener/RestrictInteractionListener.php',
+			$nextcloudDir . '/apps/files_sharing/lib/Listener/RestrictInteractionListener.php',
+		],
+	]);

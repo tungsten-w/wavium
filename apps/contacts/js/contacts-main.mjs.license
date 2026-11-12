@@ -1,0 +1,69 @@
+SPDX-License-Identifier: AGPL-3.0-or-later
+SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: MIT
+SPDX-License-Identifier: agpl
+SPDX-FileCopyrightText: Austin Andrews
+SPDX-FileCopyrightText: Chen Fengyuan
+SPDX-FileCopyrightText: Evan You
+SPDX-FileCopyrightText: Iftekhar Rifat
+SPDX-FileCopyrightText: John Molakvoæ <skjnldsv@protonmail.com>
+SPDX-FileCopyrightText: Nathan Woltman <nwoltman@outlook.com>
+SPDX-FileCopyrightText: Nextcloud GmbH and Nextcloud contributors
+SPDX-FileCopyrightText: Rob Cresswell <robcresswell@pm.me>
+SPDX-FileCopyrightText: Sindre Sorhus
+SPDX-FileCopyrightText: dandavis
+SPDX-FileCopyrightText: inokawa <stratoooo-taster@yahoo.co.jp> (https://github.com/inokawa/)
+SPDX-FileCopyrightText: moment developers
+
+This file is generated from multiple sources. Included packages:
+- @mdi/svg
+	- version: 7.4.47
+	- license: Apache-2.0
+- @nextcloud/vue
+	- version: 9.10.0
+	- license: AGPL-3.0-or-later
+- @vue/compiler-core
+	- version: 3.5.42
+	- license: MIT
+- @vue/compiler-dom
+	- version: 3.5.42
+	- license: MIT
+- @vue/runtime-dom
+	- version: 3.5.42
+	- license: MIT
+- @vue/shared
+	- version: 3.5.42
+	- license: MIT
+- contacts
+	- version: 8.9.3
+	- license: agpl
+- cropperjs
+	- version: 1.6.2
+	- license: MIT
+- downloadjs
+	- version: 1.4.7
+	- license: MIT
+- moment
+	- version: 2.31.0
+	- license: MIT
+- p-limit
+	- version: 7.3.2
+	- license: MIT
+- string-natural-compare
+	- version: 3.0.1
+	- license: MIT
+- virtua
+	- version: 0.50.5
+	- license: MIT
+- vue
+	- version: 3.5.42
+	- license: MIT
+- vue-cropperjs
+	- version: 5.0.0
+	- license: MIT
+- vue-material-design-icons
+	- version: 5.3.1
+	- license: MIT
+- yocto-queue
+	- version: 1.2.1
+	- license: MIT

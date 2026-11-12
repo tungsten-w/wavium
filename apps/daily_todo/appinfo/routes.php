@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+return ['routes' => [
+    ['name' => 'page#index','url' => '/','verb' => 'GET'],
+    ['name' => 'api#day','url' => '/api/day/{date}','verb' => 'GET'],
+    ['name' => 'api#dayVersion','url' => '/api/day/{date}/version','verb' => 'GET'],
+    ['name' => 'api#summary','url' => '/api/summary/{month}','verb' => 'GET'],
+    ['name' => 'api#complete','url' => '/api/items/{id}/complete','verb' => 'PUT'],
+    ['name' => 'api#order','url' => '/api/day/{date}/order','verb' => 'PUT'],
+    ['name' => 'api#createQuick','url' => '/api/day/{date}/quick','verb' => 'POST'],
+    ['name' => 'api#resetDay','url' => '/api/day/{date}/reset','verb' => 'POST'],
+    ['name' => 'api#updateQuick','url' => '/api/items/{id}','verb' => 'PUT'],
+    ['name' => 'api#deleteQuick','url' => '/api/items/{id}','verb' => 'DELETE'],
+    ['name' => 'api#postpone','url' => '/api/items/{id}/postpone','verb' => 'POST'],
+    ['name' => 'api#restore','url' => '/api/trash/{id}/restore','verb' => 'POST'],
+    ['name' => 'api#trash','url' => '/api/trash','verb' => 'GET'],
+    ['name' => 'api#taskDetails','url' => '/api/items/{id}/task','verb' => 'GET'],
+    ['name' => 'api#editTask','url' => '/api/items/{id}/task','verb' => 'PUT'],
+    ['name' => 'api#overdue','url' => '/api/overdue','verb' => 'GET'],
+    ['name' => 'api#moveOverdue','url' => '/api/overdue/move','verb' => 'POST'],
+    ['name' => 'api#publicStatus','url' => '/public/{owner}/status','verb' => 'GET'],
+    ['name' => 'api#stats','url' => '/api/stats/{from}/{to}','verb' => 'GET'],
+    ['name' => 'api#settings','url' => '/api/settings','verb' => 'GET'],
+    ['name' => 'api#saveSettings','url' => '/api/settings','verb' => 'PUT'],
+    ['name' => 'api#sources','url' => '/api/sources','verb' => 'GET'],
+    ['name' => 'api#template','url' => '/api/template','verb' => 'GET'],
+    ['name' => 'api#saveTemplate','url' => '/api/template','verb' => 'PUT'],
+    ['name' => 'api#shares','url' => '/api/shares','verb' => 'GET'],
+    ['name' => 'api#shared','url' => '/api/shared','verb' => 'GET'],
+    ['name' => 'api#addShare','url' => '/api/shares','verb' => 'POST'],
+    ['name' => 'api#deleteShare','url' => '/api/shares/{id}','verb' => 'DELETE'],
+]];

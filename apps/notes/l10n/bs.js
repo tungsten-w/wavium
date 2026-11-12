@@ -1,0 +1,20 @@
+OC.L10N.register(
+    "notes",
+    {
+    "Notes" : "Notes",
+    "Error" : "Greška",
+    "Share" : "Podjeli",
+    "Files" : "Datoteke",
+    "Delete" : "Delete",
+    "Cancel" : "Otkaži",
+    "Remove from favorites" : "Remove from favorites",
+    "Add to favorites" : "Add to favorites",
+    "Details" : "Details",
+    "Rename" : "Rename",
+    "Edit" : "Izmjeni",
+    "Owner" : "Owner",
+    "Today" : "Danas",
+    "Yesterday" : "Jučer",
+    "Tasks" : "Zadaci"
+},
+"nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);");

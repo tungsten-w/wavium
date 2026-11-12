@@ -1,0 +1,1221 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-FileCopyrightText: 2014-2016 ownCloud, Inc.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+namespace OCA\Mail\Controller;
+
+use Exception;
+use OC\Security\CSP\ContentSecurityPolicyNonceManager;
+use OCA\Mail\Attachment;
+use OCA\Mail\Contracts\IDkimService;
+use OCA\Mail\Contracts\IMailManager;
+use OCA\Mail\Contracts\IMailSearch;
+use OCA\Mail\Contracts\IMailTransmission;
+use OCA\Mail\Contracts\ITrustedSenderService;
+use OCA\Mail\Contracts\IUserPreferences;
+use OCA\Mail\Db\Message;
+use OCA\Mail\Exception\ClientException;
+use OCA\Mail\Exception\ServiceException;
+use OCA\Mail\Http\AttachmentDownloadResponse;
+use OCA\Mail\Http\HtmlResponse;
+use OCA\Mail\Http\TrapError;
+use OCA\Mail\IMAP\IMAPClientFactory;
+use OCA\Mail\Model\SmimeData;
+use OCA\Mail\Service\AccountService;
+use OCA\Mail\Service\AiIntegrations\AiIntegrationsService;
+use OCA\Mail\Service\DelegationService;
+use OCA\Mail\Service\ItineraryService;
+use OCA\Mail\Service\SmimeService;
+use OCA\Mail\Service\SnoozeService;
+use OCA\Mail\Service\Triage\TriageService;
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\OpenAPI;
+use OCP\AppFramework\Http\ContentSecurityPolicy;
+use OCP\AppFramework\Http\JSONResponse;
+use OCP\AppFramework\Http\Response;
+use OCP\AppFramework\Http\TemplateResponse;
+use OCP\AppFramework\Http\ZipResponse;
+use OCP\Files\Folder;
+use OCP\Files\GenericFileException;
+use OCP\Files\IFilenameValidator;
+use OCP\Files\IMimeTypeDetector;
+use OCP\Files\NotPermittedException;
+use OCP\ICache;
+use OCP\ICacheFactory;
+use OCP\IL10N;
+use OCP\IRequest;
+use OCP\IURLGenerator;
+use OCP\Lock\LockedException;
+use Psr\Log\LoggerInterface;
+use function array_map;
+
+#[OpenAPI(scope: OpenAPI::SCOPE_IGNORE)]
+class MessagesController extends Controller {
+	private IMimeTypeDetector $mimeTypeDetector;
+	private IL10N $l10n;
+	private IURLGenerator $urlGenerator;
+	private ContentSecurityPolicyNonceManager $nonceManager;
+
+	public function __construct(
+		string $appName,
+		IRequest $request,
+		private AccountService $accountService,
+		private IMailManager $mailManager,
+		private IMailSearch $mailSearch,
+		private ItineraryService $itineraryService,
+		private ?string $userId,
+		private ?Folder $userFolder,
+		private IFilenameValidator $filenameValidator,
+		private LoggerInterface $logger,
+		IL10N $l10n,
+		IMimeTypeDetector $mimeTypeDetector,
+		IURLGenerator $urlGenerator,
+		ContentSecurityPolicyNonceManager $nonceManager,
+		private ITrustedSenderService $trustedSenderService,
+		private IMailTransmission $mailTransmission,
+		private SmimeService $smimeService,
+		private IMAPClientFactory $clientFactory,
+		private IDkimService $dkimService,
+		private IUserPreferences $preferences,
+		private SnoozeService $snoozeService,
+		private AiIntegrationsService $aiIntegrationService,
+		private ICacheFactory $cacheFactory,
+		private DelegationService $delegationService,
+		private TriageService $triage,
+	) {
+		parent::__construct($appName, $request);
+		$this->l10n = $l10n;
+		$this->mimeTypeDetector = $mimeTypeDetector;
+		$this->urlGenerator = $urlGenerator;
+		$this->nonceManager = $nonceManager;
+	}
+
+	/**
+	 * @param int $mailboxId
+	 * @param int $cursor
+	 * @param string $filter
+	 * @param int|null $limit
+	 * @param string $view returns messages in requested view ('singleton' or 'threaded')
+	 * @param string|null $v Cache buster version to guarantee unique urls (will trigger HTTP caching if set)
+	 *
+	 * @return JSONResponse
+	 *
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function index(int $mailboxId,
+		?int $cursor = null,
+		?string $filter = null,
+		?int $limit = null,
+		?string $view = null,
+		?string $v = null): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		$limit = min(100, max(1, $limit));
+
+		try {
+			$effectiveUserId = $this->delegationService->resolveMailboxUserId($mailboxId, $this->userId);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $mailboxId);
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$this->logger->debug("loading messages of mailbox <$mailboxId>");
+		$sort = $this->preferences->getPreference($this->userId, 'sort-order', 'newest') === 'newest' ? IMailSearch::ORDER_NEWEST_FIRST : IMailSearch::ORDER_OLDEST_FIRST;
+
+		$view = $view === 'singleton' ? IMailSearch::VIEW_SINGLETON : IMailSearch::VIEW_THREADED;
+
+		$messages = $this->mailSearch->findMessages(
+			$account,
+			$mailbox,
+			$sort,
+			$filter === '' ? null : $filter,
+			$cursor,
+			$limit,
+			$effectiveUserId,
+			$view
+		);
+
+		$response = new JSONResponse($messages);
+		if ($v !== null && $v !== '') {
+			$response->cacheFor(7 * 24 * 3600, false, true);
+		}
+		return $response;
+	}
+
+	/**
+	 * @param int $id
+	 *
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function show(int $id): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$this->logger->debug("loading message <$id>");
+
+		return new JSONResponse(
+			$this->mailSearch->findMessage(
+				$account,
+				$mailbox,
+				$message
+			)
+		);
+	}
+
+	/**
+	 * @param int $id
+	 *
+	 * @return JSONResponse
+	 *
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function getBody(int $id): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		// Atrium: the mail opens from Atrium's own copy (mail_bodies). The mail
+		// server is asked only for a mail whose reader copy was never stored, and
+		// never for a mail that is no longer on it.
+		$hash = TriageService::hash($message->getMessageId(), $id);
+		$copy = null;
+		try {
+			$copy = $this->triage->loadCopy($account->getId(), $hash);
+		} catch (\Throwable $e) {
+			$this->logger->warning('Could not read Atrium\'s copy of a mail: ' . $e->getMessage());
+		}
+		$imapMessage = null;
+		if ($message->isGoneFromServer() || ($copy !== null && $copy['reader_meta'] !== null && $copy['reader_body'] !== null)) {
+			$json = $this->copyJson($message, $copy, $account->getId());
+		} else {
+			try {
+				[$imapMessage, $json] = $this->fetchAndKeep($account, $mailbox, $message, $hash);
+			} catch (\Throwable $e) {
+				if ($copy === null) {
+					throw $e;
+				}
+				// Mail server unreachable: the text Atrium kept is enough to read it.
+				$this->logger->info('Opening mail <' . $id . '> from Atrium\'s text copy: ' . $e->getMessage());
+				$json = $this->copyJson($message, $copy, $account->getId());
+			}
+		}
+
+		$itineraries = $imapMessage === null ? null : $this->itineraryService->getCached($account, $mailbox, $message->getUid());
+		if ($itineraries) {
+			$json['itineraries'] = $itineraries;
+		}
+		$json['attachments'] = $this->enrichAttachments($id, $json['attachments']);
+		$json['inlineAttachments'] = $this->enrichAttachments($id, $json['inlineAttachments']);
+		$json['accountId'] = $account->getId();
+		$json['mailboxId'] = $mailbox->getId();
+		$json['databaseId'] = $message->getId();
+		$json['isSenderTrusted'] = $this->isSenderTrusted($message);
+
+		$smimeData = new SmimeData();
+		$smimeData->setIsEncrypted($message->isEncrypted() || ($imapMessage?->isEncrypted() ?? false));
+		if ($imapMessage?->isSigned()) {
+			$smimeData->setIsSigned(true);
+			$smimeData->setSignatureIsValid($imapMessage->isSignatureValid());
+		}
+		$json['smime'] = $smimeData;
+
+		$dkimResult = $this->dkimService->getCached($account, $mailbox, $message->getUid());
+		if (is_bool($dkimResult)) {
+			$json['dkimValid'] = $dkimResult;
+		}
+
+		$response = new JSONResponse($json);
+
+		// Enable caching
+		$response->cacheFor(60 * 60, false, true);
+
+		return $response;
+	}
+
+	/**
+	 * Fetch a mail from the server once and keep Atrium's copy of it (text for
+	 * search and classification, plus what the reader shows).
+	 *
+	 * @return array{0: \OCA\Mail\Model\IMAPMessage, 1: array<string, mixed>}
+	 */
+	private function fetchAndKeep(\OCA\Mail\Account $account, \OCA\Mail\Db\Mailbox $mailbox, Message $message, string $hash): array {
+		$id = $message->getId();
+		$client = $this->clientFactory->getClient($account);
+		try {
+			$imapMessage = $this->mailManager->getImapMessage($client, $account, $mailbox, $message->getUid(), true);
+			if ($imapMessage->hasHtmlMessage()) {
+				$this->getCacheForAccount($account->getId())->set("message_$id", $imapMessage->getHtmlBody($id), 600);
+			}
+			$json = $imapMessage->getFullMessage($id);
+		} finally {
+			$client->logout();
+		}
+		try {
+			$this->triage->storeBody($account, $mailbox, $imapMessage, $hash, $json);
+		} catch (\Throwable $e) {
+			$this->logger->warning('Could not keep the mail body: ' . $e->getMessage());
+		}
+		$json['atriumCopy'] = ['source' => 'server', 'goneFromServer' => false, 'text' => true, 'full' => true];
+		return [$imapMessage, $json];
+	}
+
+	/**
+	 * The reader's JSON built from Atrium's copy alone. The list row (sender,
+	 * recipients, subject, date, flags) comes from mail_messages; the body from
+	 * mail_bodies (the sanitized reader body, else the plain text).
+	 *
+	 * @param array<string, mixed>|null $copy TriageService::loadCopy()
+	 * @return array<string, mixed>
+	 */
+	private function copyJson(Message $message, ?array $copy, ?int $accountId = null): array {
+		$full = $copy !== null && $copy['reader_meta'] !== null && $copy['reader_body'] !== null;
+		$json = $full ? $copy['reader_meta'] : [
+			'messageId' => $message->getMessageId(), 'replyTo' => [], 'hasHtmlBody' => false,
+			'attachments' => [], 'inlineAttachments' => [], 'signature' => null,
+			'dispositionNotificationTo' => null, 'hasDkimSignature' => false, 'phishingDetails' => null,
+			'unsubscribeUrl' => null, 'isOneClickUnsubscribe' => false,
+		];
+		$json['body'] = $full ? $copy['reader_body'] : ($copy === null ? '' : htmlspecialchars($copy['body'], ENT_QUOTES | ENT_SUBSTITUTE));
+		$row = $message->jsonSerialize();
+		foreach (['uid', 'subject', 'dateInt', 'flags', 'from', 'to', 'cc', 'bcc'] as $k) {
+			$json[$k] = $row[$k];
+		}
+		$json['attachments'] ??= [];
+		$json['inlineAttachments'] ??= [];
+		if ($message->isGoneFromServer() && $accountId !== null) {
+			// The server cannot be asked any more: list only what was downloaded while it still had the mail.
+			$json['attachments'] = $this->triage->storedAttachments($accountId, $message->getMessageId(), (int)$message->getId());
+		}
+		$json['atriumCopy'] = [
+			'source' => 'atrium',
+			'goneFromServer' => $message->isGoneFromServer(),
+			'text' => $copy !== null,
+			'full' => $full,
+			'storedAt' => $copy['fetched_at'] ?? null,
+		];
+		return $json;
+	}
+
+	/**
+	 * @param int $id
+	 *
+	 * @return JSONResponse
+	 *
+	 * @throws ClientException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function getItineraries(int $id): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$response = new JsonResponse($this->itineraryService->extract($account, $mailbox, $message->getUid()));
+		$response->cacheFor(24 * 60 * 60, false, true);
+		return $response;
+	}
+
+	/**
+	 * @param int $id
+	 * @return JSONResponse
+	 */
+	#[NoAdminRequired]
+	public function getDkim(int $id): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$response = new JSONResponse(['valid' => $this->dkimService->validate($account, $mailbox, $message->getUid())]);
+		$response->cacheFor(24 * 60 * 60, false, true);
+		return $response;
+	}
+
+	private function isSenderTrusted(Message $message): bool {
+		if ($this->userId === null) {
+			return false;
+		}
+		$from = $message->getFrom();
+		$first = $from->first();
+		if ($first === null) {
+			return false;
+		}
+		$email = $first->getEmail();
+		if ($email === null) {
+			return false;
+		}
+		return $this->trustedSenderService->isTrusted(
+			$this->userId,
+			$email
+		);
+	}
+
+	/**
+	 * @param int $id
+	 *
+	 * @return JSONResponse
+	 * @throws ClientException
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[TrapError]
+	public function getThread(int $id): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		if (empty($message->getThreadRootId())) {
+			return new JSONResponse([], Http::STATUS_NOT_FOUND);
+		}
+
+		return new JSONResponse($this->mailManager->getThread($account, (string)$message->getThreadRootId()));
+	}
+
+	/**
+	 * @param int $id
+	 * @param int $destFolderId
+	 *
+	 * @return JSONResponse
+	 *
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function move(int $id, int $destFolderId): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$srcMailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$dstMailbox = $this->mailManager->getMailbox($effectiveUserId, $destFolderId);
+			$srcAccount = $this->accountService->find($effectiveUserId, $srcMailbox->getAccountId());
+			$dstAccount = $this->accountService->find($effectiveUserId, $dstMailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$this->delegationService->assertMailboxAccess($destFolderId, $this->userId);
+
+		$this->mailManager->moveMessage(
+			$srcAccount,
+			$srcMailbox->getName(),
+			$message->getUid(),
+			$dstAccount,
+			$dstMailbox->getName()
+		);
+
+		$this->delegationService->logDelegatedAction($this->userId, $effectiveUserId, "$this->userId moved message <$id> to mailbox <$destFolderId> on behalf of $effectiveUserId");
+
+		return new JSONResponse();
+	}
+
+	/**
+	 * @param int $id
+	 * @param int $unixTimestamp
+	 * @param int $destMailboxId
+	 *
+	 * @return JSONResponse
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function snooze(int $id, int $unixTimestamp, int $destMailboxId): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$srcMailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$dstMailbox = $this->mailManager->getMailbox($effectiveUserId, $destMailboxId);
+			$srcAccount = $this->accountService->find($effectiveUserId, $srcMailbox->getAccountId());
+			$dstAccount = $this->accountService->find($effectiveUserId, $dstMailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$this->delegationService->assertMailboxAccess($destMailboxId, $this->userId);
+
+		$this->snoozeService->snoozeMessage($message, $unixTimestamp, $srcAccount, $srcMailbox, $dstAccount, $dstMailbox);
+		$this->delegationService->logDelegatedAction($this->userId, $effectiveUserId, "$this->userId snoozed message <$id> to <$unixTimestamp> on behalf of $effectiveUserId");
+
+		return new JSONResponse();
+	}
+
+	/**
+	 * @param int $id
+	 *
+	 * @return JSONResponse
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function unSnooze(int $id): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$this->snoozeService->unSnoozeMessage($message, $effectiveUserId);
+		$this->delegationService->logDelegatedAction($this->userId, $effectiveUserId, "$this->userId unsnoozed message <$id> on behalf of $effectiveUserId");
+
+		return new JSONResponse();
+	}
+
+	/**
+	 * @param int $id
+	 *
+	 * @return JSONResponse
+	 *
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function mdn(int $id): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		if ($message->getFlagMdnsent()) {
+			return new JSONResponse([], Http::STATUS_PRECONDITION_FAILED);
+		}
+
+		try {
+			$this->mailTransmission->sendMdn($account, $mailbox, $message);
+			$this->mailManager->flagMessage($account, $mailbox->getName(), $message->getUid(), '$mdnsent', true);
+		} catch (ServiceException $ex) {
+			$this->logger->error('Sending mdn failed: ' . $ex->getMessage());
+			throw $ex;
+		}
+
+		return new JSONResponse();
+	}
+
+	/**
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[TrapError]
+	public function getSource(int $id): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$client = $this->clientFactory->getClient($account);
+		try {
+			$response = new JSONResponse([
+				'source' => $this->mailManager->getSource(
+					$client,
+					$account,
+					$mailbox->getName(),
+					$message->getUid()
+				)
+			]);
+		} finally {
+			$client->logout();
+		}
+
+		// Enable caching
+		$response->cacheFor(60 * 60, false, true);
+
+		return $response;
+	}
+
+	/**
+	 * Export a whole message as an .eml file.
+	 *
+	 * @param int $id
+	 * @return Response
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[TrapError]
+	public function export(int $id): Response {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$client = $this->clientFactory->getClient($account);
+		try {
+			$source = $this->mailManager->getSource(
+				$client,
+				$account,
+				$mailbox->getName(),
+				$message->getUid()
+			);
+		} finally {
+			$client->logout();
+		}
+
+		return new AttachmentDownloadResponse(
+			$source ?? '',
+			$message->getSubject() . '.eml',
+			'message/rfc822',
+		);
+	}
+
+	/**
+	 * Save a whole message as an .eml file in the local storage
+	 *
+	 * @param int $id
+	 * @param string $targetPath
+	 *
+	 * @return Response
+	 *
+	 * @throws ClientException
+	 * @throws GenericFileException
+	 * @throws NotPermittedException
+	 * @throws LockedException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function saveFile(int $id, string $targetPath): Response {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		if ($this->userFolder === null) {
+			return new JSONResponse([], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+		if (!$this->userFolder->nodeExists($targetPath)) {
+			return new JSONResponse([], Http::STATUS_BAD_REQUEST);
+		}
+		if (!($this->userFolder->get($targetPath) instanceof Folder)) {
+			return new JSONResponse([], Http::STATUS_BAD_REQUEST);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$client = $this->clientFactory->getClient($account);
+		try {
+			$source = $this->mailManager->getSource(
+				$client,
+				$account,
+				$mailbox->getName(),
+				$message->getUid()
+			);
+		} finally {
+			$client->logout();
+		}
+
+		if ($source === null) {
+			return new JSONResponse([], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+		$fileName = $this->filenameValidator->sanitizeFilename($message->getSubject());
+		$fileExtension = 'eml';
+		$fullPath = "$targetPath/$fileName.$fileExtension";
+		$counter = 2;
+		while ($this->userFolder->nodeExists($fullPath)) {
+			$fullPath = "$targetPath/$fileName ($counter).$fileExtension";
+			$counter++;
+		}
+
+		$newFile = $this->userFolder->newFile($fullPath);
+		$newFile->putContent($source);
+
+		return new JSONResponse();
+	}
+
+	/**
+	 * @param int $id
+	 * @param bool $plain do not inject scripts if true (default=false)
+	 *
+	 * @return HtmlResponse|TemplateResponse
+	 *
+	 * @throws ClientException
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[TrapError]
+	public function getHtmlBody(int $id, bool $plain = false): Response {
+		if ($this->userId === null) {
+			return new TemplateResponse(
+				$this->appName,
+				'error',
+				['message' => 'Not authenticated'],
+				TemplateResponse::RENDER_AS_BLANK,
+				Http::STATUS_UNAUTHORIZED,
+			);
+		}
+		try {
+			try {
+				$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+				$message = $this->mailManager->getMessage($effectiveUserId, $id);
+				$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+				$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+			} catch (DoesNotExistException) {
+				return new TemplateResponse(
+					$this->appName,
+					'error',
+					['message' => 'Not allowed'],
+					TemplateResponse::RENDER_AS_BLANK,
+					Http::STATUS_NOT_FOUND,
+				);
+			}
+
+			$cacheInstance = $this->getCacheForAccount($account->getId());
+			$imapMessageCacheKey = "message_$id";
+
+			$html = $cacheInstance->get($imapMessageCacheKey);
+			if ($html === null) {
+				// Atrium: from our own copy first.
+				$copy = $this->triage->loadCopy($account->getId(), TriageService::hash($message->getMessageId(), $id));
+				if ($copy !== null && $copy['reader_body'] !== null && ($copy['reader_meta']['hasHtmlBody'] ?? false)) {
+					$html = $copy['reader_body'];
+				} elseif ($message->isGoneFromServer()) {
+					$html = $copy === null ? '' : nl2br(htmlspecialchars($copy['body'], ENT_QUOTES | ENT_SUBSTITUTE));
+				}
+			}
+			if ($html === null) {
+				$client = $this->clientFactory->getClient($account);
+				try {
+					$html = $this->mailManager->getImapMessage(
+						$client,
+						$account,
+						$mailbox,
+						$message->getUid(),
+						true
+					)->getHtmlBody($id);
+				} finally {
+					$client->logout();
+				}
+			}
+
+			$htmlResponse = $plain
+				? HtmlResponse::plain($html)
+				: HtmlResponse::withResizer(
+					$html,
+					$this->nonceManager->getNonce(),
+					$this->urlGenerator->getAbsoluteURL(
+						$this->urlGenerator->linkTo('mail', 'js/htmlresponse.js')
+					)
+				);
+
+			// Harden the default security policy
+			$policy = new ContentSecurityPolicy();
+			$policy->disallowScriptDomain('\'self\'');
+			$policy->disallowConnectDomain('\'self\'');
+			$policy->disallowFontDomain('\'self\'');
+			$policy->disallowMediaDomain('\'self\'');
+			$htmlResponse->setContentSecurityPolicy($policy);
+
+			// Enable caching
+			$htmlResponse->cacheFor(60 * 60, false, true);
+
+			return $htmlResponse;
+		} catch (Exception $ex) {
+			return new TemplateResponse(
+				$this->appName,
+				'error',
+				['message' => $ex->getMessage()],
+				TemplateResponse::RENDER_AS_BLANK,
+				Http::STATUS_INTERNAL_SERVER_ERROR
+			);
+		}
+	}
+
+	/**
+	 * @param int $id
+	 * @param string $attachmentId
+	 *
+	 * @return Response
+	 *
+	 * @throws ClientException
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[TrapError]
+	public function downloadAttachment(int $id,
+		string $attachmentId): Response {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$attachment = $this->mailManager->getMailAttachment(
+			$account,
+			$mailbox,
+			$message,
+			$attachmentId,
+		);
+
+		// Body party and embedded messages do not have a name
+		$attachmentName = $attachment->getName();
+		if ($attachmentName === null) {
+			$attachmentName = $this->l10n->t('Embedded message %s', [
+				$attachmentId,
+			]) . '.eml';
+		}
+
+		$content = $attachment->getContent();
+		$response = new AttachmentDownloadResponse(
+			$content,
+			$attachmentName,
+			$attachment->getType()
+		);
+
+		if ($content !== '') {
+			$response->cacheFor(60 * 60, false, true);
+		}
+
+		return $response;
+	}
+
+	/**
+	 * @param int $id the message id
+	 *
+	 * @return ZipResponse|JSONResponse
+	 *
+	 * @throws ClientException
+	 * @throws ServiceException
+	 * @throws DoesNotExistException
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[TrapError]
+	public function downloadAttachments(int $id): Response {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$attachments = $this->mailManager->getMailAttachments($account, $mailbox, $message);
+		$zip = new ZipResponse($this->request, 'attachments');
+
+		foreach ($attachments as $attachment) {
+			$fileName = $attachment->getName() ?? '';
+			$fh = fopen('php://temp', 'r+');
+			if ($fh === false) {
+				continue;
+			}
+			fputs($fh, $attachment->getContent());
+			$size = $attachment->getSize();
+			rewind($fh);
+			$zip->addResource($fh, $fileName, $size);
+		}
+		return $zip;
+	}
+
+	/**
+	 * @param int $id
+	 * @param string $attachmentId
+	 * @param string $targetPath
+	 *
+	 * @return JSONResponse
+	 *
+	 * @throws ClientException
+	 * @throws GenericFileException
+	 * @throws NotPermittedException
+	 * @throws LockedException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function saveAttachment(int $id,
+		string $attachmentId,
+		string $targetPath) {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		if ($this->userFolder === null) {
+			return new JSONResponse([], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+		if (!$this->userFolder->nodeExists($targetPath)) {
+			return new JSONResponse([], Http::STATUS_BAD_REQUEST);
+		}
+		if (!($this->userFolder->get($targetPath) instanceof Folder)) {
+			return new JSONResponse([], Http::STATUS_BAD_REQUEST);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		/** @var Attachment[] $attachments */
+		$attachments = [];
+		if ($attachmentId === '0') {
+			$attachments = $this->mailManager->getMailAttachments(
+				$account,
+				$mailbox,
+				$message,
+			);
+		} else {
+			$attachments[] = $this->mailManager->getMailAttachment(
+				$account,
+				$mailbox,
+				$message,
+				$attachmentId,
+			);
+		}
+
+		foreach ($attachments as $attachment) {
+			$fileName = $attachment->getName() ?? $this->l10n->t('Embedded message %s', [
+				$attachment->getId(),
+			]) . '.eml';
+			$fileParts = pathinfo($fileName);
+			$fileName = $fileParts['filename'];
+			$fileExtension = $fileParts['extension'] ?? '';
+			$fullPath = "$targetPath/$fileName.$fileExtension";
+			$counter = 2;
+			while ($this->userFolder->nodeExists($fullPath)) {
+				$fullPath = "$targetPath/$fileName ($counter).$fileExtension";
+				$counter++;
+			}
+
+			$newFile = $this->userFolder->newFile($fullPath);
+			$newFile->putContent($attachment->getContent());
+		}
+		return new JSONResponse();
+	}
+
+	/**
+	 * @param int $id
+	 * @param array $flags
+	 *
+	 * @return JSONResponse
+	 *
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function setFlags(int $id, array $flags): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$flagChanges = [];
+		foreach ($flags as $flag => $value) {
+			$value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+			$this->mailManager->flagMessage($account, $mailbox->getName(), $message->getUid(), $flag, $value);
+			$flagChanges[] = "$flag=" . ($value ? 'true' : 'false');
+		}
+		$flagsSummary = implode(', ', $flagChanges);
+		$this->delegationService->logDelegatedAction($this->userId, $effectiveUserId, "$this->userId updated flags on message <$id> with [$flagsSummary] on behalf of $effectiveUserId");
+		return new JSONResponse();
+	}
+
+	/**
+	 * @param int $id
+	 * @param string $imapLabel
+	 *
+	 * @return JSONResponse
+	 *
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function setTag(int $id, string $imapLabel): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		try {
+			$tag = $this->mailManager->getTagByImapLabel($imapLabel, $this->userId);
+		} catch (ClientException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$this->mailManager->tagMessage($account, $mailbox->getName(), $message, $tag, true);
+		$this->delegationService->logDelegatedAction($this->userId, $effectiveUserId, "$this->userId added tag <$imapLabel> on message <$id> on behalf of $effectiveUserId");
+		return new JSONResponse($tag);
+	}
+
+	/**
+	 * @param int $id
+	 * @param string $imapLabel
+	 *
+	 * @return JSONResponse
+	 *
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function removeTag(int $id, string $imapLabel): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		try {
+			$tag = $this->mailManager->getTagByImapLabel($imapLabel, $this->userId);
+		} catch (ClientException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$this->mailManager->tagMessage($account, $mailbox->getName(), $message, $tag, false);
+		$this->delegationService->logDelegatedAction($this->userId, $effectiveUserId, "$this->userId removed tag <$imapLabel> on message <$id> on behalf of $effectiveUserId");
+		return new JSONResponse($tag);
+	}
+
+	/**
+	 * @param int $id
+	 *
+	 * @throws ClientException
+	 * @throws ServiceException
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function destroy(int $id): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($id, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $id);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+
+		$this->logger->debug("deleting message <$id>");
+
+		$this->mailManager->deleteMessage(
+			$account,
+			$mailbox->getName(),
+			$message->getUid()
+		);
+		$this->delegationService->logDelegatedAction($this->userId, $effectiveUserId, "$this->userId deleted message <$id> on behalf of $effectiveUserId");
+		return new JSONResponse();
+	}
+
+	/**
+	 * @param int $messageId
+	 *
+	 * @return JSONResponse
+	 */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function smartReply(int $messageId):JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$effectiveUserId = $this->delegationService->resolveMessageUserId($messageId, $this->userId);
+			$message = $this->mailManager->getMessage($effectiveUserId, $messageId);
+			$mailbox = $this->mailManager->getMailbox($effectiveUserId, $message->getMailboxId());
+			$account = $this->accountService->find($effectiveUserId, $mailbox->getAccountId());
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([], Http::STATUS_FORBIDDEN);
+		}
+		try {
+			$replies = array_values($this->aiIntegrationService->getSmartReply($account, $mailbox, $message, $effectiveUserId) ?? []);
+		} catch (ServiceException $e) {
+			$this->logger->error('Smart reply failed: ' . $e->getMessage(), [
+				'exception' => $e,
+			]);
+			return new JSONResponse([], Http::STATUS_NO_CONTENT);
+		}
+		return new JSONResponse($replies);
+	}
+
+	private function enrichAttachments(int $id, array $attachments): array {
+		return array_map(
+			fn ($attachment) => $this->enrichAttachment($id, $attachment),
+			$attachments
+		);
+	}
+
+	/**
+	 * @param int $id
+	 * @param array $attachment
+	 *
+	 * @return array
+	 */
+	private function enrichAttachment(int $id, array $attachment): array {
+		$downloadUrl = $this->urlGenerator->linkToRouteAbsolute('mail.messages.downloadAttachment', [
+			'id' => $id,
+			'attachmentId' => $attachment['id'],
+		]);
+		$attachment['downloadUrl'] = $downloadUrl;
+		$attachment['mimeUrl'] = $this->mimeTypeDetector->mimeTypeIcon($attachment['mime']);
+
+		$attachment['isImage'] = $this->attachmentIsImage($attachment);
+		$attachment['isCalendarEvent'] = $this->attachmentIsCalendarEvent($attachment);
+
+		return $attachment;
+	}
+
+	/**
+	 * Determines if the content of this attachment is an image
+	 *
+	 * @param array $attachment
+	 *
+	 * @return boolean
+	 */
+	private function attachmentIsImage(array $attachment): bool {
+		return in_array(
+			$attachment['mime'], [
+				'image/jpeg',
+				'image/png',
+				'image/gif'
+			]);
+	}
+
+	/**
+	 * @param array $attachment
+	 *
+	 * @return boolean
+	 */
+	private function attachmentIsCalendarEvent(array $attachment): bool {
+		if (in_array($attachment['mime'], ['text/calendar', 'application/ics'], true)) {
+			return true;
+		}
+
+		return $attachment['mime'] === 'application/octet-stream'
+			&& str_ends_with(strtolower($attachment['fileName'] ?? ''), '.ics');
+	}
+
+	private function getCacheForAccount(int $accountId): ICache {
+		return $this->cacheFactory->createDistributed("mail_account_$accountId");
+	}
+}

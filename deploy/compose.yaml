@@ -1,0 +1,108 @@
+# PRODUCTION stack running the Atrium image (domain from ATRIUM_DOMAIN in .env). Project name "atrium":
+# `docker compose up` here REPLACES the live containers and, on first start,
+# installs Atrium code over the live install (see atrium-entrypoint.sh).
+# Only run it for the approved switch, after a full backup (README.md).
+
+name: atrium
+
+x-nextcloud: &nextcloud
+  image: atrium:local
+  restart: unless-stopped
+  environment: &nextcloud-environment
+    POSTGRES_HOST: db
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    REDIS_HOST: redis
+    NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER}
+    NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
+    NEXTCLOUD_TRUSTED_DOMAINS: ${ATRIUM_DOMAIN:?set ATRIUM_DOMAIN in .env}
+    TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12}
+    APACHE_DISABLE_REWRITE_IP: "1"
+    OVERWRITEHOST: ${ATRIUM_DOMAIN}
+    OVERWRITEPROTOCOL: https
+    OVERWRITECLIURL: https://${ATRIUM_DOMAIN}
+    PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-512M}
+    PHP_UPLOAD_LIMIT: ${PHP_UPLOAD_LIMIT:-10G}
+  volumes:
+    - ${DATA_DIR:-../live/data}/nextcloud:/var/www/html
+    - ../apps/daily_todo:/var/www/html/custom_apps/daily_todo
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    cpus: 1.5
+    mem_limit: 1g
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ${DATA_DIR:-../live/data}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 256m
+    command: redis-server --appendonly yes
+    volumes:
+      - ${DATA_DIR:-../live/data}/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  app:
+    <<: *nextcloud
+    container_name: atrium-app
+    cpus: 2.5
+    mem_limit: 2g
+    volumes:
+      - ${DATA_DIR:-../live/data}/nextcloud:/var/www/html
+      - ../apps/daily_todo:/var/www/html/custom_apps/daily_todo
+      - ./php-fpm.conf:/usr/local/etc/php-fpm.d/zz-atrium.conf:ro
+    networks:
+      - backend
+      - proxy
+
+  cron:
+    <<: *nextcloud
+    entrypoint: /cron.sh
+    cpus: 1.0
+    mem_limit: 1g
+    environment:
+      <<: *nextcloud-environment
+      NEXTCLOUD_ADMIN_USER: ""
+      NEXTCLOUD_ADMIN_PASSWORD: ""
+    depends_on:
+      app:
+        condition: service_started
+    # backend is internal (no internet); cron needs egress for mail sync,
+    # calendar subscriptions, app store etc.
+    networks:
+      - backend
+      - proxy
+
+networks:
+  backend:
+    internal: true
+  proxy:
+    external: true
+    name: ${NPM_NETWORK:-npm_default}

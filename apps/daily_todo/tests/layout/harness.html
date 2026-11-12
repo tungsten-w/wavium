@@ -1,0 +1,42 @@
+<!doctype html>
+<html data-theme="light"><head data-requesttoken="x" data-user="u" data-user-displayname="u">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<link rel="stylesheet" href="/css/daily-todo-dashboard.css">
+<style>
+/* Nextcloud 34 light theme tokens (the ones the widget uses) and the Dashboard's own panel rules, copied from its CSS. */
+:root{--default-grid-baseline:4px;--default-clickable-area:44px;--default-font-size:15px;--font-size-small:13px;--border-radius-element:32px;--border-radius-large:16px;--border-radius-small:4px;--border-radius-container-large:24px;--color-main-background:#fff;--color-main-text:#222;--color-text-maxcontrast:#6b6b6b;--color-primary-element:#00679e;--color-primary-element-text:#fff;--color-primary-element-light:#e1eef7;--color-primary-element-light-hover:#cfe3f1;--color-primary-element-light-text:#003d5e;--color-background-hover:#f5f5f5;--color-background-dark:#ededed;--color-border:#ededed;--color-border-dark:#dbdbdb;--color-box-shadow:rgba(77,77,77,.5);--animation-quick:100ms;--color-main-background-blur:rgba(255,255,255,.9)}
+body{margin:0;background:linear-gradient(135deg,#cfe3f1,#e8e0f5);font:15px/1.5 system-ui,sans-serif;color:var(--color-main-text)}
+.panels{width:auto;margin:auto;max-width:1800px;display:flex;justify-content:center;flex-direction:row;align-items:flex-start;flex-wrap:wrap}
+.panels>div{width:320px;max-width:100%;margin:16px;align-self:stretch;background-color:var(--color-main-background-blur);border-radius:var(--border-radius-container-large)}
+.panels>div>.panel--header{display:flex;padding:16px}
+.panels>div>.panel--header>h2{display:block;flex-grow:1;margin:0;font-size:20px;line-height:24px;font-weight:bold;padding:16px 8px;height:56px;box-sizing:content-box}
+.panels>div>.panel--content{margin:0 16px 16px 16px;height:424px;overflow:visible}
+@media only screen and (max-width:709px){.panels>div>.panel--content{height:auto}}
+a{color:inherit}
+</style></head>
+<body><div class="panels"><div><div class="panel--header"><h2>Daily Todo calendar</h2></div><div class="panel--content" id="content"></div></div></div>
+<script>
+const q = new URLSearchParams(location.search)
+if (q.get('auto')) document.head.insertAdjacentHTML('beforeend', '<style>.panels>div>.panel--content{height:auto !important}</style>')
+const fixed = new Date(q.get('now') || '2026-10-03T12:00:00').getTime()
+const RealDate = Date
+globalThis.Date = class extends RealDate { constructor(...a) { if (a.length === 0) super(fixed); else super(...a) } static now() { return fixed } }
+window.OC = { generateUrl: (p) => '/index.php' + p, getFirstDay: () => 1 }
+window.OCA = { Dashboard: { register: (id, cb) => { window.__cb = cb } } }
+</script>
+<script src="/js/daily-todo-dashboard.js"></script>
+<script>
+window.__cb(document.getElementById('content'), {})
+setTimeout(() => {
+  const r = (el) => { const b = el.getBoundingClientRect(); return { top: Math.round(b.top * 10) / 10, bottom: Math.round(b.bottom * 10) / 10, left: Math.round(b.left * 10) / 10, right: Math.round(b.right * 10) / 10, w: Math.round(b.width * 10) / 10, h: Math.round(b.height * 10) / 10 } }
+  const content = document.getElementById('content'), grid = document.querySelector('.day-calendar__grid'), stats = document.querySelector('.daily-todo-widget__stats')
+  const cells = [...document.querySelectorAll('.day-calendar__day')]
+  const sizes = cells.map(c => { const b = c.getBoundingClientRect(); return [Math.round(b.width * 10) / 10, Math.round(b.height * 10) / 10] })
+  const nonSquare = sizes.filter(([w, h]) => Math.abs(w - h) > 0.6).length
+  const lastCell = r(cells[cells.length - 1]), s = stats ? r(stats) : null, c = r(content)
+  const m = { viewport: innerWidth, cells: cells.length, cellSize: sizes[0], nonSquareCells: nonSquare, content: c, grid: r(grid), lastCellBottom: lastCell.bottom, statsTop: s && s.top, statsBottom: s && s.bottom, statsHeight: s && s.h,
+    blankBetweenCalendarAndStats: s ? Math.round((s.top - lastCell.bottom) * 10) / 10 : null, statsToContentBottom: s ? Math.round((c.bottom - s.bottom) * 10) / 10 : null,
+    overflowsContent: s ? s.bottom > c.bottom + 0.5 : lastCell.bottom > c.bottom + 0.5, gridWithinWidth: r(grid).right <= c.right + 0.5 && r(grid).left >= c.left - 0.5 }
+  const pre = document.createElement('pre'); pre.id = 'metrics'; pre.textContent = JSON.stringify(m); document.body.appendChild(pre)
+}, 1200)
+</script></body></html>

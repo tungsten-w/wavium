@@ -1,0 +1,24 @@
+OC.L10N.register(
+    "notes",
+    {
+    "Notes" : "Notas",
+    "Error" : "Error",
+    "New note" : "Nove nota",
+    "Share" : "Compartir",
+    "Preview" : "Previsualisar",
+    "Files" : "Files",
+    "Delete" : "Delete",
+    "Cancel" : "Cancellar",
+    "No notes yet" : "Nulle notas ancora",
+    "Remove from favorites" : "Remove from favorites",
+    "Add to favorites" : "Add to favorites",
+    "Rename" : "Rename",
+    "Delete note" : "Dele nota",
+    "Edit" : "Modificar",
+    "Owner" : "Owner",
+    "Today" : "Hodie",
+    "Yesterday" : "Heri",
+    "This week" : "Iste septimana",
+    "This month" : "Iste mense"
+},
+"nplurals=2; plural=(n != 1);");

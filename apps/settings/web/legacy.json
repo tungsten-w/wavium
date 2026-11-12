@@ -1,0 +1,20 @@
+{
+	"$comment": "Entries of the classic (Vue) frontend, built by build/frontend (vite) and build/frontend-legacy (webpack). Discovered automatically; no central list.",
+	"webpack": {
+		"main": "src/main-settings.ts",
+		"vue-settings-admin-overview": "src/main-admin-overview.ts",
+		"vue-settings-admin-basic-settings": "src/main-admin-basic-settings.js",
+		"vue-settings-admin-delegation": "src/main-admin-delegation.js",
+		"vue-settings-admin-mail": "src/admin-settings-mail.ts",
+		"vue-settings-admin-security": "src/main-admin-security.js",
+		"vue-settings-admin-settings-presets": "src/main-admin-settings-presets.js",
+		"vue-settings-admin-sharing": "src/admin-settings-sharing.ts",
+		"vue-settings-nextcloud-pdf": "src/main-nextcloud-pdf.js",
+		"vue-settings-personal-info": "src/main-personal-info.js",
+		"vue-settings-personal-password": "src/main-personal-password.js",
+		"vue-settings-personal-security": "src/main-personal-security.js",
+		"vue-settings-personal-webauthn": "src/main-personal-webauth.js",
+		"vue-settings-users-management": "src/main-users-management.ts",
+		"declarative-settings-forms": "src/main-declarative-settings-forms.ts"
+	}
+}

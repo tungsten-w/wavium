@@ -1,0 +1,117 @@
+# Atrium TEST instance: a copy of live atrium.example.com running the fork image.
+# Never shares anything with live: own db/redis/html volumes, no cron
+# container, no outgoing mail. http://127.0.0.1:8091
+# Mail accounts point at the local GreenMail server below (dummy credentials,
+# SMTP delivers locally, never relays). Never put real mail credentials here.
+name: atrium-test
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      retries: 20
+    networks: [backend]
+
+  redis:
+    image: redis:8-alpine
+    networks: [backend]
+
+  # Throwaway IMAP/SMTP for NC Mail tests: users test1/test2@atrium.test,
+  # password test-only. Internal network only, no host ports, data in memory.
+  greenmail:
+    image: greenmail/standalone:2.1.3
+    environment:
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.smtp -Dgreenmail.setup.test.imap
+        -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.verbose
+        -Dgreenmail.users=test1:test-only@atrium.test,test2:test-only@atrium.test
+        -Dgreenmail.users.login=email
+    networks: [backend]
+
+  # Runs before the app on every `up`: takes any real mail account out of a
+  # restored dump (points it at GreenMail, drops passwords, OAuth and sieve
+  # credentials) and keeps background jobs on "cron", which has no runner
+  # here. The app does not start if this fails. deploy/test/repoint-mail.sh
+  # then sets the dummy GreenMail passwords.
+  mailguard:
+    image: postgres:17-alpine
+    environment:
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    command:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -c
+      - |
+        DO $$guard$$ BEGIN
+          IF to_regclass('oc_mail_accounts') IS NOT NULL THEN
+            UPDATE oc_mail_accounts SET
+              email = 'test' || id || '@atrium.test',
+              inbound_host = 'greenmail', inbound_port = '3143', inbound_ssl_mode = 'none',
+              inbound_user = 'test' || id || '@atrium.test', inbound_password = NULL,
+              outbound_host = 'greenmail', outbound_port = '3025', outbound_ssl_mode = 'none',
+              outbound_user = 'test' || id || '@atrium.test', outbound_password = NULL,
+              sieve_enabled = false, sieve_host = NULL, sieve_user = NULL, sieve_password = NULL,
+              auth_method = 'password', oauth_refresh_token = NULL, oauth_access_token = NULL,
+              oauth_token_ttl = NULL, provisioning_id = NULL
+            WHERE inbound_host <> 'greenmail' OR coalesce(outbound_host, '') <> 'greenmail'
+              OR inbound_user <> 'test' || id || '@atrium.test'
+              OR sieve_password IS NOT NULL OR sieve_enabled
+              OR oauth_refresh_token IS NOT NULL OR oauth_access_token IS NOT NULL;
+          END IF;
+          IF to_regclass('oc_mail_provisionings') IS NOT NULL THEN
+            DELETE FROM oc_mail_provisionings;
+          END IF;
+          IF to_regclass('oc_appconfig') IS NOT NULL THEN
+            UPDATE oc_appconfig SET configvalue = 'cron'
+            WHERE appid = 'core' AND configkey = 'backgroundjobs_mode';
+          END IF;
+        END $$guard$$;
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [backend]
+
+  app:
+    image: ${ATRIUM_IMAGE:-atrium:local}
+    container_name: atrium-test-app
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      APACHE_DISABLE_REWRITE_IP: "1"
+      OVERWRITEHOST: 127.0.0.1:8091
+      OVERWRITEPROTOCOL: http
+      OVERWRITECLIURL: http://127.0.0.1:8091
+      PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-512M}
+      PHP_UPLOAD_LIMIT: ${PHP_UPLOAD_LIMIT:-10G}
+    volumes:
+      - html:/var/www/html
+    ports:
+      - 127.0.0.1:8091:80
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+      mailguard: { condition: service_completed_successfully }
+    networks: [backend, front]
+
+volumes:
+  db:
+  html:
+
+networks:
+  backend:
+    internal: true
+  front:

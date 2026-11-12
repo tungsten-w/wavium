@@ -1,0 +1,105 @@
+{
+  "version": "mail-v2",
+  "model": "gpt-6-luna",
+  "questions": [
+    {
+      "name": "category",
+      "type": "choice",
+      "instructions": "What kind of email is this, for the person who received it?",
+      "choices": [
+        {
+          "value": "personal",
+          "description": "Written personally by a friend, family member, partner or acquaintance"
+        },
+        {
+          "value": "work",
+          "description": "About a job, internship, freelance work, a client or a colleague, including work meetings and invitations"
+        },
+        {
+          "value": "admin",
+          "description": "Official and life paperwork: university or school, government, taxes, insurance, health, housing, landlord, utilities, legal, bank, bills, invoices, payments, refunds"
+        },
+        {
+          "value": "orders",
+          "description": "Purchase receipts, order confirmations, shipping and delivery updates, subscription renewals"
+        },
+        {
+          "value": "security",
+          "description": "Login alerts, verification codes, password resets, account security notices"
+        },
+        {
+          "value": "social",
+          "description": "Automated notifications from social networks, forums, chat, gaming or developer platforms, and event invitations from them"
+        },
+        {
+          "value": "newsletter",
+          "description": "Newsletters, digests, blogs or updates the person subscribed to read"
+        },
+        {
+          "value": "ads",
+          "description": "Marketing, promotions, sales, discounts or product advertising"
+        },
+        {
+          "value": "spam",
+          "description": "Unsolicited junk, scams, phishing or mail from unknown senders with no legitimate purpose"
+        },
+        {
+          "value": "other",
+          "description": "None of the above fits"
+        }
+      ]
+    },
+    {
+      "name": "needs_reply",
+      "type": "predicate",
+      "instructions": "The sender expects a written reply from the recipient."
+    },
+    {
+      "name": "needs_action",
+      "type": "predicate",
+      "instructions": "The recipient has to do something because of this email (pay, sign, confirm, book, attend, submit, fix), beyond just reading it."
+    },
+    {
+      "name": "has_deadline",
+      "type": "predicate",
+      "instructions": "The email mentions a specific date or time by which the recipient must act or respond."
+    },
+    {
+      "name": "written_by_person",
+      "type": "predicate",
+      "instructions": "The email was written individually by a human for this recipient, not generated automatically or sent in bulk."
+    },
+    {
+      "name": "suspicious",
+      "type": "predicate",
+      "instructions": "The email looks like phishing, a scam, or an attempt to trick the recipient into giving credentials, money or clicking a malicious link."
+    },
+    {
+      "name": "urgency",
+      "type": "score",
+      "instructions": "How soon does the recipient need to deal with this email?",
+      "levels": [
+        {
+          "label": "never",
+          "description": "No action ever needed"
+        },
+        {
+          "label": "whenever",
+          "description": "Can wait, no time pressure"
+        },
+        {
+          "label": "this_week",
+          "description": "Should be handled within a few days"
+        },
+        {
+          "label": "today",
+          "description": "Should be handled today"
+        },
+        {
+          "label": "now",
+          "description": "Needs attention within the hour"
+        }
+      ]
+    }
+  ]
+}

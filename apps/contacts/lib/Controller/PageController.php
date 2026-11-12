@@ -1,0 +1,112 @@
+<?php
+
+/**
+ * SPDX-FileCopyrightText: 2018 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\Contacts\Controller;
+
+use OC\App\CompareVersion;
+use OCA\Contacts\AppInfo\Application;
+use OCA\Contacts\ConfigLexicon;
+use OCA\Contacts\Service\FederatedInvitesService;
+use OCA\Contacts\Service\GroupSharingService;
+use OCA\Contacts\Service\SocialApiService;
+use OCP\App\IAppManager;
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\TemplateResponse;
+use OCP\AppFramework\Services\IInitialState;
+use OCP\IAppConfig;
+use OCP\IConfig;
+use OCP\IRequest;
+use OCP\IUserSession;
+use OCP\L10N\IFactory;
+use OCP\ServerVersion;
+use OCP\Util;
+
+class PageController extends Controller {
+
+	public function __construct(
+		IRequest $request,
+		private FederatedInvitesService $federatedInvitesService,
+		private IConfig $config,
+		private IAppConfig $appConfig,
+		private IInitialState $initialState,
+		private IFactory $languageFactory,
+		private IUserSession $userSession,
+		private SocialApiService $socialApiService,
+		private IAppManager $appManager,
+		private CompareVersion $compareVersion,
+		private GroupSharingService $groupSharingService,
+		private ServerVersion $serverVersion,
+	) {
+		parent::__construct(Application::APP_ID, $request);
+	}
+
+	/**
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * Default routing.
+	 *
+	 * @param string $token external invitation token
+	 * @param string $providerDomain external invitation provider domain
+	 */
+	public function index(string $token = '', string $providerDomain = ''): TemplateResponse {
+		if ($token !== '' && $providerDomain !== '') {
+			// if both token and providerDomain are set they will be provided to the template system for displaying the invite accept dialog
+			$this->initialState->provideInitialState('inviteToken', $token);
+			$this->initialState->provideInitialState('inviteProvider', $providerDomain);
+			$this->initialState->provideInitialState('acceptInviteDialogUrl', FederatedInvitesService::OCM_INVITE_ACCEPT_DIALOG_ROUTE);
+		}
+		$user = $this->userSession->getUser();
+		$userId = $user->getUid();
+
+		$locales = $this->languageFactory->findAvailableLocales();
+		$defaultProfile = $this->config->getAppValue(Application::APP_ID, 'defaultProfile', 'HOME');
+
+		$supportedNetworks = $this->socialApiService->getSupportedNetworks();
+		$syncAllowedByAdmin = $this->socialApiService->syncAllowedByAdmin();
+		$bgSyncEnabledByUser = $this->socialApiService->backgroundSyncEnabled($userId);
+
+		$circleVersion = $this->appManager->getAppVersion('circles');
+		$isContactsInteractionEnabled = $this->appManager->isEnabledForUser('contactsinteraction') === true;
+		$isCirclesEnabled = $this->appManager->isEnabledForUser('circles') === true;
+		// if circles is not installed, we use 0.0.0
+		$isCircleVersionCompatible = $this->compareVersion->isCompatible($circleVersion ? $circleVersion : '0.0.0', 22);
+		// Feature gate: teams are managed by the Teams app from Nextcloud 35 on,
+		// so we only render our own team management UI on older servers.
+		$isServerVersionWithTeamManagement = $this->serverVersion->getMajorVersion() <= Application::MAX_SERVER_VERSION_WITH_TEAM_MANAGEMENT;
+		// Check whether group sharing is enabled or not
+		$isGroupSharingEnabled = $this->groupSharingService->isGroupSharingAllowed($user);
+		$talkVersion = $this->appManager->getAppVersion('spreed');
+		$isTalkEnabled = $this->appManager->isEnabledForUser('spreed') === true;
+
+		$isTalkVersionCompatible = $this->compareVersion->isCompatible($talkVersion ? $talkVersion : '0.0.0', 2);
+		$isOcmInvitesEnabled = $this->federatedInvitesService->isOcmInvitesEnabled();
+		$ocmInvitesConfig = $this->federatedInvitesService->getOcmInvitesConfig();
+		$hideTeamSharedFolderCreation = $this->appConfig->getValueBool(
+			Application::APP_ID,
+			ConfigLexicon::HIDE_TEAM_SHARED_FOLDER_CREATION,
+		);
+
+		$this->initialState->provideInitialState('isGroupSharingEnabled', $isGroupSharingEnabled);
+		$this->initialState->provideInitialState('locales', $locales);
+		$this->initialState->provideInitialState('defaultProfile', $defaultProfile);
+		$this->initialState->provideInitialState('supportedNetworks', $supportedNetworks);
+		$this->initialState->provideInitialState('allowSocialSync', $syncAllowedByAdmin);
+		$this->initialState->provideInitialState('enableSocialSync', $bgSyncEnabledByUser);
+		$this->initialState->provideInitialState('isContactsInteractionEnabled', $isContactsInteractionEnabled);
+		$this->initialState->provideInitialState('isTeamManagementEnabled', $isCirclesEnabled && $isCircleVersionCompatible && $isServerVersionWithTeamManagement);
+		$this->initialState->provideInitialState('isTalkEnabled', $isTalkEnabled && $isTalkVersionCompatible);
+		$this->initialState->provideInitialState('isOcmInvitesEnabled', $isOcmInvitesEnabled);
+		$this->initialState->provideInitialState('ocmInvitesConfig', $ocmInvitesConfig);
+		$this->initialState->provideInitialState('hideTeamSharedFolderCreation', $hideTeamSharedFolderCreation);
+
+		Util::addStyle(Application::APP_ID, 'contacts-main');
+		Util::addScript(Application::APP_ID, 'contacts-main');
+
+		return new TemplateResponse(Application::APP_ID, 'main');
+	}
+}

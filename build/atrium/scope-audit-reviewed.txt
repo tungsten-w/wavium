@@ -1,0 +1,58 @@
+# Routes flagged by scope-audit.php that were reviewed and are scoped correctly.
+# One "<class>::<method>" per line, then the reason. Re-review when the app updates.
+
+# Provisioning: per-account routes; the body calls ScopeGuard::requireForUser
+# (own account -> account:*, other accounts -> admin:*) and security:write for
+# email/password, which the static scan cannot see.
+OCA\Provisioning_API\Controller\UsersController::editUser requireForUser + security guard
+OCA\Provisioning_API\Controller\UsersController::editUserMultiField requireForUser + security guard
+OCA\Provisioning_API\Controller\UsersController::editUserMultiValue requireForUser + security guard
+OCA\Provisioning_API\Controller\UsersController::getEditableFieldsForUser requireForUser
+OCA\Provisioning_API\Controller\UsersController::getUsersGroups requireForUser
+OCA\Provisioning_API\Controller\UsersController::getUsersGroupsDetails requireForUser
+OCA\Provisioning_API\Controller\UsersController::getUserSubAdminGroupsDetails requireForUser
+
+# Admin-only routes already (admin:* required); agents never reach them.
+OCA\AppAPI\Controller\ExAppsPageController::uninstallApp admin route (GET that uninstalls; still admin-only)
+OCA\Appstore\Controller\ApiController::listApps admin route
+OCA\Appstore\Controller\DiscoverController::getAppDiscoverMedia admin route (media cache)
+OCA\Appstore\Controller\PageController::viewApps admin route (CSP header)
+OCA\UpdateNotification\Controller\AdminController::createCredentials admin route
+
+# Only response headers / CSP, caches or UI state; no user data changes.
+OCA\AppAPI\Controller\TopMenuController::viewExAppPage CSP header; isAdmin only picks the page variant
+OCA\Contacts\Controller\PageController::index reads an admin setting
+OC\Core\Controller\CollaborationResourcesController::getCollectionsByResource lazily creates a resource row for an object the user can already read
+OC\Core\Controller\LoginController::logout ends the caller's own session only
+OCA\Dashboard\Controller\DashboardController::index first-run flag
+OCA\Files\Controller\ViewController::index CSP header
+OCA\Mail\Controller\AvatarsController::image response header
+OCA\Mail\Controller\MessagesController::downloadAttachments builds a zip in memory
+OCA\Mail\Controller\PageController::index CSP header
+OCA\Notes\Controller\NotesController::get remembers the last viewed note
+OCA\Notes\Controller\NotesController::getAttachment response header
+OCA\Notes\Controller\NotesController::index clears the last viewed note
+OCA\Notes\Controller\NotesApiController::getAttachment response header
+OCA\Notes\Controller\NotesApiController::index response header
+OCA\Notes\Controller\PageController::index CSP header
+OCA\Notifications\Controller\EndpointController::listNotifications builds notification objects in memory
+OCA\Settings\Controller\HelpController::help CSP header; isAdmin only picks the doc link
+OCA\Settings\Controller\ReasonsController::getPdf response header
+
+# Token writes (TOKEN-WRITE): every place that writes oc_authtoken.scope or
+# creates/rebuilds a token. "token-write:<path> <sites> <reason>". A changed
+# site count re-flags the file. Survival tests: tests/lib/Authentication/Scope/ScopePreservationTest.php.
+token-write:lib/private/Authentication/Token/PublicKeyTokenProvider.php 1 generateToken stores the given scope as is; rotate/renew/password updates change other columns only (tested)
+token-write:lib/private/Authentication/Token/Manager.php 3 pass-through to PublicKeyTokenProvider
+token-write:lib/private/Session/Internal.php 1 session id regeneration -> renewSessionToken copies the whole scope array (tested)
+token-write:lib/private/User/Session.php 2 new session token at password login (unscoped); renewSessionToken copies scope
+token-write:lib/private/legacy/OC_User.php 1 password-less login keeps scoped tokens via ScopeSet::withSkipPasswordValidation (tested)
+token-write:lib/private/Repair/Owncloud/MigrateOauthTables.php 1 one-off ownCloud repair, no scoped tokens exist there
+token-write:core/Service/LoginFlowV2Service.php 1 login flow v2, controller is security-scoped and needs a browser session
+token-write:core/Controller/ClientFlowLoginController.php 1 login flow v1, security-scoped
+token-write:core/Controller/AppPasswordController.php 3 getapppassword refuses app-password sessions and is security-scoped; rotate is in place; one-time -> permanent copies the atrium scope (tested)
+token-write:core/Command/User/AuthTokens/Add.php 1 occ, scopes validated by ScopeGuard::newTokenScope
+token-write:apps/settings/lib/Controller/AuthSettingsController.php 3 create validated by ScopeGuard; update keeps scoped tokens' scope; narrowing must be covered by the old set (tested)
+token-write:apps/oauth2/lib/Controller/OauthApiController.php 2 OAuth: rotate in place; new tokens from a browser-authorized code (oauth2 = security area)
+token-write:apps/webhook_listeners/lib/Service/TokenService.php 1 admin-registered webhooks get short-lived unscoped tokens for the event user; admin-only to configure
+token-write:apps/files_lock/lib/Db/LocksRequest.php 1 false positive: lock scope column of oc_files_lock, not tokens

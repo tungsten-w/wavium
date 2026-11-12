@@ -1,0 +1,50 @@
+{
+    "name": "sebastiankrupinski/jmap-client-php",
+    "type": "library",
+    "description": "Type-safe PHP client for JMAP mail, calendar, contacts, files, and tasks APIs",
+    "keywords": ["jmap", "mail", "calendar", "contacts", "files", "tasks", "email", "api-client"],
+    "homepage": "https://github.com/SebastianKrupinski/jmap-client-php",
+    "support": {
+        "issues": "https://github.com/SebastianKrupinski/jmap-client-php/issues",
+        "source": "https://github.com/SebastianKrupinski/jmap-client-php"
+    },
+    "license": "AGPL-3.0-only",
+    "authors": [
+        {
+			"name": "Sebastian Krupinski",
+			"email": "krupinski01@gmail.com",
+            "homepage": "https://github.com/SebastianKrupinski/",
+            "role": "Just another Minion in the cogs of time"
+		}
+    ],
+    "autoload": {
+        "psr-4": {
+            "JmapClient\\": "lib/"
+         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "JmapClient\\Tests\\Unit\\": "tests/unit/",
+            "JmapClient\\Tests\\Integration\\": "tests/integration/"
+        }
+    },
+    "require": {
+        "php": "^8.0",
+        "ext-json": "*",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.0",
+        "psr/http-message": "^1.1 || ^2.0",
+        "php-http/discovery": "^1.19"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.89",
+        "guzzlehttp/guzzle": "^7.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "scripts": {
+        "test:unit": "./vendor/bin/phpunit --testsuite 'Unit Tests'",
+        "test:integration": "./vendor/bin/phpunit --testsuite 'Integration Tests'",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix"
+    }
+}

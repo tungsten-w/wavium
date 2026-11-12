@@ -1,0 +1,21 @@
+{
+	"$comment": "Entries of the classic (Vue) frontend, built by build/frontend (vite) and build/frontend-legacy (webpack). Discovered automatically; no central list.",
+	"webpack": {
+		"ajax-cron": "src/ajax-cron.ts",
+		"login": "src/login.js",
+		"login_flow": "src/login-flow.ts",
+		"main": "src/main.js",
+		"maintenance": "src/maintenance.js",
+		"public-page-menu": "src/public-page-menu.ts",
+		"public-page-user-menu": "src/public-page-user-menu.ts",
+		"recommendedapps": "src/recommendedapps.js",
+		"unified-search": "src/unified-search.ts",
+		"legacy-unified-search": "src/legacy-unified-search.js",
+		"unsupported-browser": "src/unsupported-browser.js",
+		"unsupported-browser-redirect": "src/unsupported-browser-redirect.js",
+		"public": "src/public.ts",
+		"public_share_auth": "src/public-share-auth.ts",
+		"twofactor-request-token": "src/twofactor-request-token.ts",
+		"update": "src/update.ts"
+	}
+}

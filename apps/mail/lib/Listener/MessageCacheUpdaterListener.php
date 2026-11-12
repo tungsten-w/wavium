@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\Mail\Listener;
+
+use OCA\Mail\Db\MessageMapper;
+use OCA\Mail\Events\MessageDeletedEvent;
+use OCA\Mail\Events\MessageFlaggedEvent;
+use OCP\EventDispatcher\Event;
+use OCP\EventDispatcher\IEventListener;
+use Psr\Log\LoggerInterface;
+
+/**
+ * @template-implements IEventListener<Event>
+ */
+class MessageCacheUpdaterListener implements IEventListener {
+	public function __construct(
+		private MessageMapper $mapper,
+		private LoggerInterface $logger,
+	) {
+	}
+
+	#[\Override]
+	public function handle(Event $event): void {
+		if ($event instanceof MessageFlaggedEvent) {
+			$message = $event->getMessage();
+			$message->setFlag($event->getFlag(), $event->isSet());
+			$this->mapper->update($message);
+		} elseif ($event instanceof MessageDeletedEvent) {
+			// Atrium: never drop our copy here. A move or a replaced draft already
+			// removed its row by id (MailManager, DeleteDraftListener); what reaches
+			// this point left the server for good (expunge) and is kept, marked gone.
+			if ($event->getUid() > 0) {
+				$this->mapper->retireByUid($event->getMailbox(), $event->getUid());
+			}
+		}
+	}
+}

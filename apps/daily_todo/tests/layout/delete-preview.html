@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head data-requesttoken="preview" data-user="preview" data-user-displayname="Preview">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<style>
+:root { --default-grid-baseline:4px; --default-clickable-area:44px; --default-font-size:15px; --font-size-small:13px; --border-radius-element:24px; --border-radius-large:16px; --color-main-background:#fff; --color-main-text:#222; --color-text-maxcontrast:#666; --color-primary-element:#00679e; --color-primary-element-text:#fff; --color-primary-element-light:#e1eef7; --color-background-hover:#f5f5f5; --color-border-dark:#ddd; --color-box-shadow:rgba(77,77,77,.2); }
+body { margin:0; background:#fff; font:15px/1.5 system-ui,sans-serif; color:var(--color-main-text); }
+.daily-todo { max-width:960px; margin:auto; padding:16px; }
+</style>
+<script>
+window.OC = { generateUrl:p=>p, getLanguage:()=> 'en', getLocale:()=> 'en_GB' }
+// Embedded browsers can suppress native prompts. Our delete flow must not depend on them.
+window.confirm = () => { throw Error('Native confirmation must not be called') }
+</script>
+</head>
+<body><div id="preview"></div>
+<script type="module">
+import { createApp, h } from '/node_modules/vue/dist/vue.esm-bundler.js'
+import DayView from '/src/components/DayView.vue'
+import { api } from '/src/api.ts'
+let deleted = false
+const task = { id:1, title:'Throwaway task', source_type:'task', completed:false, parent_id:null, starts_at:null, due_at:null, all_day:true, href:'/apps/tasks/', error:null }
+const event = { ...task, id:2, title:'Throwaway event', source_type:'event', href:'/apps/calendar/' }
+api.day = async date => ({ day:date, logicalToday:date, editable:true, future:false, isOwner:true, items:deleted ? [event] : [task,event], version:deleted ? 'deleted' : 'original', completeSubtasks:false })
+api.complete = async (id, completed) => { document.body.dataset.completedId = String(id); document.body.dataset.completed = String(completed) }
+api.dayVersion = async () => ({ version:deleted ? 'deleted' : 'original' })
+api.overdue = async () => []
+api.deleteQuick = async id => { deleted = true; document.body.dataset.deletedId = String(id); return { trash:7 } }
+api.restore = async id => { deleted = false; document.body.dataset.restoredId = String(id) }
+createApp({ render:()=>h(DayView, { date:new Date(2026,9,14) }) }).mount('#preview')
+</script></body></html>

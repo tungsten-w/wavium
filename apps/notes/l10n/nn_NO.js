@@ -1,0 +1,22 @@
+OC.L10N.register(
+    "notes",
+    {
+    "Notes" : "Notat",
+    "Error" : "Feil",
+    "New note" : "Nytt notat",
+    "Share" : "Del",
+    "Files" : "Filer",
+    "Delete" : "Delete",
+    "Cancel" : "Avbryt",
+    "Path" : "Vei",
+    "Remove from favorites" : "Remove from favorites",
+    "Add to favorites" : "Add to favorites",
+    "Rename" : "Gje nytt namn",
+    "Delete note" : "Slett notat",
+    "Edit" : "Endra",
+    "Owner" : "Owner",
+    "Today" : "I dag",
+    "Yesterday" : "i går",
+    "Tasks" : "Oppgåver"
+},
+"nplurals=2; plural=(n != 1);");

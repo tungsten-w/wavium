@@ -1,0 +1,20 @@
+OC.L10N.register(
+    "notes",
+    {
+    "Notes" : "កំណត់​ចំណាំ",
+    "Error" : "កំហុស",
+    "New note" : "កំណត់​ចំណាំ​ថ្មី",
+    "Share" : "ចែក​រំលែក",
+    "Files" : "ឯកសារ",
+    "Delete" : "Delete",
+    "Cancel" : "បោះបង់",
+    "Remove from favorites" : "Remove from favorites",
+    "Add to favorites" : "Add to favorites",
+    "Rename" : "Rename",
+    "Delete note" : "លុប​កំណត់​ចំណាំ",
+    "Edit" : "កែប្រែ",
+    "Owner" : "Owner",
+    "Today" : "ថ្ងៃ​នេះ",
+    "Tasks" : "ភារកិច្ច"
+},
+"nplurals=1; plural=0;");

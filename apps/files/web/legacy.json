@@ -1,0 +1,12 @@
+{
+	"$comment": "Entries of the classic (Vue) frontend, built by build/frontend (vite) and build/frontend-legacy (webpack). Discovered automatically; no central list.",
+	"webpack": {
+		"sidebar": "src/sidebar.ts",
+		"main": "src/main.ts",
+		"init": "src/init.ts",
+		"search": "src/plugins/search/folderSearch.ts",
+		"settings-admin": "src/main-settings-admin.ts",
+		"settings-personal": "src/main-settings-personal.ts",
+		"reference-files": "src/reference-files.ts"
+	}
+}

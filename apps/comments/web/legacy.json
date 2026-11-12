@@ -1,0 +1,8 @@
+{
+	"$comment": "Entries of the classic (Vue) frontend, built by build/frontend (vite) and build/frontend-legacy (webpack). Discovered automatically; no central list.",
+	"vite": {
+		"comments-app": "src/comments-app.ts",
+		"comments-tab": "src/files-sidebar.ts",
+		"init": "src/init.ts"
+	}
+}

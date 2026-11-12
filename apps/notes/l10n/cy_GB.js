@@ -1,0 +1,25 @@
+OC.L10N.register(
+    "notes",
+    {
+    "Notes" : "Nodiadau",
+    "Error" : "Gwall",
+    "New note" : "Nodyn newydd",
+    "Share" : "Rhannu",
+    "Preview" : "Rhagolwg",
+    "Files" : "Ffeiliau",
+    "Delete" : "Delete",
+    "Cancel" : "Diddymu",
+    "All notes" : "Pob nodyn",
+    "No notes yet" : "Dim nodiadau eto",
+    "Remove from favorites" : "Remove from favorites",
+    "Add to favorites" : "Add to favorites",
+    "Rename" : "Rename",
+    "Edit" : "Golygu",
+    "Owner" : "Owner",
+    "Today" : "Heddiw",
+    "Yesterday" : "Ddoe",
+    "This week" : "Wythnos yma",
+    "This month" : "Mis yma",
+    "Uncategorized" : "Dim categori"
+},
+"nplurals=4; plural=(n==1) ? 0 : (n==2) ? 1 : (n != 8 && n != 11) ? 2 : 3;");

@@ -1,0 +1,15 @@
+{
+  "name": "@atrium/web",
+  "private": true,
+  "type": "module",
+  "description": "Atrium frontend: design system (ui), client SDK (sdk) and the shell. Built by build/atrium/web-build.ts.",
+  "dependencies": {
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}

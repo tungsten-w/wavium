@@ -1,0 +1,9 @@
+{
+	"$comment": "Entries of the classic (Vue) frontend, built by build/frontend (vite) and build/frontend-legacy (webpack). Discovered automatically; no central list.",
+	"vite": {
+		"auth_rsa": "src/auth-rsa.ts",
+		"init": "src/init-files.ts",
+		"init_settings": "src/init-settings.ts",
+		"settings": "src/settings-main.ts"
+	}
+}

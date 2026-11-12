@@ -1,0 +1,13 @@
+{
+	"$comment": "Entries of the classic (Vue) frontend, built by build/frontend (vite) and build/frontend-legacy (webpack). Discovered automatically; no central list.",
+	"webpack": {
+		"additionalScripts": "src/additionalScripts.js",
+		"collaboration": "src/collaborationresourceshandler.js",
+		"files_sharing_tab": "src/files-sidebar.ts",
+		"init": "src/init.ts",
+		"init-public": "src/init-public.ts",
+		"main": "src/main.ts",
+		"personal-settings": "src/personal-settings.js",
+		"public-nickname-handler": "src/public-nickname-handler.ts"
+	}
+}

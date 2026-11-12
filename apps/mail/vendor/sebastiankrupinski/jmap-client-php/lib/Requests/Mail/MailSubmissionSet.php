@@ -1,0 +1,99 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2024 Sebastian Krupinski <krupinski01@gmail.com>
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+namespace JmapClient\Requests\Mail;
+
+use JmapClient\Requests\RequestSet;
+
+/**
+ * @extends RequestSet<MailSubmissionParameters>
+ */
+class MailSubmissionSet extends RequestSet
+{
+    protected string $_space = 'urn:ietf:params:jmap:submission';
+    protected string $_class = 'EmailSubmission';
+    protected string $_parametersClass = MailSubmissionParameters::class;
+
+    /**
+     * Create a mail submission
+     *
+     * @param string $id Submission identifier
+     * @param MailSubmissionParameters|null $object Submission parameters object
+     *
+     * @return MailSubmissionParameters The submission parameters for method chaining
+     */
+    public function create(string $id, mixed $object = null): MailSubmissionParameters
+    {
+        return parent::create($id, $object);
+    }
+
+    /**
+     * Update a mail submission
+     *
+     * @param string $id Submission identifier
+     * @param MailSubmissionParameters|null $object Submission parameters object
+     *
+     * @return MailSubmissionParameters The submission parameters for method chaining
+     */
+    public function update(string $id, mixed $object = null): MailSubmissionParameters
+    {
+        return parent::update($id, $object);
+    }
+
+    /**
+     * Delete a mail submission
+     *
+     * @param string $id Submission identifier
+     *
+     * @return self
+     */
+    public function delete(string $id): static
+    {
+        return parent::delete($id);
+    }
+
+    /**
+     * Define a patch to be applied to the email object on successful submission
+     *
+     * @param string $submissionId The submission identifier this patch belongs to
+     * @param array $patch The patch to apply to the email object on successful submission
+     *
+     * @return self
+     */
+    public function completionUpdate(string $submissionId, array $patch): static
+    {
+        if (!isset($this->_command['onSuccessUpdateEmail']) || !is_object($this->_command['onSuccessUpdateEmail'])) {
+            $this->_command['onSuccessUpdateEmail'] = new \stdClass();
+        }
+
+        $this->_command['onSuccessUpdateEmail']->{$submissionId} = (object) $patch;
+
+        return $this;
+    }
+
+    /**
+     * Define a deletion of the email object on successful submission
+     *
+     * @param string ...$submissionIds The submission identifiers for which the email object should be deleted on successful submission
+     *
+     * @return self
+     */
+    public function completionDestroy(string ...$submissionIds): static
+    {
+        if (!isset($this->_command['onSuccessDestroyEmail']) || !is_array($this->_command['onSuccessDestroyEmail'])) {
+            $this->_command['onSuccessDestroyEmail'] = [];
+        }
+
+        foreach ($submissionIds as $submissionId) {
+            $this->_command['onSuccessDestroyEmail'][] = $submissionId;
+        }
+
+        return $this;
+    }
+}

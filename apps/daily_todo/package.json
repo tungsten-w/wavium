@@ -1,0 +1,25 @@
+{
+  "name": "daily-todo",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "vite build && vite build -c vite.dashboard.config.ts && cp dist/daily-todo.js js/daily-todo.js && cp dist/daily-todo.css css/daily-todo.css && cp dist/daily-todo-dashboard.js js/daily-todo-dashboard.js && cp dist/daily-todo-dashboard.css css/daily-todo-dashboard.css",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nextcloud/axios": "2.6.0",
+    "@nextcloud/vue": "9.8.2",
+    "vue": "^3.5.0",
+    "vue-material-design-icons": "5.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "latest",
+    "@vue/test-utils": "^2.5.1",
+    "jsdom": "^26.1.0",
+    "typescript": "5.8.3",
+    "vite": "7.1.7",
+    "vitest": "3.2.4",
+    "vue-tsc": "latest"
+  }
+}

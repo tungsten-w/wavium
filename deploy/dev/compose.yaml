@@ -1,0 +1,58 @@
+# Atrium dev containers: the repo is bind-mounted, so PHP changes are live,
+# the Bun server restarts on change (--watch) and frontends rebuild in watch
+# mode. Nothing here needs an image rebuild per change.
+#   cd deploy/dev && docker compose up -d          http://127.0.0.1:8092
+#   docker compose run --rm bun bun test server/    toolchain (profile "tools")
+#   docker compose exec php sh -c 'php vendor-bin/phpunit/vendor/bin/phpunit -c tests/phpunit-autotest.xml tests/lib/Agent'
+# Data: sqlite in the repo's gitignored data/ + config/config.php (same as the
+# old standalone atrium-dev container). Never points at live data.
+name: atrium-dev
+x-bun: &bun
+  build:
+    context: .
+    dockerfile: bun.Dockerfile
+  image: atrium-bun:dev
+services:
+  php:
+    image: nextcloud:34.0.5-fpm
+    # Skip the official installer/upgrader entrypoint: the code is the repo itself.
+    entrypoint: ["docker-php-entrypoint"]
+    command: ["php-fpm"]
+    # Run as the repo owner so PHP can write config/ and data/ in the checkout.
+    user: "${UID:-1000}:${GID:-100}"
+    volumes:
+      - ../..:/var/www/html
+  web:
+    <<: *bun
+    command: ["bun", "--watch", "server/index.ts"]
+    environment:
+      ATRIUM_DOCROOT: /var/www/html
+      ATRIUM_FPM: php:9000
+      PORT: "8080"
+    volumes:
+      - ../..:/var/www/html
+    working_dir: /var/www/html
+    # The repo owner: the agent layer reads config.php and writes the sqlite DB.
+    user: "${UID:-1000}:${GID:-100}"
+    ports:
+      - "127.0.0.1:8092:8080"
+    depends_on: [php]
+  # Throwaway IMAP/SMTP for Mail: users test1/test2@atrium.test, password
+  # test-only, mail is in memory. In the Mail app use host "greenmail",
+  # IMAP 3143 / SMTP 3025, no encryption.
+  greenmail:
+    image: greenmail/standalone:2.1.3
+    environment:
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.smtp -Dgreenmail.setup.test.imap
+        -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.verbose
+        -Dgreenmail.users=test1:test-only@atrium.test,test2:test-only@atrium.test
+        -Dgreenmail.users.login=email
+  bun:
+    <<: *bun
+    profiles: [tools]
+    user: "${UID:-1000}:${GID:-100}"
+    environment:
+      HOME: /tmp
+    volumes:
+      - ../..:/src

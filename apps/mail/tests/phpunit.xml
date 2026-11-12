@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ - SPDX-FileCopyrightText: 2026 Atrium contributors
+ - SPDX-License-Identifier: AGPL-3.0-or-later
+ - Atrium Mail tests. Run in the dev PHP container (they use the dev database
+ - with throwaway accounts and clean up after themselves):
+ -   docker exec -u 1000 atrium-dev-php-1 vendor-bin/phpunit/vendor/bin/phpunit -c apps/mail/tests/phpunit.xml
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 bootstrap="bootstrap.php"
+		 colors="false"
+		 cacheDirectory="/tmp/atrium-mail-phpunit-cache"
+		 xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd">
+	<testsuite name="Atrium Mail">
+		<directory>Unit/Atrium</directory>
+	</testsuite>
+</phpunit>

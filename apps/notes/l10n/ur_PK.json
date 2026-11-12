@@ -1,0 +1,15 @@
+{ "translations": {
+    "Notes" : "Notes",
+    "Error" : "ایرر",
+    "Share" : "تقسیم",
+    "Delete" : "Delete",
+    "Cancel" : "منسوخ کریں",
+    "Remove from favorites" : "Remove from favorites",
+    "Add to favorites" : "Add to favorites",
+    "Rename" : "Rename",
+    "Edit" : "تدوین کریں",
+    "Owner" : "Owner",
+    "Today" : "آج",
+    "Tasks" : "کام"
+},"pluralForm" :"nplurals=2; plural=(n != 1);"
+}
