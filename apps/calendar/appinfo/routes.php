@@ -8,6 +8,8 @@ declare(strict_types=1);
  */
 return [
 	'routes' => [
+		// Atrium agent layer only (X-Atrium-Internal): server/agent/calendar (P3-2).
+		['name' => 'atrium_agent#call', 'url' => '/api/atrium-agent', 'verb' => 'POST'],
 		// User views
 		['name' => 'view#index', 'url' => '/', 'verb' => 'GET'],
 		['name' => 'view#index', 'url' => '/new', 'verb' => 'GET', 'postfix' => 'direct.new'],
