@@ -17,8 +17,8 @@ const [fpmHost, fpmPort] = (process.env.ATRIUM_FPM ?? '127.0.0.1:9000').split(':
 const fpm: FastCgiTarget = { host: fpmHost, port: Number(fpmPort ?? 9000) }
 const port = Number(process.env.PORT ?? 8080)
 const quiet = process.env.ATRIUM_ACCESS_LOG === '0'
-const php: PhpTarget = { fpm, docroot, port }
 const limits = loadLimits()
+const php: PhpTarget = { fpm, docroot, port, maxBody: limits.maxBody }
 
 // The agent layer (MCP/REST for agents, ADR 0009). Off with ATRIUM_AGENT=0, or
 // when it cannot start (it logs why); the rest of the server keeps running.
