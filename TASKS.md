@@ -19,12 +19,12 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 ## Phase 1: clean up and secure
 
 - [ ] P1-1 Docs up to date: deploy/README (Bun/FPM), ADR table, todo phase 3, Dockerfile duplicate comment
-- [~] (instance main, 2026-11-12) P1-2 Chunked uploads (`server/php.ts`): no full body in RAM; test > 2 GB
-- [~] (instance main, 2026-11-12) P1-3 Bun limits: `idleTimeout`, `ATRIUM_MAX_BODY` — deps: P1-2 (same file area)
-- [~] (instance main, 2026-11-12) P1-4 Auth cache (`server/agent/auth.ts`): revoked token refused at once
-- [~] (instance main, 2026-11-12) P1-5 Webhooks: block internal addresses unless `ATRIUM_WEBHOOK_ALLOW`
-- [ ] P1-6 React tests: shell + Mail (list, open, send a draft), vitest + fake server
-- [ ] P1-7 Playwright end-to-end: login, Mail, Calendar, Files not empty
+- [x] P1-2 Chunked uploads (`server/php.ts`): no full body in RAM; test > 2 GB — branch ready: night/P1-2 (on top of P1-3)
+- [x] P1-3 Bun limits: `idleTimeout`, `ATRIUM_MAX_BODY` — deps: P1-2 (same file area) — branch ready: night/P1-3 (merge first)
+- [x] P1-4 Auth cache (`server/agent/auth.ts`): revoked token refused at once — branch ready: night/P1-4
+- [x] P1-5 Webhooks: block internal addresses unless `ATRIUM_WEBHOOK_ALLOW` — branch ready: night/P1-5
+- [~] (instance main, 2026-11-13) P1-6 React tests: shell + Mail (list, open, send a draft), vitest + fake server
+- [~] (instance main, 2026-11-13) P1-7 Playwright end-to-end: login, Mail, Calendar, Files not empty
 
 ## Phase 2: AI (after P0)
 
