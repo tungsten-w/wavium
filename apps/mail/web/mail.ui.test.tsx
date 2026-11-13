@@ -133,3 +133,33 @@ test('save draft sends the fields to the draft endpoint', async () => {
 	expect(server.calls('POST', '/apps/mail/api/accounts/1/draft')[0].body).toMatchObject({ subject: 'Plan', body: 'Draft text', to: 'carol@example.org', isHtml: false })
 	expect(queryByText(document.body, 'Could not')).toBeNull()
 })
+
+test('suggest a reply: the AI text lands in the composer, nothing is sent', async () => {
+	server.on('POST', '/agent/v1/reply/suggest', () => ({ subject: 'Re: Dinner on Friday?', body: 'Yes, Friday works for me.', model: 'mock-1', draft_key: '', sent: false }))
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(container, 'Dinner on Friday?'))
+	await click(getByText(container, 'Dinner on Friday?').closest('button')!)
+	const reader = await waitFor(() => container.querySelector('[aria-label="Message"]'))
+	await click(await waitFor(() => getButton(reader, 'Suggest a reply')))
+	const dialog = await waitFor(() => document.querySelector<HTMLElement>('.ml-composer'))
+	const call = server.calls('POST', '/agent/v1/reply/suggest')[0]
+	expect(call.body).toEqual({ db_id: 11, save: false })
+	expect(call.headers.get('ocs-apirequest')).toBe('true')
+	expect((getField(dialog, 'Subject') as HTMLInputElement).value).toBe('Re: Dinner on Friday?')
+	expect((getField(dialog, 'Message') as HTMLTextAreaElement).value).toMatch(/^Yes, Friday works for me\.[\s\S]*wrote:\n> /)
+	expect((getField(dialog, 'To') as HTMLInputElement).value).toContain('bob@atrium.test')
+	expect(server.calls('POST', '/apps/mail/api/outbox')).toHaveLength(0)
+})
+
+test('suggest a reply without an AI opens nothing', async () => {
+	server.on('POST', '/agent/v1/reply/suggest', () => new Response(JSON.stringify({ error: { message: 'No AI is set up for drafting: add one in Settings > AI' } }), { status: 503, headers: { 'content-type': 'application/json' } }))
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(container, 'Dinner on Friday?'))
+	await click(getByText(container, 'Dinner on Friday?').closest('button')!)
+	const reader = await waitFor(() => container.querySelector('[aria-label="Message"]'))
+	await click(await waitFor(() => getButton(reader, 'Suggest a reply')))
+	await waitFor(() => server.calls('POST', '/agent/v1/reply/suggest').length === 1)
+	// The error goes to a toast (the shell shows it); the composer never opens and the button is usable again.
+	await waitFor(() => !(getButton(reader, 'Suggest a reply') as HTMLButtonElement).disabled)
+	expect(document.querySelector('.ml-composer')).toBeNull()
+})

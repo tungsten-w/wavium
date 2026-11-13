@@ -11,7 +11,7 @@ import { seedMail } from '../mail/fixture'
 import { md5 } from '../mail/keys'
 import type { DraftInput } from '../mail/write'
 import { AgentError } from '../util'
-import { replyPrompt, replySubject, suggestReply, threadText } from './index'
+import { keyForDbId, replyPrompt, replySubject, suggestReply, threadText } from './index'
 
 function fakeAi(replies: Array<string | Error> = []) {
 	const requests: any[] = []
@@ -97,5 +97,18 @@ describe('suggestReply', () => {
 		await expect(suggestReply({ db, bridge, ai: async () => fakeAi([budget]) }, 'ann', { message_key: A })).rejects.toMatchObject({ code: 'unavailable', message: expect.stringContaining('budget is used up') })
 		await expect(suggestReply({ db, bridge, ai: async () => fakeAi(['   ']) }, 'ann', { message_key: A })).rejects.toMatchObject({ message: expect.stringContaining('empty') })
 		expect(saved).toEqual([])
+	})
+
+	test('save: false returns the text only (the Mail UI composer)', async () => {
+		const s = await suggestReply({ db, bridge, ai: async () => fakeAi(['Yes.']) }, 'ann', { message_key: A }, { save: false })
+		expect(s).toMatchObject({ draft_key: '', body: 'Yes.', subject: 'Re: Hello' })
+		expect(saved).toEqual([])
+	})
+
+	test('db_id -> message_key (any folder copy gives the same key)', async () => {
+		expect(await keyForDbId(db, 1)).toBe(A)
+		expect(await keyForDbId(db, 2)).toBe(A)
+		await expect(keyForDbId(db, 999)).rejects.toMatchObject({ code: 'not_found' })
+		await expect(keyForDbId(db, 'x')).rejects.toMatchObject({ code: 'invalid_input' })
 	})
 })

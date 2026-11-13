@@ -6,19 +6,21 @@
 // saved as a Mail **draft**. Nothing is ever sent here: the human sends from
 // Mail, or an agent asks with mail_send, which needs the owner's approval.
 //
-//   POST /agent/v1/reply/suggest       owner (session, OCS-APIRequest): {message_key, instruction?}
+//   POST /agent/v1/reply/suggest       owner (session, OCS-APIRequest): {message_key | db_id, instruction?, save?}
+//                                      save: false = only the text (the Mail UI puts it in its composer)
 //   tool mail_reply_suggest            agents (area mail, action write): same; the draft is the
 //                                      agent's, so mail_draft_* and mail_send work on it.
 import type { AiModule, AiProvider } from '../ai'
 import type { Db } from '../db'
 import type { AgentModule, LayerCore } from '../index'
-import { draftKey, threadKey } from '../mail/keys'
+import { draftKey, messageKey, msgHash, threadKey } from '../mail/keys'
 import { getThread, recipientsFor, rowsForKey } from '../mail/read'
 import { type MailBridge, phpBridge } from '../mail/write'
 import type { Tool } from '../tools'
 import { AgentError, nowSec } from '../util'
 
 export interface Suggestion {
+	/** Empty when not saved (save: false). */
 	draft_key: string
 	account: number
 	subject: string
@@ -65,8 +67,17 @@ export interface ReplyDeps {
 	ai: (uid: string) => Promise<AiProvider | null>
 }
 
+/** message_key of a Mail database id (the id the Mail UI knows). Ownership is checked later. */
+export async function keyForDbId(db: Db, id: unknown): Promise<string> {
+	const n = Number(id)
+	if (!Number.isInteger(n) || n <= 0) throw new AgentError('invalid_input', 'db_id must be a message id')
+	const [r] = await db.q<{ message_id: string | null, account_id: unknown }>(`SELECT m.message_id, b.account_id FROM ${db.t('mail_messages')} m JOIN ${db.t('mail_mailboxes')} b ON b.id = m.mailbox_id WHERE m.id = $1`, [n])
+	if (!r) throw new AgentError('not_found', `No mail ${n}`)
+	return messageKey(Number(r.account_id), msgHash(r.message_id, n))
+}
+
 /** Writes the reply draft for `uid` (the grantor). Returns where it is. */
-export async function suggestReply(deps: ReplyDeps, uid: string, input: { message_key?: unknown, instruction?: unknown }): Promise<Suggestion & { localId: number }> {
+export async function suggestReply(deps: ReplyDeps, uid: string, input: { message_key?: unknown, instruction?: unknown }, opts: { save?: boolean } = {}): Promise<Suggestion & { localId: number | null }> {
 	if (typeof input.message_key !== 'string' || !input.message_key) throw new AgentError('invalid_input', 'message_key is required')
 	if (input.instruction !== undefined && (typeof input.instruction !== 'string' || input.instruction.length > MAX_INSTRUCTION)) {
 		throw new AgentError('invalid_input', `instruction must be text of at most ${MAX_INSTRUCTION} characters`)
@@ -92,11 +103,11 @@ export async function suggestReply(deps: ReplyDeps, uid: string, input: { messag
 	if (!body) throw new AgentError('unavailable', 'The AI returned an empty reply')
 	const subject = replySubject(String(row.subject ?? ''))
 	const to = [{ label: sender.name || sender.address, email: sender.address }]
-	const localId = await deps.bridge.saveDraft({
+	const localId = opts.save === false ? null : await deps.bridge.saveDraft({
 		uid, accountId: account.id, subject, body, to, cc: [], bcc: [], attachments: [],
 		inReplyTo: (row.message_id as string | null) ?? null,
 	})
-	return { draft_key: draftKey(account.id, localId), account: account.id, subject, to: [{ name: sender.name ?? '', address: sender.address }], body, model: res.model, localId }
+	return { draft_key: localId === null ? '' : draftKey(account.id, localId), account: account.id, subject, to: [{ name: sender.name ?? '', address: sender.address }], body, model: res.model, localId }
 }
 
 export function replyTool(deps: (core: LayerCore) => ReplyDeps): (core: LayerCore) => Tool {
@@ -135,7 +146,8 @@ export function replyModule(ai: Pick<AiModule, 'forTask'> | null): AgentModule {
 			const { uid } = await core.auth.owner(req)
 			let body: Record<string, unknown>
 			try { body = await req.json() as Record<string, unknown> } catch { throw new AgentError('invalid_input', 'Body must be JSON') }
-			const { localId: _l, ...s } = await suggestReply(depsFor(core), uid, body ?? {})
+			const key = body?.db_id !== undefined ? await keyForDbId(core.db, body.db_id) : body?.message_key
+			const { localId: _l, ...s } = await suggestReply(depsFor(core), uid, { message_key: key, instruction: body?.instruction }, { save: body?.save !== false })
 			return Response.json({ ...s, sent: false })
 		},
 	}

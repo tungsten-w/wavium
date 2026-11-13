@@ -8,7 +8,7 @@ import { ComposeDialog, blankComposer, type ComposerState } from './Compose'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
 import { archiveTarget, kindBoxes, labelQuery, sortBoxes, type ViewKind } from './labels'
-import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
+import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, suggestReply, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
 import './style.css'
 
 const errorText = (e: unknown) => e instanceof Error ? e.message : String(e)
@@ -259,6 +259,24 @@ function Mail() {
 		body: `\n\nOn ${messageDate(body.dateInt)}, ${displayAddress(body.from[0])} wrote:\n${quote(bodyText(body))}`,
 		inReplyToMessageId: body.messageId,
 	})
+	const [suggesting, setSuggesting] = useState(false)
+	/** P5-2: the user's AI writes the reply into the composer; the human edits and sends. */
+	const suggest = async (body: MessageBody) => {
+		setSuggesting(true)
+		try {
+			const s = await suggestReply(body.databaseId)
+			startCompose({
+				to: addressText(body.replyTo.length ? body.replyTo : body.from),
+				subject: s.subject,
+				body: `${s.body}${account?.signature ? `\n\n${account.signature}` : ''}\n\nOn ${messageDate(body.dateInt)}, ${displayAddress(body.from[0])} wrote:\n${quote(bodyText(body))}`,
+				inReplyToMessageId: body.messageId,
+			})
+		} catch (e) {
+			toast.error(errorText(e))
+		} finally {
+			setSuggesting(false)
+		}
+	}
 	const forward = (body: MessageBody) => startCompose({
 		subject: /^fwd:/i.test(body.subject) ? body.subject : `Fwd: ${body.subject}`,
 		body: `\n\n---------- Forwarded message ----------\nFrom: ${addressText(body.from)}\nDate: ${messageDate(body.dateInt)}\nSubject: ${body.subject}\nTo: ${addressText(body.to)}\n\n${bodyText(body)}`,
@@ -319,7 +337,7 @@ function Mail() {
 			<section className="ml-reader" aria-label="Message">
 				{messageId ? <Reader id={messageId} message={selected} triage={triage[messageId]} onTriage={(t) => setTriage((m) => ({ ...m, [messageId]: t }))} boxes={accountBoxes} moveTarget={moveTarget} setMoveTarget={setMoveTarget}
 					onClose={() => navigate(boxPath)} onFlags={(flags) => { if (selected) void patchMessage(selected, flags) }} onMove={(id) => { if (selected) void move(selected, id) }} onDelete={() => { if (selected) void remove(selected) }}
-					onReply={reply} onForward={forward} onEdit={(body) => startCompose({ to: addressText(body.to), cc: addressText(body.cc), bcc: addressText(body.bcc), subject: body.subject, body: bodyText(body), draftId: body.databaseId, inReplyToMessageId: body.messageId })} />
+					onReply={reply} onSuggest={suggest} suggesting={suggesting} onForward={forward} onEdit={(body) => startCompose({ to: addressText(body.to), cc: addressText(body.cc), bcc: addressText(body.bcc), subject: body.subject, body: bodyText(body), draftId: body.databaseId, inReplyToMessageId: body.messageId })} />
 					: <EmptyState icon="mail" title="Choose a message to read" />}
 			</section>
 		</div>
@@ -439,10 +457,11 @@ function MessageRow({ message, triage, selected, outgoing, onOpen, onFlag, onArc
 	</li>
 }
 
-function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarget, onClose, onFlags, onMove, onDelete, onReply, onForward, onEdit }: {
+function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarget, onClose, onFlags, onMove, onDelete, onReply, onSuggest, suggesting, onForward, onEdit }: {
 	id: number, message: Message | null, triage?: Triage | null, onTriage: (t: Triage | null) => void, boxes: Mailbox[], moveTarget: string, setMoveTarget: (v: string) => void,
 	onClose: () => void, onFlags: (f: { seen?: boolean, flagged?: boolean }) => void, onMove: (id: number) => void, onDelete: () => void,
 	onReply: (b: MessageBody, all?: boolean) => void, onForward: (b: MessageBody) => void, onEdit: (b: MessageBody) => void,
+	onSuggest?: (b: MessageBody) => void, suggesting?: boolean,
 }) {
 	const [body, setBody] = useState<MessageBody | null>(null)
 	const [error, setError] = useState('')
@@ -503,7 +522,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			{body.signature && <details className="ml-signature"><summary>Signature</summary><div className="ml-body ml-body--plain">{body.signature}</div></details>}
 			{body.attachments.length > 0 && (body.atriumCopy?.goneFromServer || message?.goneFromServer) && <section className="ml-files"><h2>Attachments</h2><p className="ml-kept">Not kept in Atrium: {body.attachments.map((a) => a.fileName).join(', ')}</p></section>}
 			{body.attachments.length > 0 && <section className="ml-files"><h2>Attachments</h2><div className="ml-attachments">{body.attachments.map((a) => <a className="ml-attachment" key={a.id} href={a.downloadUrl ?? appUrl('mail', `/api/messages/${body.databaseId}/attachment/${encodeURIComponent(a.id)}`)}><Icon name="attachment" /><span>{a.fileName}<small>{a.size ? formatBytes(a.size) : a.mimeType ?? a.mime}</small></span><Icon name="download" /></a>)}</div><a className="at-btn at-btn--text" href={appUrl('mail', `/api/messages/${body.databaseId}/attachments`)}><Icon name="download" />Download all</a></section>}
-			<footer className="ml-reader__actions"><Button variant="tonal" icon="arrowBack" onClick={() => onReply(body)}>Reply</Button><Button variant="outlined" onClick={() => onReply(body, true)}>Reply all</Button><Button variant="text" icon="send" onClick={() => onForward(body)}>Forward</Button>{message?.flags.draft && <Button icon="edit" onClick={() => onEdit(body)}>Edit draft</Button>}</footer>
+			<footer className="ml-reader__actions"><Button variant="tonal" icon="arrowBack" onClick={() => onReply(body)}>Reply</Button><Button variant="outlined" onClick={() => onReply(body, true)}>Reply all</Button>{onSuggest && !message?.flags.draft && <Button variant="text" icon="robot" busy={suggesting} onClick={() => onSuggest(body)}>Suggest a reply</Button>}<Button variant="text" icon="send" onClick={() => onForward(body)}>Forward</Button>{message?.flags.draft && <Button icon="edit" onClick={() => onEdit(body)}>Edit draft</Button>}</footer>
 		</div>}
 	</article>
 }

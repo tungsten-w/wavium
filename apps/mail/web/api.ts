@@ -407,3 +407,13 @@ export async function listMerged(mailboxIds: number[], opts: { cursor?: number, 
 	const pages = await Promise.all(mailboxIds.map((id) => listMessages(id, { ...opts, limit })))
 	return pages.flat().sort((a, b) => b.dateInt - a.dateInt).slice(0, limit)
 }
+
+/** P5-2: a reply written by the user's AI (Settings > AI), as text for the composer. Nothing is sent or saved. */
+export async function suggestReply(dbId: number, instruction?: string): Promise<{ subject: string, body: string, model: string }> {
+	try {
+		return await request(`/agent/v1/reply/suggest`, { method: 'POST', body: { db_id: dbId, save: false, ...(instruction ? { instruction } : {}) }, headers: { 'OCS-APIRequest': 'true' } })
+	} catch (e) {
+		if (e instanceof HttpError) throw new Error((e.body as { error?: { message?: string } } | null)?.error?.message ?? `HTTP ${e.status}`)
+		throw e
+	}
+}
