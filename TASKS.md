@@ -59,7 +59,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 ## Phase 5: mail organiser (after P2-1..P2-4)
 
 - [x] P5-1 Daily digest: what needs a reply or an action today — branch ready: night/P5-1 (on top of P2-4)
-- [~] (sodium-7a, 2026-11-13) P5-2 AI reply drafts through approval (nothing sent without a click)
+- [x] P5-2 AI reply drafts through approval (nothing sent without a click) — branch ready: night/P5-2
 - [~] (sodium-7a, 2026-11-13) P5-3 Filing rules in natural language (AI proposes, human validates, applied without AI)
 - [x] P5-4 Scam detection: display name vs address domain — branch ready: night/P5-4 (heuristics; AI signal waits for P2-4)
 - [~] (sodium-7a, 2026-11-13) P5-5 Assisted newsletter unsubscribe (`List-Unsubscribe`, confirmation)
