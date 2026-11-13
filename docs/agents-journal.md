@@ -53,3 +53,11 @@ an internal one to Bun, which answers in tollgate's decisions shape. A P2-1
 acceptance test (server/agent imports server/ai only through agent/ai.ts)
 caught the first layout; the route moved to server/ai with the header check
 injected from agent/ai.ts, instead of loosening the rule.
+## 2026-11-13: P3-6 (instance A, solo)
+
+After the second fast-forward of `main`, split again by message: the other
+session took P2-4 (mail triage), A took P3-6 then P3-7. P3-6 reuses the app
+tools through the registry instead of adding PHP, so it touched only one new
+folder and one line of `server/agent/index.ts`. The real-stack check found
+nothing in the tool; it found that the owner API ignores an unknown preset
+(noted in the report).
