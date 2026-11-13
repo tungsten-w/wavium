@@ -7,6 +7,7 @@
 // Agents read with events_since; agents with a webhook get a signed doorbell.
 import { type AccessMap, getSettings, grantorsFor, modeOf } from './access'
 import { type Db, getMeta, num, setMeta } from './db'
+import { assertPublicWebhook, BlockedWebhook, type WebhookPolicy, webhookPolicy } from './netguard'
 import { AgentError, hmacHex, iso, nowSec, ulid } from './util'
 
 export const RETENTION_SEC = 30 * 86400
@@ -151,8 +152,8 @@ export class EventLog {
 	private lastPurge = 0
 	readonly doorbell: Doorbell
 
-	constructor(private db: Db, notifier: Notifier | null, fetcher: typeof fetch = fetch) {
-		this.doorbell = new Doorbell(db, notifier, fetcher)
+	constructor(private db: Db, notifier: Notifier | null, fetcher: typeof fetch = fetch, policy: WebhookPolicy = webhookPolicy()) {
+		this.doorbell = new Doorbell(db, notifier, fetcher, policy)
 	}
 
 	start(intervalMs = 1000): void {
@@ -224,7 +225,7 @@ const BACKOFF_SEC = [5, 15, 60, 300, 900]
 export class Doorbell {
 	private state = new Map<string, { inFlight: boolean, pending: { cursor: string, wake: boolean } | null, attempt: number }>()
 
-	constructor(private db: Db, private notifier: Notifier | null, private fetcher: typeof fetch) {}
+	constructor(private db: Db, private notifier: Notifier | null, private fetcher: typeof fetch, private policy: WebhookPolicy = webhookPolicy()) {}
 
 	static sign(secret: string, timestamp: number, body: string): string {
 		return 'sha256=' + hmacHex(secret, `${timestamp}.${body}`)
@@ -258,26 +259,36 @@ export class Doorbell {
 			const body = JSON.stringify({ agent, cursor, wake })
 			const ts = nowSec()
 			let status = 0
+			let blocked: string | null = null
 			try {
+				// Checked again at every POST: DNS may have changed since it was saved.
+				await assertPublicWebhook(settings.webhookUrl, this.policy)
 				const res = await this.fetcher(settings.webhookUrl, {
 					method: 'POST',
+					// A redirect could send the POST inside the network: never followed.
+					redirect: 'manual',
 					headers: { 'Content-Type': 'application/json', 'X-Atrium-Timestamp': String(ts), 'X-Atrium-Signature': Doorbell.sign(settings.webhookSecret, ts, body) },
 					body,
 					signal: AbortSignal.timeout(10_000),
 				})
 				status = res.status
 				await res.body?.cancel().catch(() => {})
-			} catch { status = 0 }
+			} catch (e) {
+				status = 0
+				if (e instanceof BlockedWebhook) blocked = e.message
+			}
 			s.inFlight = false
 			if (status >= 200 && status < 300) {
 				s.attempt = 0
 				if (settings.doorbellError) await this.setError(agent, null)
 				continue
 			}
-			if (status === 401 || (status >= 400 && status < 500 && status !== 408 && status !== 429)) {
+			if (blocked || (status >= 300 && status < 400) || status === 401 || (status >= 400 && status < 500 && status !== 408 && status !== 429)) {
 				// Not retried in a loop: shown on the settings page, owner notified once.
 				s.attempt = 0
-				const msg = status === 401 ? 'The doorbell was refused (401): webhook secret mismatch or clock skew' : `The doorbell was refused (${status})`
+				const msg = blocked ? `The doorbell was not sent: ${blocked}`
+					: status < 400 ? `The doorbell was redirected (${status}); redirects are not followed, set the final URL`
+						: status === 401 ? 'The doorbell was refused (401): webhook secret mismatch or clock skew' : `The doorbell was refused (${status})`
 				if (settings.doorbellError !== msg) {
 					await this.setError(agent, msg)
 					await this.notifier?.notify(`Agent ${agent}: doorbell refused`, msg, { tags: ['warning'] }).catch(() => {})

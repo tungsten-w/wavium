@@ -11,6 +11,7 @@ import { handleMcp } from './mcp'
 import { validate, obj, str, int, arr } from './schema'
 import { callTool, Registry, type Tool, type ToolCtx } from './tools'
 import { AgentError, hmacHex, stableJson, ulid } from './util'
+import { webhookPolicy } from './netguard'
 
 let db: Db
 
@@ -106,6 +107,9 @@ test('events: purge makes old cursors expire', async () => {
 	expect((await eventsSince(db, 'bot', { cursor: 'c_000001' })).events).toEqual([])
 })
 
+// hook.test resolves to a public address for these tests.
+const publicDns = webhookPolicy('', async () => ['93.184.216.34'])
+
 test('doorbell: signed body, coalesced, 401 recorded and not retried', async () => {
 	const calls: Array<{ url: string, body: string, ts: string, sig: string }> = []
 	let status = 200
@@ -115,7 +119,7 @@ test('doorbell: signed body, coalesced, 401 recorded and not retried', async () 
 		return new Response(null, { status })
 	}) as never
 	const notes: string[] = []
-	const bell = new Doorbell(db, { notify: async (t) => { notes.push(t) } }, fetcher)
+	const bell = new Doorbell(db, { notify: async (t) => { notes.push(t) } }, fetcher, publicDns)
 	await updateSettings(db, 'bot', { wakes: true, webhookUrl: 'http://hook.test/x', webhookSecret: 'sec' })
 	await bell.ring('bot', 'c_000005', true)
 	expect(calls.length).toBe(1)
@@ -132,6 +136,49 @@ test('doorbell: signed body, coalesced, 401 recorded and not retried', async () 
 	const before = calls.length
 	await bell.ring('bot', 'c_000008', true)
 	expect(calls.length).toBe(before)
+})
+
+test('doorbell: internal targets refused (save and send), redirects not followed', async () => {
+	let calls = 0
+	let redirect = false
+	const fetcher = (async (_url: string, init: RequestInit) => {
+		calls++
+		expect(init.redirect).toBe('manual')
+		return redirect ? new Response(null, { status: 302, headers: { Location: 'http://127.0.0.1:9000/' } }) : new Response(null, { status: 204 })
+	}) as never
+	const notes: string[] = []
+	let addr = '93.184.216.34'
+	const policy = webhookPolicy('', async () => [addr])
+	await updateSettings(db, 'bot', { paused: false, wakes: true, webhookUrl: null, webhookSecret: 'sec' }, policy)
+	// Saving an internal URL is refused.
+	for (const url of ['http://127.0.0.1:9000/x', 'http://192.168.2.1/', 'http://[::1]/']) {
+		await expect(updateSettings(db, 'bot', { webhookUrl: url }, policy)).rejects.toMatchObject({ code: 'invalid_input' })
+	}
+	await updateSettings(db, 'bot', { webhookUrl: 'http://hook.test/ring' }, policy)
+	const bell = new Doorbell(db, { notify: async (t) => { notes.push(t) } }, fetcher, policy)
+	await bell.ring('bot', 'c_000010', false)
+	expect(calls).toBe(1)
+	// The name now resolves inside (DNS changed after saving): not sent, recorded.
+	addr = '10.0.0.7'
+	await bell.ring('bot', 'c_000011', false)
+	expect(calls).toBe(1)
+	const err = async () => (await db.q<{ doorbell_error: string }>(`SELECT doorbell_error FROM oc_atrium_agent_settings WHERE uid = 'bot'`))[0].doorbell_error
+	expect(await err()).toContain('internal address (10.0.0.7)')
+	expect(notes.length).toBe(1)
+	// A redirect is reported, not followed.
+	addr = '93.184.216.34'
+	redirect = true
+	await bell.ring('bot', 'c_000012', false)
+	expect(calls).toBe(2)
+	expect(await err()).toContain('redirected (302)')
+	// The admin allow list lets a LAN hook through.
+	addr = '192.168.2.20'
+	redirect = false
+	const lan = webhookPolicy('hook.test', async () => [addr])
+	const bell2 = new Doorbell(db, null, fetcher, lan)
+	await bell2.ring('bot', 'c_000013', false)
+	expect(calls).toBe(3)
+	expect(await err()).toBeNull()
 })
 
 function fakeCtxBase(approvals: Approvals) {

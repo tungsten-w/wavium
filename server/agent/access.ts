@@ -5,6 +5,7 @@
 // action: off, allowed, or approval (only delete/send/share can need approval).
 // Plus the agent-wide settings (paused, wakes, webhook, approval pings).
 import { type Db, bool, num } from './db'
+import { assertPublicWebhook, BlockedWebhook, type WebhookPolicy, webhookPolicy } from './netguard'
 import { AgentError, nowSec, randomToken } from './util'
 
 export type Action = 'read' | 'write' | 'delete' | 'send' | 'share'
@@ -141,11 +142,21 @@ export function validWebhookUrl(url: string): boolean {
 	}
 }
 
-export async function updateSettings(db: Db, uid: string, patch: Partial<Omit<AgentSettings, 'uid'>>): Promise<AgentSettings> {
+export async function updateSettings(db: Db, uid: string, patch: Partial<Omit<AgentSettings, 'uid'>>, policy: WebhookPolicy = webhookPolicy()): Promise<AgentSettings> {
 	const cur = await getSettings(db, uid)
 	const next = { ...cur, ...patch }
 	if (next.webhookUrl !== null && next.webhookUrl !== '' && !validWebhookUrl(next.webhookUrl)) {
 		throw new AgentError('invalid_input', 'The webhook URL must be http(s)')
+	}
+	// A new URL must not point inside (P1-5). A name that does not resolve yet is
+	// accepted; the doorbell checks again before every POST.
+	if (patch.webhookUrl) {
+		try {
+			await assertPublicWebhook(patch.webhookUrl, policy, { unresolvedOk: true })
+		} catch (e) {
+			if (e instanceof BlockedWebhook) throw new AgentError('invalid_input', e.message)
+			throw e
+		}
 	}
 	if (next.webhookUrl === '') next.webhookUrl = null
 	if (!next.webhookSecret) next.webhookSecret = 'whsec_' + randomToken(24)

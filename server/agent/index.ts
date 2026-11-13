@@ -11,6 +11,7 @@ import type { PhpTarget } from '../php'
 import { grantorsFor, modeOf } from './access'
 import { Approvals } from './approvals'
 import { Auth, type Caller } from './auth'
+import type { WebhookPolicy } from './netguard'
 import { baseTools } from './base-tools'
 import { loadNcConfig, type NcConfig } from './config'
 import { connect, type Db, migrate } from './db'
@@ -53,13 +54,13 @@ export interface AgentModule {
 
 const identity = (c: Caller): AgentIdentity => ({ uid: c.uid, displayName: c.displayName, owner: c.owner })
 
-export async function createLayer(opts: { cfg: NcConfig, db: Db, php: PhpCaller, notifier?: Notifier | null, modules?: AgentModule[], fetcher?: typeof fetch }): Promise<AgentLayer & { core: LayerCore }> {
+export async function createLayer(opts: { cfg: NcConfig, db: Db, php: PhpCaller, notifier?: Notifier | null, modules?: AgentModule[], fetcher?: typeof fetch, webhookPolicy?: WebhookPolicy }): Promise<AgentLayer & { core: LayerCore }> {
 	const { cfg, db, php } = opts
 	await migrate(db)
 	const notifier = opts.notifier ?? null
 	const auth = new Auth(php)
 	const approvals = new Approvals(db, notifier, `${cfg.baseUrl}/settings/user/agents`)
-	const events = new EventLog(db, notifier, opts.fetcher)
+	const events = new EventLog(db, notifier, opts.fetcher, opts.webhookPolicy)
 	const registry = new Registry()
 	const modules = opts.modules ?? []
 
