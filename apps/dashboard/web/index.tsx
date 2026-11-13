@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { defineApp, linkHandler, ocs, useApp } from '@atrium/sdk'
 import { Button, Dialog, Icon, IconButton, Spinner, Switch, cx, toast } from '@atrium/ui'
+import { TodayCard } from './Today'
 import './style.css'
 
 interface Widget {
@@ -108,6 +109,7 @@ function Dashboard() {
 				</div>
 			)}
 			<div className="dash-grid">
+				<TodayCard />
 				{shown.map((w) => <WidgetCard key={w.id} widget={w} />)}
 			</div>
 			<Customize open={customize} onClose={() => setCustomize(false)} widgets={(widgets ?? []).filter(canShow)} layout={layout} onSave={saveLayout} />

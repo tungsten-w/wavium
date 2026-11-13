@@ -67,3 +67,13 @@ Journal + undo built on the existing tools instead of new PHP: each undo is an
 inverse tool call computed from the action's own result. The real-stack run
 caught a script mistake (events_since needs a cursor) and a thin summary for
 notes created from content only (fixed: fall back to the result's fields).
+
+### 2026-11-13 · P5-1 (sodium-7a)
+
+Daily digest as one agent-layer module (`server/agent/digest/`) plus a Today
+card on the Dashboard. Sources are injected, so the assembly is tested without
+PHP; the live sources reuse the mail read helpers and the calendar / Daily Todo
+internal routes from P3-1 and P3-2. Two catches from testing: sqlite numbers
+`$n` placeholders by first appearance (lesson added), and the end-to-end run
+showed a phishing demo mail listed as "reply": suspicious mail is now left out,
+at the Mail chip threshold.
