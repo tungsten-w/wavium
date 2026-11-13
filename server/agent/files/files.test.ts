@@ -19,6 +19,7 @@ let nodes: Map<number, PhpNode & { content?: string }>
 let shares: PhpShare[]
 let calls: Array<[string, Record<string, unknown>]>
 let nextId = 100
+let writes = 0
 
 const node = (file_id: number, path: string, f: Partial<PhpNode & { content: string }> = {}): PhpNode & { content?: string } => ({
 	file_id, path, name: path.split('/').pop() || '', type: 'file', mime: 'text/markdown', size: 10, modified: 1_700_000_000, etag: `e${file_id}a`,
@@ -48,7 +49,7 @@ const fake: FilesBridge = {
 				const existing = [...nodes.values()].find((x) => x.path === b.path)
 				if (existing && b.etag && existing.etag !== b.etag) throw new AgentError('conflict', 'The file changed since it was read')
 				const id = existing?.file_id ?? nextId++
-				const w = node(id, String(b.path), { content: String(b.content), etag: `e${id}${Date.now()}` })
+				const w = node(id, String(b.path), { content: String(b.content), etag: `e${id}w${++writes}` })
 				nodes.set(id, w)
 				return w as T
 			}
