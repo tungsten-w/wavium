@@ -44,7 +44,8 @@ export async function readCapped(res: Response, max: number, truncate = false): 
 			if (done) break
 			n += value.length
 			if (n > max) {
-				if (!truncate) throw new BodyLimitError(`answer over ${max} bytes`)
+				// Cancel first: otherwise the connection stays open until GC (a hostile base URL could pile them up).
+				if (!truncate) { await reader.cancel().catch(() => {}); throw new BodyLimitError(`answer over ${max} bytes`) }
 				parts.push(value.slice(0, value.length - (n - max)))
 				await reader.cancel().catch(() => {})
 				break

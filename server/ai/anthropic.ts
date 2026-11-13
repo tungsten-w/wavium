@@ -41,7 +41,8 @@ export function anthropicBody(req: AiRequest, model: string, stream: boolean) {
 		model,
 		max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
 		...(req.system ? { system: req.system } : {}),
-		messages: req.messages.map(wireMessage),
+		// A turn whose blocks were all empty text would be content: [] (400): leave it out.
+		messages: req.messages.map(wireMessage).filter((m) => typeof m.content === 'string' || m.content.length > 0),
 		...(tools ? { tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema })) } : {}),
 		...(choice ? { tool_choice: choice } : {}),
 		...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
@@ -164,7 +165,7 @@ export function anthropicProvider(r: Resolved): AiProvider {
 			// A cut connection can look like a clean end of body: only message_stop says it is complete.
 			if (!stopped || blocks.size) throw new AiError('unavailable', `${ctx.provider}: stream ended before message_stop`, ctx.provider)
 		} catch (e) {
-			throw withUsage(e instanceof SyntaxError ? s.fail(new AiError('unavailable', `${ctx.provider}: bad stream event`, ctx.provider)) : s.fail(e), usage)
+			throw withUsage(e instanceof SyntaxError ? s.fail(new AiError('unavailable', `${ctx.provider}: bad stream event`, ctx.provider)) : s.fail(e), usage, req.onUsage)
 		} finally {
 			s.close()
 		}

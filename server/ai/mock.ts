@@ -4,7 +4,7 @@
 // Mock provider for tests and the dev stack (rule A2: no real key anywhere).
 // Deterministic, no network. Script it with queued replies or errors; it
 // records every request. With nothing queued it answers "mock: <last user text>".
-import { testConnection } from './common'
+import { testConnection, trackUsage } from './common'
 import { AiError, type AiErrorCode } from './errors'
 import type { AiProvider, AiRequest, AiResult, AiStreamEvent, StopReason, ToolCall, Usage } from './types'
 
@@ -68,7 +68,8 @@ export function createMockProvider(opts: MockOptions = {}): MockProvider {
 
 	function run(req: AiRequest): AiResult {
 		if (req.signal?.aborted) throw req.signal.reason ?? new DOMException('Aborted', 'AbortError')
-		const { signal: _signal, ...copy } = req
+		// Signal and callbacks are not data (and cannot be cloned).
+		const { signal: _signal, onUsage: _onUsage, ...copy } = req
 		requests.push(structuredClone(copy))
 		calls++
 		const next = queue.shift()
@@ -106,8 +107,7 @@ export function createMockProvider(opts: MockOptions = {}): MockProvider {
 		id,
 		kind: 'mock',
 		requests,
-		complete: async (req) => run(req),
-		stream,
+		...trackUsage({ complete: async (req) => run(req), stream, listModels }),
 		listModels,
 		testConnection: () => testConnection(listModels),
 		enqueue: (...r) => { queue.push(...r) },

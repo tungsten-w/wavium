@@ -146,7 +146,7 @@ export function openaiProvider(r: Resolved): AiProvider {
 			// (some compatible servers skip [DONE]) says the answer is complete.
 			if (!ended && !finish) throw new AiError('unavailable', `${ctx.provider}: stream ended before [DONE]`, ctx.provider)
 		} catch (e) {
-			throw withUsage(e instanceof SyntaxError ? s.fail(new AiError('unavailable', `${ctx.provider}: bad stream event`, ctx.provider)) : s.fail(e), usage)
+			throw withUsage(e instanceof SyntaxError ? s.fail(new AiError('unavailable', `${ctx.provider}: bad stream event`, ctx.provider)) : s.fail(e), usage, req.onUsage)
 		} finally {
 			s.close()
 		}

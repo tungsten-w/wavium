@@ -61,6 +61,12 @@ export interface AiRequest {
 	temperature?: number
 	stop?: string[]
 	signal?: AbortSignal
+	/**
+	 * Called exactly once per call with the tokens spent: on success, at the end
+	 * of a stream, and when a stream fails or is aborted (the part known so far).
+	 * Budgets (P2-3) count usage here; it works when one signal cancels many calls.
+	 */
+	onUsage?: (usage: Usage) => void
 }
 
 /**

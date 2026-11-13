@@ -27,14 +27,41 @@ export async function testConnection(listModels: () => Promise<string[]>): Promi
 }
 
 export function baseProvider(r: Resolved, p: Pick<AiProvider, 'complete' | 'stream' | 'listModels'>): AiProvider {
-	return { id: r.id, kind: r.kind, ...p, testConnection: () => testConnection(p.listModels) }
+	return { id: r.id, kind: r.kind, ...trackUsage(p), testConnection: () => testConnection(p.listModels) }
 }
 
-/** Tokens spent before a stream failed go with the error, so budgets still count them. */
-export function withUsage(e: unknown, usage: Usage): unknown {
+/**
+ * Tokens spent before a stream failed: reported through req.onUsage, and kept
+ * on our own AiError. A caller's abort reason is never written to: it is not
+ * ours and may be shared by several calls (their usage would be mixed up).
+ */
+export function withUsage(e: unknown, usage: Usage, onUsage?: (u: Usage) => void): unknown {
 	if (e instanceof AiError) e.usage = { ...usage }
-	else if (e instanceof Error && Object.isExtensible(e) && !('usage' in e)) Object.assign(e, { usage: { ...usage } })
+	reportUsage(onUsage, usage)
 	return e
+}
+
+/** Calls the request's onUsage; a throwing callback never breaks the call. */
+export function reportUsage(onUsage: ((u: Usage) => void) | undefined, usage: Usage): void {
+	try { onUsage?.({ ...usage }) } catch { /* the caller's bookkeeping, not ours */ }
+}
+
+/** Successful paths: complete() results and the stream's final 'done' event report their usage. */
+export function trackUsage(p: Pick<AiProvider, 'complete' | 'stream' | 'listModels'>): Pick<AiProvider, 'complete' | 'stream' | 'listModels'> {
+	return {
+		listModels: p.listModels,
+		async complete(req) {
+			const r = await p.complete(req)
+			reportUsage(req.onUsage, r.usage)
+			return r
+		},
+		async *stream(req) {
+			for await (const ev of p.stream(req)) {
+				if (ev.type === 'done') reportUsage(req.onUsage, ev.result.usage)
+				yield ev
+			}
+		},
+	}
 }
 
 export const noUsage = (): Usage => ({ inputTokens: 0, outputTokens: 0, reported: false })

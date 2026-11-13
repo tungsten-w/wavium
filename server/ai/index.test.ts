@@ -205,7 +205,7 @@ test('stream: the idle timeout does not count the time the caller spends between
 	expect(got.join('')).toBe('ab')
 })
 
-test('stream: a caller abort carries the usage known so far too', async () => {
+test('stream: a caller abort reports the usage known so far via onUsage, without touching the caller\'s reason', async () => {
 	const ctrl = new AbortController()
 	const f = fakeFetch((c) => new Response(new ReadableStream({
 		start(s) {
@@ -215,7 +215,10 @@ test('stream: a caller abort carries the usage known so far too', async () => {
 		},
 	})))
 	const p = createProvider({ kind: 'anthropic', apiKey: KEY, defaultModel: 'm' }, { fetch: f.fetch })
-	const e = await (async () => { for await (const ev of p.stream({ ...req, signal: ctrl.signal })) if (ev.type === 'text') ctrl.abort(new Error('stop')) })().catch((e) => e)
-	expect(e).not.toBeInstanceOf(AiError)
-	expect(e.usage).toEqual({ inputTokens: 12, outputTokens: 1, reported: true })
+	const seen: unknown[] = []
+	const reason = new Error('stop')
+	const e = await (async () => { for await (const ev of p.stream({ ...req, signal: ctrl.signal, onUsage: (u) => seen.push(u) })) if (ev.type === 'text') ctrl.abort(reason) })().catch((e) => e)
+	expect(e).toBe(reason)
+	expect('usage' in reason).toBe(false)
+	expect(seen).toEqual([{ inputTokens: 12, outputTokens: 1, reported: true }])
 })
