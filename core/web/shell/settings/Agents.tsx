@@ -7,10 +7,10 @@
 // agent layer's owner API (agentsApi.ts); logic in agentsModel.ts.
 import { useCallback, useEffect, useState } from 'react'
 import { relativeTime, type Session } from '@atrium/sdk'
-import { Avatar, Button, Card, Dialog, EmptyState, IconButton, Select, Spinner, Switch, TextArea, TextField, confirmDialog, toast } from '@atrium/ui'
+import { Avatar, Button, Card, Dialog, EmptyState, IconButton, Select, Spinner, Switch, Tabs, TextArea, TextField, confirmDialog, toast } from '@atrium/ui'
 import { api } from './agentsApi'
 import {
-	type Action, ACTIONS, actionLabels, type Agent, applyCell, type Approval, areaLabel, type ConnectInfo, describeModes,
+	type Action, ACTIONS, actionLabels, type Agent, applyCell, type Approval, areaLabel, type ClientId, connectGuides, type ConnectInfo, describeModes,
 	type Mode, modeLabels, modesFor, payloadView, type Preset, sortAreas, statusLabels,
 } from './agentsModel'
 
@@ -333,11 +333,24 @@ function ConnectDialog({ info, onClose }: { info: ConnectInfo | null, onClose: (
 				<Copyable label="MCP URL" value={info.mcpUrl} />
 				<Copyable label="Token" value={info.token} />
 				{info.webhookSecret && <Copyable label="Webhook secret" value={info.webhookSecret} />}
-				<Copyable label="Claude Code" value={info.snippets.claudeCode} multiline />
-				<Copyable label=".mcp.json" value={info.snippets.mcpJson} multiline />
-				<Copyable label="Codex (config.toml)" value={info.snippets.codex} multiline />
+				<ConnectGuides info={info} />
 				<p className="at-muted" style={{ fontSize: 13 }}>REST: <code>{info.restUrl}</code> · OpenAPI: <code>{info.openapiUrl}</code></p>
 			</>}
 		</Dialog>
+	)
+}
+
+/** One tab per client with ready-to-copy instructions (agentsModel.connectGuides). */
+function ConnectGuides({ info }: { info: ConnectInfo }) {
+	const guides = connectGuides(info)
+	const [client, setClient] = useState<ClientId>('claude-code')
+	const g = guides.find((x) => x.id === client) ?? guides[0]
+	return (
+		<div style={{ marginTop: 8 }}>
+			<Tabs tabs={guides.map((x) => ({ id: x.id, label: x.label }))} value={g.id} onChange={setClient} />
+			<p style={{ fontSize: 14 }}>{g.intro}</p>
+			{g.steps.map((st) => <Copyable key={st.label} label={st.label} value={st.value} multiline={st.multiline} />)}
+			{g.note && <p className="at-muted" style={{ fontSize: 13 }}>{g.note}</p>}
+		</div>
 	)
 }
