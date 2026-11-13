@@ -10,6 +10,8 @@ import { addDays, defineApp, navigate, startOfDay, useApp, useAppPath, useLocati
 import { AppLayout, Button, Checkbox, Dialog, EmptyState, Icon, IconButton, Menu, NavItem, NavSection, NavToggle, Spinner, TextField, confirmDialog, toast } from '@atrium/ui'
 import { createList, createTask, deleteList, deleteTask, listLists, listTasks, restoreTask, updateList, updateTask, type Patch, type Task, type TaskList } from './api'
 import { TaskDetail } from './Detail'
+import { reorder, sortKey } from './recur'
+import { ShareDialog } from './Share'
 import './style.css'
 
 type Collection = 'all' | 'today' | 'week' | 'important' | 'completed'
@@ -31,6 +33,7 @@ function Tasks() {
 	const [listDialog, setListDialog] = useState<{ list: TaskList | null, name: string, color: string } | null>(null)
 	const [showDone, setShowDone] = useState(false)
 	const [draft, setDraft] = useState('')
+	const [sharing, setSharing] = useState<TaskList | null>(null)
 
 	const seg = path.split('/').filter(Boolean).map(decodeURIComponent)
 	const listId = seg[0] === 'list' ? seg[1] ?? null : null
@@ -55,6 +58,7 @@ function Tasks() {
 			}
 			const all = await Promise.all(ls.map((l) => listTasks(l).catch(() => [] as Task[])))
 			setLists(ls)
+			latest.current = new Map(all.flat().map((t) => [t.url, t]))
 			setTasks(all.flat())
 		} catch (e) {
 			toast.error(`Could not load tasks: ${errText(e)}`)
@@ -116,11 +120,29 @@ function Tasks() {
 		return c
 	}, [tasks, endOfToday])
 
-	const replace = (next: Task, prev?: Task) => setTasks((ts) => [...ts.filter((t) => t !== prev && t.url !== next.url), next])
-	const patch = async (t: Task, p: Patch) => {
+	const replace = (next: Task, prev?: Task) => {
+		latest.current.set(next.url, next)
+		setTasks((ts) => [...ts.filter((t) => t !== prev && t.url !== next.url), next])
+	}
+	// Edits of one task run one after the other, each on the version the previous one saved:
+	// two quick changes (a date, then the repeat) must not overwrite each other.
+	const latest = useRef(new Map<string, Task>())
+	const queues = useRef(new Map<string, Promise<unknown>>())
+	const patch = (t: Task, p: Patch): Promise<Task | null> => {
+		const run = (queues.current.get(t.url) ?? Promise.resolve()).then(() => patchNow(latest.current.get(t.url) ?? t, p))
+		queues.current.set(t.url, run.catch(() => {}))
+		return run
+	}
+	const patchNow = async (t: Task, p: Patch) => {
 		try {
 			const n = await updateTask(t, p)
 			replace(n, t)
+			// A repeating task moved to its next date instead of closing.
+			if (p.done === true && !n.done && n.repeat !== 'none') {
+				const next = dueLabel(n)
+				toast(next ? `Done. Next: ${next.text}` : 'Done. It comes back.')
+				return n
+			}
 			// Ticking a parent ticks its open subtasks too (upstream behaviour).
 			if (p.done === true) for (const c of tasks.filter((x) => x.parent === t.uid && !x.done)) updateTask(c, { done: true }).then((nc) => replace(nc, c), () => {})
 			return n
@@ -163,6 +185,18 @@ function Tasks() {
 		try { await deleteList(l); if (listId === l.id) navigate(`${basePath}/all`); load() } catch (e) { toast.error(errText(e)) }
 	}
 
+	// Manual order inside one list (drag and drop, or Move up / down): siblings = same list, same parent, open.
+	const siblingsOf = (t: Task) => tasks.filter((x) => x.list.url === t.list.url && x.parent === t.parent && !x.done).sort(manual)
+	const placeBefore = async (t: Task, before: Task | null) => {
+		for (const { task, sortOrder } of reorder(siblingsOf(t), t, before)) await patch(task, { sortOrder })
+	}
+	const move = (t: Task, dir: -1 | 1) => {
+		const sib = siblingsOf(t)
+		const i = sib.findIndex((x) => x.url === t.url)
+		if (i < 0 || (dir < 0 && i === 0) || (dir > 0 && i === sib.length - 1)) return
+		void placeBefore(t, dir < 0 ? sib[i - 1] : sib[i + 2] ?? null)
+	}
+
 	const selected = selectedUid ? tasks.find((t) => t.uid === selectedUid) ?? null : null
 	const openTask = (t: Task | null) => navigate(t ? `${here}/${encodeURIComponent(t.uid)}` : here)
 
@@ -179,6 +213,7 @@ function Tasks() {
 							<span className="tk-nav-menu" style={{ ['--c' as string]: l.color }} onClick={(e) => { e.stopPropagation(); e.preventDefault() }}>
 								<Menu trigger={(o, x) => <IconButton icon="moreVert" label={`${l.name} actions`} aria-expanded={x} onClick={o} />} items={[
 									!l.shared && !l.readOnly && { label: 'Edit', icon: 'edit', onClick: () => setListDialog({ list: l, name: l.name, color: l.color }) },
+									!l.shared && !l.readOnly && { label: 'Share', icon: 'share', onClick: () => setSharing(l) },
 									{ label: 'Download', icon: 'download', href: `${l.url}?export` },
 									!l.shared && { label: 'Delete', icon: 'delete', danger: true, onClick: () => removeList(l) },
 								]} />
@@ -209,7 +244,7 @@ function Tasks() {
 						: open.length === 0 && done.length === 0 ? <EmptyState icon={collection === 'completed' ? 'check' : 'task'} title={collection === 'completed' ? 'Nothing completed yet' : 'All done'} />
 						: (
 							<>
-								<TaskTree tasks={open} all={tasks} selected={selected} showList={!listId} onOpen={openTask} onPatch={patch} />
+								<TaskTree tasks={open} all={tasks} selected={selected} showList={!listId} onOpen={openTask} onPatch={patch} manualOrder={!!listId && !currentList?.readOnly} onDropBefore={placeBefore} />
 								{done.length > 0 && (
 									<div className="tk-done">
 										<button type="button" className="tk-done__toggle" onClick={() => setShowDone((v) => !v)} aria-expanded={showDone}>
@@ -223,10 +258,11 @@ function Tasks() {
 				</section>
 				<aside className="tk-side">
 					{selected
-						? <TaskDetail key={selected.url} task={selected} lists={writable} children_={tasks.filter((t) => t.parent === selected.uid)} onPatch={patch} onReplace={replace} onAddSub={(title) => add(title, { parent: selected.uid }, selected.list)} onDelete={remove} onClose={() => openTask(null)} onOpen={openTask} />
+						? <TaskDetail key={selected.url} task={selected} lists={writable} children_={tasks.filter((t) => t.parent === selected.uid)} onPatch={patch} onReplace={replace} onAddSub={(title) => add(title, { parent: selected.uid }, selected.list)} onDelete={remove} onClose={() => openTask(null)} onOpen={openTask} onMove={listId && !selected.done ? move : undefined} />
 						: <EmptyState icon="task" title="Select a task to see its details" />}
 				</aside>
 			</div>
+			{sharing && <ShareDialog list={sharing} onClose={() => setSharing(null)} />}
 			<Dialog open={!!listDialog} title={listDialog?.list ? 'Edit list' : 'New list'} onClose={() => setListDialog(null)}
 				actions={<><Button variant="text" onClick={() => setListDialog(null)}>Cancel</Button><Button disabled={!listDialog?.name.trim()} onClick={submitList}>{listDialog?.list ? 'Save' : 'Create'}</Button></>}>
 				<form className="tk-listdlg" onSubmit={(e) => { e.preventDefault(); submitList() }}>
@@ -248,14 +284,27 @@ function order(a: Task, b: Task): number {
 	return ad - bd || Number(isImportant(b)) - Number(isImportant(a)) || (b.created?.getTime() ?? 0) - (a.created?.getTime() ?? 0)
 }
 
-function TaskTree({ tasks, all, selected, showList, onOpen, onPatch }: { tasks: Task[], all: Task[], selected: Task | null, showList: boolean, onOpen: (t: Task) => void, onPatch: (t: Task, p: Patch) => void }) {
+/** Manual order first (X-APPLE-SORT-ORDER), then the usual order. */
+export function manual(a: Task, b: Task): number {
+	return sortKey(a.sortOrder) - sortKey(b.sortOrder) || order(a, b)
+}
+
+function TaskTree({ tasks, all, selected, showList, onOpen, onPatch, manualOrder = false, onDropBefore }: { tasks: Task[], all: Task[], selected: Task | null, showList: boolean, onOpen: (t: Task) => void, onPatch: (t: Task, p: Patch) => void, manualOrder?: boolean, onDropBefore?: (t: Task, before: Task | null) => void }) {
 	const uids = new Set(tasks.map((t) => t.uid))
-	const roots = tasks.filter((t) => !t.parent || !uids.has(t.parent)).sort(order)
-	const kids = (t: Task) => tasks.filter((c) => c.parent === t.uid).sort(order)
+	const cmp = manualOrder ? manual : order
+	const roots = tasks.filter((t) => !t.parent || !uids.has(t.parent)).sort(cmp)
+	const kids = (t: Task) => tasks.filter((c) => c.parent === t.uid).sort(cmp)
+	const [dragging, setDragging] = useState<Task | null>(null)
+	const drag = manualOrder && onDropBefore ? {
+		start: (t: Task) => setDragging(t),
+		end: () => setDragging(null),
+		// Dropped on a sibling: placed just before it.
+		drop: (target: Task) => { if (dragging && dragging !== target && dragging.parent === target.parent) onDropBefore(dragging, target); setDragging(null) },
+	} : undefined
 	const row = (t: Task, depth: number): React.ReactNode => {
 		const sub = all.filter((c) => c.parent === t.uid)
 		return [
-			<TaskRow key={t.url} task={t} depth={depth} selected={t === selected} showList={showList} subCount={sub.length} subDone={sub.filter((s) => s.done).length} onOpen={onOpen} onPatch={onPatch} />,
+			<TaskRow key={t.url} task={t} depth={depth} selected={t === selected} showList={showList} subCount={sub.length} subDone={sub.filter((s) => s.done).length} onOpen={onOpen} onPatch={onPatch} drag={drag} />,
 			...kids(t).map((c) => row(c, depth + 1)),
 		]
 	}
@@ -274,16 +323,27 @@ export function dueLabel(t: Task): { text: string, late: boolean } | null {
 	return { text, late: !t.done && (d.allDay ? diff < 0 : d.date.getTime() < Date.now()) }
 }
 
-function TaskRow({ task: t, depth, selected, showList, subCount, subDone, onOpen, onPatch }: { task: Task, depth: number, selected: boolean, showList: boolean, subCount: number, subDone: number, onOpen: (t: Task) => void, onPatch: (t: Task, p: Patch) => void }) {
+function TaskRow({ task: t, depth, selected, showList, subCount, subDone, onOpen, onPatch, drag }: { task: Task, depth: number, selected: boolean, showList: boolean, subCount: number, subDone: number, onOpen: (t: Task) => void, onPatch: (t: Task, p: Patch) => void, drag?: { start: (t: Task) => void, end: () => void, drop: (t: Task) => void } }) {
 	const due = dueLabel(t)
 	const ro = t.list.readOnly
+	const [over, setOver] = useState(false)
+	const dnd = drag && !ro && !t.done ? {
+		draggable: true,
+		onDragStart: (e: React.DragEvent) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.uid); drag.start(t) },
+		onDragEnd: () => { setOver(false); drag.end() },
+		onDragOver: (e: React.DragEvent) => { e.preventDefault(); setOver(true) },
+		onDragLeave: () => setOver(false),
+		onDrop: (e: React.DragEvent) => { e.preventDefault(); setOver(false); drag.drop(t) },
+	} : {}
 	return (
-		<li className={'tk-row' + (selected ? ' tk-row--sel' : '') + (t.done ? ' tk-row--done' : '')} style={{ ['--depth' as string]: depth, ['--c' as string]: t.list.color }}>
+		<li className={'tk-row' + (selected ? ' tk-row--sel' : '') + (t.done ? ' tk-row--done' : '') + (over ? ' tk-row--over' : '')} data-task={t.uid} style={{ ['--depth' as string]: depth, ['--c' as string]: t.list.color }} {...dnd}>
+			{drag && !ro && !t.done && <span className="tk-grip" aria-hidden="true"><Icon name="drag" size="s" /></span>}
 			<Checkbox round className={'tk-check' + (isImportant(t) ? ' tk-check--imp' : '')} checked={t.done} disabled={ro} onChange={(e) => onPatch(t, { done: e.target.checked })} aria-label={t.done ? `Reopen ${t.title}` : `Complete ${t.title}`} />
 			<button type="button" className="tk-row__main" onClick={() => onOpen(t)}>
 				<span className="tk-row__title">{t.title || 'Untitled task'}</span>
 				<span className="tk-row__meta">
 					{due && <span className={'tk-due' + (due.late ? ' tk-due--late' : '')}><Icon name="event" size="s" />{due.text}</span>}
+					{t.repeat !== 'none' && <span className="tk-meta" title="Repeats"><Icon name="refresh" size="s" /></span>}
 					{subCount > 0 && <span className="tk-meta"><Icon name="indentMore" size="s" />{subDone}/{subCount}</span>}
 					{t.notes && <span className="tk-meta"><Icon name="notes" size="s" /></span>}
 					{t.tags.map((g) => <span key={g} className="tk-tag">{g}</span>)}

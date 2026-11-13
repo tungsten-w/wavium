@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { dateKey, parseKey, timeOfDay, type IcsTime } from '@atrium/sdk'
 import { Checkbox, Icon, IconButton, Menu, Select, TextArea, toast } from '@atrium/ui'
 import { moveTask, type Patch, type Task, type TaskList } from './api'
+import { REPEATS } from './recur'
 
 const PRIORITIES = [{ v: 0, label: 'None' }, { v: 1, label: 'High' }, { v: 5, label: 'Medium' }, { v: 9, label: 'Low' }]
 const prioBucket = (p: number) => (p >= 1 && p <= 4 ? 1 : p === 5 ? 5 : p >= 6 ? 9 : 0)
@@ -30,7 +31,7 @@ function DateField({ label, value, onChange, disabled }: { label: string, value:
 	)
 }
 
-export function TaskDetail({ task: t, lists, children_, onPatch, onReplace, onAddSub, onDelete, onClose, onOpen }: {
+export function TaskDetail({ task: t, lists, children_, onPatch, onReplace, onAddSub, onDelete, onClose, onOpen, onMove }: {
 	task: Task, lists: TaskList[], children_: Task[]
 	onPatch: (t: Task, p: Patch) => Promise<Task | null>
 	onReplace: (next: Task, prev?: Task) => void
@@ -38,6 +39,8 @@ export function TaskDetail({ task: t, lists, children_, onPatch, onReplace, onAd
 	onDelete: (t: Task) => void
 	onClose: () => void
 	onOpen: (t: Task | null) => void
+	/** Manual order (list view only): move among its siblings. */
+	onMove?: (t: Task, dir: -1 | 1) => void
 }) {
 	const ro = t.list.readOnly
 	const [title, setTitle] = useState(t.title)
@@ -66,6 +69,8 @@ export function TaskDetail({ task: t, lists, children_, onPatch, onReplace, onAd
 				<input className="tk-detail__title" value={title} disabled={ro} aria-label="Title" onChange={(e) => setTitle(e.target.value)}
 					onBlur={() => title.trim() !== t.title && onPatch(t, { title })} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
 				<Menu trigger={(o, x) => <IconButton icon="moreVert" label="Task actions" aria-expanded={x} onClick={o} />} items={[
+					!ro && !!onMove && { label: 'Move up', icon: 'arrowUp', onClick: () => onMove(t, -1) },
+					!ro && !!onMove && { label: 'Move down', icon: 'arrowDown', onClick: () => onMove(t, 1) },
 					{ label: 'Download', icon: 'download', href: t.url },
 					!ro && { label: 'Delete', icon: 'delete', danger: true, onClick: () => onDelete(t) },
 				]} />
@@ -83,6 +88,12 @@ export function TaskDetail({ task: t, lists, children_, onPatch, onReplace, onAd
 						{(lists.some((l) => l.url === t.list.url) ? lists : [t.list, ...lists]).map((l) => <option key={l.url} value={l.id}>{l.name}</option>)}
 					</Select>
 				</div>
+
+				<Select label="Repeat" value={t.repeat} disabled={ro} onChange={(e) => e.target.value !== 'custom' && onPatch(t, { repeat: e.target.value as Exclude<Task['repeat'], 'custom'> })}>
+					{REPEATS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+					{t.repeat === 'custom' && <option value="custom">Custom (kept as it is)</option>}
+				</Select>
+				{t.repeat !== 'none' && !t.due && !t.start && <p className="at-muted tk-hint">Give it a due date: ticking it then moves it to the next one.</p>}
 
 				<div className="tk-tags">
 					{t.tags.map((g) => (
