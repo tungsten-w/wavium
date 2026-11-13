@@ -35,7 +35,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [x] P2-5 Model per task (small for triage, bigger for summaries/drafts) — deps: P2-1 — branch ready: night/P2-5
 - [x] P2-6 "Connect an agent" box: Claude Code, Claude Desktop, Cursor, Codex, REST — branch ready: night/P2-6
 - [~] (sodium-93, 2026-11-13) P2-7 OAuth 2.1 for MCP (discovery, PKCE, consent screen)
-- [~] (sodium-93, 2026-11-13) P2-8 Several agents per user, activity page — deps: P2-6
+- [x] P2-8 Several agents per user, activity page — deps: P2-6 — branch ready: night/P2-8
 
 ## Phase 3: agent tools for every app (ADR 0009 order)
 
