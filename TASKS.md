@@ -45,7 +45,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [x] P3-4 Files tools (share = approval) — branch ready: night/P3-4
 - [x] P3-5 Notes, then Activity (read only) — branch ready: night/P3-5
 - [x] P3-6 Cross-app `search` tool — deps: P3-1..P3-5 — branch ready: night/P3-6
-- [~] (main session, 2026-11-13, after P3-6) P3-7 Undo an agent action from the activity log
+- [x] P3-7 Undo an agent action from the activity log — branch ready: night/P3-7
 
 ## Phase 4: finish the React apps
 
