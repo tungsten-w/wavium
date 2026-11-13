@@ -35,3 +35,12 @@ Done directly by the phase-0 instance between team steps. Browser checks
 (Playwright on each branch's own dev stack) found one real bug the unit tests
 missed (P2-6: wrong `restUrl` shape in the fixture). Lesson: for UI tasks the
 testeur should also run a browser check (`tests/e2e/` from P1-7).
+
+## 2026-11-13: P2-2 (instance A, solo) and the split with the other session
+
+After the human fast-forwarded `main`, the two sessions split phase 2 by files:
+A took P2-2 (settings store, routes, page); the other session took P2-3
+(budgets) and P2-5 (model per task) in their own modules (`budget.ts`,
+`routing.ts`), each creating its own tables, so no shared migration list and no
+shared file except the AI README. Agreed boundaries by message before starting;
+both P2-3 and P2-5 were ready before P2-2 with no conflict.

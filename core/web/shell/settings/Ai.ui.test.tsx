@@ -48,6 +48,7 @@ test('a user sees the instance provider read-only and adds their own', async () 
 	expect(queryByText(row, 'Edit')).toBeNull() // not editable by a user
 	expect(queryByText(container, 'Instance options')).toBeNull()
 	expect(getByText(container, 'Now: Team Claude.')).toBeTruthy()
+	expect(getByText(row, 'used for you')).toBeTruthy()
 
 	await click(getButton(container, 'Add a provider'))
 	const dlg = await waitFor(() => document.querySelector('.ai-form')!)

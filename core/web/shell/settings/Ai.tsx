@@ -52,7 +52,7 @@ export function Ai(_: { session: Session }) {
 							title="For everyone on this instance"
 							note={data.isAdmin ? 'Every user can use these. Users do not see their address or key.' : 'Set by your admin.'}
 							providers={data.instance}
-							defaultId={data.instanceDefault}
+							defaultId={data.effectiveDefault}
 							empty={data.isAdmin ? 'No provider for the instance yet.' : 'Your admin has not set up an AI provider.'}
 							onAdd={data.isAdmin ? () => setEditing({ scope: 'instance', provider: null }) : undefined}
 							onEdit={(p) => setEditing({ scope: 'instance', provider: p })}
@@ -76,7 +76,7 @@ export function Ai(_: { session: Session }) {
 								title="Your own providers"
 								note="Only you can use these, with your own key and budget."
 								providers={data.mine}
-								defaultId={data.defaultProvider}
+								defaultId={data.effectiveDefault}
 								empty="You have not added a provider."
 								onAdd={() => setEditing({ scope: 'user', provider: null })}
 								onEdit={(p) => setEditing({ scope: 'user', provider: p })}
@@ -149,7 +149,7 @@ function ProviderList(props: {
 								return (
 									<tr key={p.id} data-provider={p.id}>
 										<td>
-											<div className="ai-name">{p.label} {p.id === props.defaultId && <Badge>default</Badge>}</div>
+											<div className="ai-name">{p.label} {p.id === props.defaultId && <Badge>used for you</Badge>}</div>
 											<div className="at-muted ai-sub">{kindLabels[p.kind] ?? p.kind}{p.defaultModel ? ` · ${p.defaultModel}` : ''} · {keyText(p)}</div>
 											{t && t !== 'busy' && <div className={t.ok ? 'ai-ok' : 'settings-bad'} role="status">{testText(t)}</div>}
 										</td>
