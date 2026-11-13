@@ -3,7 +3,7 @@
 //
 // Owner API of the Bun agent layer (/agent/v1/owner): Settings > Agents and approvals.
 import { HttpError, request } from '@atrium/sdk'
-import type { Action, Agent, AgentAction, Approval, ConnectInfo, Modes, Preset } from './agentsModel'
+import type { Action, ActivityItem, Agent, AgentAction, Approval, ConnectInfo, Modes, Preset } from './agentsModel'
 
 /** The owner API answers {error: {code, message}}; turn that into a readable Error. */
 async function owner<T>(path: string, opts: { method?: string, body?: unknown } = {}): Promise<T> {
@@ -32,6 +32,8 @@ export const api = {
 	approvals: (status?: string, limit = 50) => owner<{ requests: Approval[] }>(`approvals?${new URLSearchParams({ ...(status ? { status } : {}), limit: String(limit) })}`).then((r) => r.requests),
 	actions: (cursor?: string, limit = 20) => owner<{ actions: AgentAction[], next_cursor: string | null }>(`actions?${new URLSearchParams({ ...(cursor ? { cursor } : {}), limit: String(limit) })}`),
 	undo: (id: string) => owner<AgentAction>(`actions/${encodeURIComponent(id)}/undo`, { method: 'POST', body: {} }),
+	activity: (q: { agent?: string, cursor?: string, limit?: number } = {}) => owner<{ items: ActivityItem[], next_cursor: string | null }>(`activity?${new URLSearchParams({ ...(q.agent ? { agent: q.agent } : {}), ...(q.cursor ? { cursor: q.cursor } : {}), limit: String(q.limit ?? 30) })}`),
+	approval: (rid: string) => owner<Approval>(`approvals/${encodeURIComponent(rid)}`),
 	decide: (rid: string, decision: 'approve' | 'reject', note?: string) => owner<Approval>(`approvals/${encodeURIComponent(rid)}/${decision}`, { method: 'POST', body: { note: note ?? null } }),
 }
 

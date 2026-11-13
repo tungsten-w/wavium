@@ -114,7 +114,7 @@ export async function recordAction(ctx: ToolCtx, tool: Tool, input: R, result: u
 	}
 }
 
-interface Row { id: unknown, action_id: string, agent_uid: string, grantor_uid: string, area: string, tool: string, summary: string, request_id: string | null, undo: string | null, undone_at: unknown, undo_error: string | null, created_at: unknown }
+export interface ActionRow { id: unknown, action_id: string, agent_uid: string, grantor_uid: string, area: string, tool: string, summary: string, request_id: string | null, undo: string | null, undone_at: unknown, undo_error: string | null, created_at: unknown }
 
 export interface ActionView {
 	action_id: string
@@ -130,7 +130,7 @@ export interface ActionView {
 	undo_error: string | null
 }
 
-function view(r: Row): ActionView {
+export function actionView(r: ActionRow): ActionView {
 	const u = r.undo ? JSON.parse(r.undo) as Undo : null
 	const expired = num(r.created_at) < nowSec() - JOURNAL_DAYS * 86400
 	return {
@@ -159,16 +159,16 @@ export class Journal {
 			args.push(Number(q.cursor)); where.push(`id < $${args.length}`)
 		}
 		args.push(limit + 1)
-		const rows = await this.db.q<Row>(`SELECT * FROM ${this.db.t('atrium_agent_actions')} WHERE ${where.join(' AND ')} ORDER BY id DESC LIMIT $${args.length}`, args)
+		const rows = await this.db.q<ActionRow>(`SELECT * FROM ${this.db.t('atrium_agent_actions')} WHERE ${where.join(' AND ')} ORDER BY id DESC LIMIT $${args.length}`, args)
 		const page = rows.slice(0, limit)
-		return { actions: page.map(view), next_cursor: rows.length > limit ? String(num(page[page.length - 1].id)) : null }
+		return { actions: page.map(actionView), next_cursor: rows.length > limit ? String(num(page[page.length - 1].id)) : null }
 	}
 
 	/** The owner undoes one action. Claimed first, so two clicks run it once. */
 	async undo(owner: string, actionId: string): Promise<ActionView & { result: unknown }> {
 		await migrateJournal(this.db)
 		const T = this.db.t('atrium_agent_actions')
-		const [r] = await this.db.q<Row>(`SELECT * FROM ${T} WHERE action_id = $1`, [actionId])
+		const [r] = await this.db.q<ActionRow>(`SELECT * FROM ${T} WHERE action_id = $1`, [actionId])
 		if (!r || r.grantor_uid !== owner) throw new AgentError('not_found', `No action ${actionId}`)
 		if (r.undone_at !== null) throw new AgentError('conflict', 'Already undone')
 		if (!r.undo) throw new AgentError('conflict', 'This action cannot be undone from here')
@@ -196,7 +196,7 @@ export class Journal {
 			app: 'agent', area: r.area, type: 'action.undone', grantor: r.grantor_uid, agent: r.agent_uid, wakeHint: false,
 			dedupeKey: `undo:${actionId}`, data: { action_id: actionId, tool: r.tool, summary: r.summary, undo_tool: u.tool, undo_input: u.input },
 		})
-		const [after] = await this.db.q<Row>(`SELECT * FROM ${T} WHERE action_id = $1`, [actionId])
-		return { ...view(after), result: result ?? null }
+		const [after] = await this.db.q<ActionRow>(`SELECT * FROM ${T} WHERE action_id = $1`, [actionId])
+		return { ...actionView(after), result: result ?? null }
 	}
 }

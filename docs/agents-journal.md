@@ -77,3 +77,11 @@ internal routes from P3-1 and P3-2. Two catches from testing: sqlite numbers
 `$n` placeholders by first appearance (lesson added), and the end-to-end run
 showed a phishing demo mail listed as "reply": suspicious mail is now left out,
 at the Mail chip threshold.
+
+## 2026-11-13: P2-8 (sodium-93, solo) — start of the v2 night
+
+The other session wrote the v2 night plan (`reports/V2-NIGHT-PLAN.md`) and the
+split; this session owns `TASKS.md` on main and marks the other column's
+branches ready on request. P2-8 merges two tables into one paged timeline; a
+mutation (tie condition) survived until the paging test inserted seconds out
+of order, a reminder that test data that grows with time hides cursor bugs.

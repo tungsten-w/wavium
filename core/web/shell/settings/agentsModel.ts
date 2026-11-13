@@ -53,6 +53,7 @@ export interface Approval {
 	decided_at: string | null
 	note: string | null
 	error: string | null
+	result?: unknown
 }
 export type Preset = 'mail' | 'todo' | 'everything'
 
@@ -239,3 +240,8 @@ export interface AgentAction {
 	undone_at: string | null
 	undo_error: string | null
 }
+
+/** One line of Settings > Agent activity (server/agent/timeline.ts). */
+export type ActivityItem =
+	| ({ kind: 'action' } & AgentAction)
+	| { kind: 'request', at: string | null, agent: string, tool: string, summary: string, request_id: string, status: Approval['status'], decided_by: string | null, decided_at: string | null, error: string | null }

@@ -7,7 +7,7 @@
 // actions with Undo (AgentActions.tsx). Talks to the Bun
 // agent layer's owner API (agentsApi.ts); logic in agentsModel.ts.
 import { useCallback, useEffect, useState } from 'react'
-import { relativeTime, type Session } from '@atrium/sdk'
+import { navigate, relativeTime, type Session } from '@atrium/sdk'
 import { Avatar, Button, Card, Dialog, EmptyState, IconButton, Select, Spinner, Switch, Tabs, TextArea, TextField, confirmDialog, toast } from '@atrium/ui'
 import { AgentActions } from './AgentActions'
 import { api } from './agentsApi'
@@ -191,6 +191,7 @@ function AgentCard({ agent: a, areas, onChange, onConnect, onDeleted }: {
 					<div className="at-title-s">{a.displayName} {a.paused && <span className="at-chip at-chip--small">Paused</span>}</div>
 					<div className="at-muted" style={{ fontSize: 13 }}>{a.description || a.uid} · added {relativeTime(a.createdAt * 1000)}</div>
 				</div>
+				<IconButton icon="activity" label={`Activity of ${a.displayName}`} onClick={() => navigate(`/settings/user/agent-activity?agent=${encodeURIComponent(a.uid)}`)} />
 				<IconButton icon="delete" label={`Delete ${a.displayName}`} onClick={() => void remove()} disabled={busy} />
 			</div>
 

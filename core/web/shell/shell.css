@@ -307,3 +307,6 @@ html, body, #atrium { height: 100%; }
 .settings-mode--allowed { background: var(--at-secondary-container); color: var(--at-on-secondary-container); border-color: transparent; }
 .settings-mode--approval { background: var(--at-tertiary-container, var(--at-secondary-container)); color: var(--at-on-tertiary-container, inherit); border-color: transparent; }
 .settings-mode--off { color: var(--at-on-surface-variant); }
+
+/* Settings > Agent activity: request details (P2-8) */
+.agent-request__body { white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; background: var(--at-surface-container, rgba(127,127,127,.08)); padding: 12px; border-radius: 8px; font-size: 13px; font-family: inherit; }
