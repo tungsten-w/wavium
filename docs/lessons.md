@@ -132,6 +132,10 @@ not part of this repository.
   (Notes' TagService, activity attribution) need
   `IUserSession::setVolatileActiveUser($user)` for the call, and must be
   resolved after it (not injected into the controller).
+- Apps shipped with the server (files, dav, ...) load classes from a frozen
+  Composer classmap (`apps/<app>/composer/composer/autoload_{classmap,static}.php`):
+  a new class must be added there by hand. A route to a missing controller
+  makes **every** request 500, not just that route.
 - Test UI changes in a real browser too: a unit-test fixture with the wrong
   shape (the agent `restUrl`) hid a bug that a Playwright run found at once.
 

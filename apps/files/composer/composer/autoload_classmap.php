@@ -53,6 +53,7 @@ return array(
     'OCA\\Files\\Command\\TransferOwnership' => $baseDir . '/../lib/Command/TransferOwnership.php',
     'OCA\\Files\\Command\\WindowsCompatibleFilenames' => $baseDir . '/../lib/Command/WindowsCompatibleFilenames.php',
     'OCA\\Files\\ConfigLexicon' => $baseDir . '/../lib/ConfigLexicon.php',
+    'OCA\\Files\\Controller\\AtriumAgentController' => $baseDir . '/../lib/Controller/AtriumAgentController.php',
     'OCA\\Files\\Controller\\ApiController' => $baseDir . '/../lib/Controller/ApiController.php',
     'OCA\\Files\\Controller\\ConversionApiController' => $baseDir . '/../lib/Controller/ConversionApiController.php',
     'OCA\\Files\\Controller\\DirectEditingController' => $baseDir . '/../lib/Controller/DirectEditingController.php',

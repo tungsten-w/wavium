@@ -11,6 +11,18 @@ namespace OCA\Files\AppInfo;
 
 return [
 	'routes' => [
+		// Atrium agent layer, internal only (server/agent/files/).
+		['name' => 'atrium_agent#stat', 'url' => '/api/atrium-agent/stat', 'verb' => 'POST'],
+		['name' => 'atrium_agent#list', 'url' => '/api/atrium-agent/list', 'verb' => 'POST'],
+		['name' => 'atrium_agent#search', 'url' => '/api/atrium-agent/search', 'verb' => 'POST'],
+		['name' => 'atrium_agent#read', 'url' => '/api/atrium-agent/read', 'verb' => 'POST'],
+		['name' => 'atrium_agent#write', 'url' => '/api/atrium-agent/write', 'verb' => 'POST'],
+		['name' => 'atrium_agent#mkdir', 'url' => '/api/atrium-agent/mkdir', 'verb' => 'POST'],
+		['name' => 'atrium_agent#move', 'url' => '/api/atrium-agent/move', 'verb' => 'POST'],
+		['name' => 'atrium_agent#delete', 'url' => '/api/atrium-agent/delete', 'verb' => 'POST'],
+		['name' => 'atrium_agent#shares', 'url' => '/api/atrium-agent/shares', 'verb' => 'POST'],
+		['name' => 'atrium_agent#share', 'url' => '/api/atrium-agent/share', 'verb' => 'POST'],
+		['name' => 'atrium_agent#unshare', 'url' => '/api/atrium-agent/unshare', 'verb' => 'POST'],
 		[
 			'name' => 'view#index',
 			'url' => '/',
