@@ -5,7 +5,7 @@
 // responses, and SSE bodies cut into awkward chunks.
 import type { FetchFn } from './types'
 
-export interface Call { url: string, method: string, headers: Record<string, string>, body: any, signal?: AbortSignal | null, redirect?: RequestRedirect }
+export interface Call { url: string, method: string, headers: Record<string, string>, body: any, signal?: AbortSignal | null, redirect?: RequestInit['redirect'] }
 
 type Canned = Response | Error | ((c: Call) => Response | Promise<Response>)
 
