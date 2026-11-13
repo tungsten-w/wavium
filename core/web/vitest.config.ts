@@ -7,7 +7,8 @@
 // The shared packages resolve to their sources, like the shell's import map.
 // Run (from the repo root): make test-web
 //   or: cd core/web && bun --bun node_modules/.bin/vitest run
-// DOM tests start with `// @vitest-environment happy-dom`.
+// DOM tests import core/web/testing/dom first (happy-dom globals; vitest's
+// `@vitest-environment` switch breaks under the Bun runtime), see AGENTS.md.
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
