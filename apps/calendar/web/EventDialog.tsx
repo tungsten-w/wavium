@@ -3,9 +3,10 @@
 //
 // New / edit event. Repeating events ask "this event or all events" on save and delete.
 import { useEffect, useState } from 'react'
-import { Button, Dialog, Select, Spinner, Switch, TextArea, TextField, toast } from '@atrium/ui'
+import { Button, Dialog, IconButton, Select, Spinner, Switch, TextArea, TextField, toast } from '@atrium/ui'
 import { REMINDERS, createEvent, deleteEvent, formFrom, loadObject, masterOf, overrideOf, updateEvent, type Cal, type EventForm, type Instance, type Repeat, type StoredObject } from './api'
-import { dateKey, parseKey, timeOfDay } from '@atrium/sdk'
+import { dateKey, parseKey, timeOfDay, useApp } from '@atrium/sdk'
+import { answerInvite, isOrganizer, myAttendance, PARTSTAT_LABEL, validEmail, type PartStat, type People } from './extras'
 
 export type Draft = { inst: Instance } | { start: Date, end: Date, allDay: boolean }
 
@@ -24,8 +25,36 @@ export function EventDialog({ draft, calendars, defaultCal, onClose, onChanged }
 	const [calUrl, setCalUrl] = useState(inst?.cal.url ?? defaultCal?.url ?? '')
 	const [busy, setBusy] = useState(false)
 	const [ask, setAsk] = useState<null | 'save' | 'delete'>(null)
-	const readOnly = !!inst?.cal.readOnly
+	const { session } = useApp()
+	const me = { email: session.user.email ?? null, name: session.user.displayName }
+	const [guest, setGuest] = useState('')
+	const people: People = form?.people ?? { organizer: null, attendees: [] }
+	const organizer = isOrganizer(people, me.email)
+	const mine = myAttendance(people, me.email)
+	// Invited by someone else: the event is theirs; only my answer changes.
+	const invited = !!inst && !organizer
+	const readOnly = !!inst?.cal.readOnly || invited
 	const writable = calendars.filter((c) => !c.readOnly)
+	const setPeople = (p: People) => setForm((f) => f && { ...f, people: p })
+	const addGuest = () => {
+		const email = guest.trim()
+		if (!validEmail(email)) return toast.error('Not an email address')
+		if (people.attendees.some((a) => a.email.toLowerCase() === email.toLowerCase())) return setGuest('')
+		setPeople({ ...people, attendees: [...people.attendees, { email, name: '', partstat: 'NEEDS-ACTION', role: 'REQ-PARTICIPANT' }] })
+		setGuest('')
+	}
+	async function answer(a: PartStat) {
+		if (!obj || !me.email) return
+		setBusy(true)
+		try {
+			await answerInvite(obj, me.email, a)
+			toast(a === 'ACCEPTED' ? 'You accepted' : a === 'DECLINED' ? 'You declined' : 'You answered maybe')
+			onChanged()
+			onClose()
+		} catch (e) {
+			toast.error(`Could not answer: ${errText(e)}`)
+		} finally { setBusy(false) }
+	}
 
 	useEffect(() => {
 		if (!inst) return
@@ -46,8 +75,9 @@ export function EventDialog({ draft, calendars, defaultCal, onClose, onChanged }
 		if (repeating && !ask) return setAsk('save')
 		setBusy(true)
 		try {
-			if (inst && obj) await updateEvent(obj, inst, form, scope, target)
-			else await createEvent(target, form)
+			const f = { ...form, me }
+			if (inst && obj) await updateEvent(obj, inst, f, scope, target)
+			else await createEvent(target, f)
 			onChanged()
 			onClose()
 		} catch (e) {
@@ -84,7 +114,14 @@ export function EventDialog({ draft, calendars, defaultCal, onClose, onChanged }
 	return (
 		<Dialog open title={inst ? (readOnly ? 'Event' : 'Edit event') : 'New event'} onClose={onClose}
 			actions={form && (readOnly
-				? <Button variant="text" onClick={onClose}>Close</Button>
+				? <>
+					{invited && mine && !inst?.cal.readOnly && <>
+						<Button variant="text" busy={busy} onClick={() => answer('DECLINED')}>Decline</Button>
+						<Button variant="tonal" busy={busy} onClick={() => answer('TENTATIVE')}>Maybe</Button>
+						<Button busy={busy} onClick={() => answer('ACCEPTED')}>Accept</Button>
+					</>}
+					<Button variant="text" onClick={onClose}>Close</Button>
+				</>
 				: <>
 					{inst && <Button variant="text" className="cal-dlg__delete" icon="delete" onClick={() => remove()} disabled={busy}>Delete</Button>}
 					<span className="at-spacer" />
@@ -127,6 +164,26 @@ export function EventDialog({ draft, calendars, defaultCal, onClose, onChanged }
 						</div>
 						<TextField label="Location" icon="place" value={form.location} onChange={(e) => set('location', e.target.value)} />
 						<TextArea label="Description" rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} />
+					</fieldset>
+					<div className="cal-dlg__people">
+						{invited && people.organizer && <p className="at-muted" style={{ margin: 0 }}>Invitation from {people.organizer.name || people.organizer.email}{mine ? ` · your answer: ${PARTSTAT_LABEL[mine.partstat]}` : ''}</p>}
+						{people.attendees.length > 0 && <ul className="cal-guests" aria-label="Guests">
+							{people.attendees.map((a) => (
+								<li key={a.email}>
+									<span className="cal-guests__who">{a.name || a.email}</span>
+									<span className={`cal-guests__state cal-guests__state--${a.partstat.toLowerCase()}`}>{PARTSTAT_LABEL[a.partstat]}</span>
+									{!readOnly && <IconButton icon="close" label={`Remove ${a.email}`} onClick={() => setPeople({ ...people, attendees: people.attendees.filter((x) => x !== a) })} />}
+								</li>
+							))}
+						</ul>}
+						{!readOnly && <div className="cal-guests__add">
+							<TextField label="Invite by email" type="email" value={guest} onChange={(e) => setGuest(e.target.value)}
+								onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addGuest() } }} />
+							<Button variant="tonal" disabled={!guest.trim()} onClick={addGuest}>Invite</Button>
+						</div>}
+						{!readOnly && people.attendees.length > 0 && <p className="at-muted cal-guests__hint">Guests get an invitation by email when you save{me.email ? '' : ' (set your email in Settings > Profile first)'}.</p>}
+					</div>
+					<fieldset disabled={readOnly} className="cal-dlg__fields">
 						{(readOnly ? calendars : writable).length > 1 || readOnly ? (
 							<Select label="Calendar" value={calUrl} onChange={(e) => setCalUrl(e.target.value)} disabled={readOnly}>
 								{(readOnly ? calendars : writable).map((c) => <option key={c.url} value={c.url}>{c.name}</option>)}
