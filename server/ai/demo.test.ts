@@ -31,3 +31,9 @@ test('rule, dates and reply', () => {
 	expect(demoExtract('Sent: 2026-11-13 09:00 (UTC)\nSubject: Votre facture\n\n<email>\nà régler avant le 30/11\n</email>').tasks).toEqual([{ title: 'Payer la facture', due: '2026-11-30' }])
 	expect(demoReply('<thread>\nFrom: Bob Durand <bob@x>\nSubject: Dîner ?\n\nSalut, tu es libre ?\n</thread>')).toStartWith('Bonjour Bob,')
 })
+
+test('digest summary uses the headline', async () => {
+	const ai = createMockProvider({ defaultModel: 'demo' })
+	const r = await ai.complete({ system: 'You write the opening of a person\'s morning digest', messages: [{ role: 'user', content: '<digest>\n2 mails need a reply · 1 event\n\nMail:\n- x\n</digest>' }] })
+	expect(r.text).toBe('Aujourd\'hui : 2 mails need a reply · 1 event. Commence par les mails qui attendent une réponse.')
+})

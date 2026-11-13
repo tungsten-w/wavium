@@ -128,7 +128,7 @@ export function demoAnswer(req: AiRequest): DemoReply | null {
 	if (forced?.name === 'extract') return { toolCalls: [{ name: 'extract', input: demoExtract(prompt) }] }
 	if (!forced && req.system?.includes('draft email replies')) return { text: demoReply(prompt) }
 	if (!forced && req.system?.includes('morning digest')) {
-		const head = between(prompt, '<digest>', '\n').trim()
+		const head = between(prompt, '<digest>\n', '\n').trim()
 		return { text: head && !head.startsWith('Nothing') ? `Aujourd'hui : ${head.charAt(0).toLowerCase()}${head.slice(1)}. Commence par les mails qui attendent une réponse.` : 'Rien d\'urgent aujourd\'hui.' }
 	}
 	return null
