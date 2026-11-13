@@ -6,6 +6,7 @@ import { AppLayout, Avatar, Button, Dialog, EmptyState, Icon, IconButton, Menu, 
 import { AccountSettings, AccountSetup } from './Account'
 import { ComposeDialog, blankComposer, type ComposerState } from './Compose'
 import { MailStatus } from './Status'
+import { mismatchText, senderMismatch } from './spoof'
 import { archiveTarget, kindBoxes, labelQuery, sortBoxes, type ViewKind } from './labels'
 import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
 import './style.css'
@@ -383,6 +384,17 @@ function LoadMore({ busy, onVisible }: { busy: boolean, onVisible: () => void })
 	return <div ref={ref} className="ml-more">{busy && <Spinner small />}</div>
 }
 
+/** The sender's name claims a brand, domain or address its own domain does not match (P5-4). */
+function SpoofChip({ from }: { from?: Message['from'][number] | null }) {
+	const m = senderMismatch(from)
+	return m ? <span className="ml-tags"><span className="ml-tag ml-tag--danger" title={mismatchText(m)}>Sender mismatch</span></span> : null
+}
+
+function SpoofBanner({ from }: { from?: Message['from'][number] | null }) {
+	const m = senderMismatch(from)
+	return m ? <p className="ml-spoof" role="alert"><Icon name="warning" /> {mismatchText(m)}</p> : null
+}
+
 /** Chips for what the classifier found: category, urgency when it matters, and the strong yes/no signals. */
 function TriageChips({ t }: { t?: Triage | null }) {
 	if (!t) return null
@@ -418,7 +430,7 @@ function MessageRow({ message, triage, selected, outgoing, onOpen, onFlag, onArc
 	return <li className={`ml-message ${selected ? 'ml-message--selected' : ''} ${message.flags.seen ? '' : 'ml-message--unread'}`}>
 		<button className="ml-message__main" onClick={onOpen}>
 			<Avatar name={avatar} size={40} />
-			<span className="ml-message__text"><span className="ml-message__top"><strong>{who}</strong><time>{relativeTime(message.dateInt * 1000)}</time></span>{!outgoing && message.from[0]?.email && <span className="ml-message__from">{message.from[0].email}</span>}<span className="ml-message__subject">{message.subject || '(no subject)'}</span><span className="ml-message__preview">{message.previewText || addressText(message.to)}</span>{message.goneFromServer && <span className="ml-kept" title="No longer on the mail server: Atrium keeps its own copy"><Icon name="archive" /> Only in Atrium</span>}<TriageChips t={triage} /></span>
+			<span className="ml-message__text"><span className="ml-message__top"><strong>{who}</strong><time>{relativeTime(message.dateInt * 1000)}</time></span>{!outgoing && message.from[0]?.email && <span className="ml-message__from">{message.from[0].email}</span>}<span className="ml-message__subject">{message.subject || '(no subject)'}</span><span className="ml-message__preview">{message.previewText || addressText(message.to)}</span>{message.goneFromServer && <span className="ml-kept" title="No longer on the mail server: Atrium keeps its own copy"><Icon name="archive" /> Only in Atrium</span>}<SpoofChip from={outgoing ? null : message.from[0]} /><TriageChips t={triage} /></span>
 		</button>
 		<div className="ml-message__actions">
 			<IconButton className={`ml-star ${message.flags.flagged ? 'ml-star--on' : ''}`} icon={message.flags.flagged ? 'star' : 'starBorder'} label={message.flags.flagged ? 'Unstar message' : 'Star message'} onClick={onFlag} />
@@ -483,6 +495,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			<h1>{subject}</h1>
 			<div className="ml-sender"><Avatar name={displayAddress(body.from[0])} size={44} /><div><strong>{displayAddress(body.from[0])}</strong>{body.from[0]?.email && <span className="ml-from" title="The address this mail really came from">{body.from[0].email}</span>}<span>to {body.to.map((a) => a.label || a.email).join(', ') || 'me'}</span></div><time>{messageDate(body.dateInt)}</time></div>
 			<TriageLine t={triage} busy={classifying} />
+			<SpoofBanner from={body.from[0]} />
 			{(body.atriumCopy?.goneFromServer || message?.goneFromServer) && <p className="ml-kept ml-kept--reader"><Icon name="archive" /> Only in Atrium: no longer on the mail server.{' '}{body.atriumCopy?.text === false ? 'Its text was never copied before it left the server, so only the sender, subject and date are kept.' : body.atriumCopy?.full === false ? 'Shown from the text Atrium kept (formatting and attachments are not kept).' : 'Attachments are not kept.'}</p>}
 			{!body.atriumCopy?.goneFromServer && !message?.goneFromServer && body.atriumCopy?.source === 'atrium' && body.atriumCopy.full === false && <p className="ml-kept ml-kept--reader"><Icon name="archive" /> The mail server could not be reached: shown from the text Atrium kept.</p>}
 			{blocked && !showImages && <div className="ml-images"><Icon name="image" /><span>Remote images are hidden to protect your privacy.</span><Button variant="text" size="s" onClick={() => setShowImages(true)}>Show images</Button></div>}
