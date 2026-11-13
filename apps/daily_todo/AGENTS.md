@@ -106,6 +106,21 @@ owner get the event. Publishing never breaks the action: a failure is only logge
 from a bare PHP script call `\OC_App::loadApps()` first, otherwise the Activity app's consumer is
 not registered and nothing is stored; remove the test rows from `oc_activity` afterwards.
 
+### Atrium agents (tools and events)
+
+- Agent tools live in `server/agent/todo/index.ts` (area `daily_todo`): `todo_day_get`,
+  `todo_overdue`, `todo_trash_list`, `todo_item_create`, `todo_item_complete`,
+  `todo_item_rename`, `todo_item_move`, `todo_item_postpone`, `todo_item_delete` (action
+  `delete`: approval by default), `todo_item_restore`. They call
+  `POST /apps/daily_todo/api/atrium-agent` (`AtriumAgentController`, internal header only),
+  which runs `BoardService` as the grantor: the app's rules apply unchanged.
+- Events: `BoardService` queues a `todo.*` event for every change, from the UI or an agent
+  (`AgentEvents`, table `atrium_agent_event_queue`; a no-op when the agent layer is absent):
+  `todo.item.created / completed / uncompleted / renamed / deleted / postponed / restored`,
+  `todo.day.reordered`, `todo.day.finished`. `data.actor` = who acted (the grantor for an
+  agent call), `data.agent` = the agent's uid when an agent did it. A new change in
+  `BoardService` must emit its event too (`tests/run-agent.php` checks the list).
+
 ### Day lifecycle
 
 - A day is created only when it is today (first view, or the `MaterializeBoardsJob`

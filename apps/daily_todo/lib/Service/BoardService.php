@@ -21,7 +21,7 @@ final class BoardService
         '📝 daily review',
     ];
 
-    public function __construct(private IDBConnection $db, private IGroupManager $groups, private CalDavAdapter $dav, private IUserManager $users, private ActivityPublisher $activity) {}
+    public function __construct(private IDBConnection $db, private IGroupManager $groups, private CalDavAdapter $dav, private IUserManager $users, private ActivityPublisher $activity, private ?AgentEvents $events = null) {}
     private function one(string $table, array $where): ?array
     {
         $q = $this->db->getQueryBuilder();
@@ -444,8 +444,15 @@ final class BoardService
         if ($done && !$i['completed'] && $i['source_type'] !== 'task' && EntryTree::separator((string) $i['title']) === null) {
             $this->activity->itemCompleted($actor, (string) $b['owner_uid'], (string) $i['title']);
         }
+        if ((bool) $i['completed'] !== $done && EntryTree::separator((string) $i['title']) === null) {
+            $this->events?->emit($done ? 'todo.item.completed' : 'todo.item.uncompleted', (string) $b['owner_uid'], $actor, [
+                'item_id' => $id, 'day' => (string) $d['day'], 'title' => (string) $i['title'], 'kind' => (string) $i['source_type'],
+                'cascaded' => array_map(fn($t) => (int) $t['id'], array_slice($targets, 1)),
+            ]);
+        }
         if ($done && $this->dayIsFinished((int) $d['id'])) {
             $this->activity->dayFinished($actor, (string) $b['owner_uid'], (string) $d['day']);
+            $this->events?->emit('todo.day.finished', (string) $b['owner_uid'], $actor, ['day' => (string) $d['day']]);
         }
     }
     /** Everything on the day is ticked (dividers and gaps do not count), and there is something. */
@@ -502,11 +509,15 @@ final class BoardService
             $q = $this->db->getQueryBuilder();
             $q->update('daily_todo_items')->set('position', $q->createNamedParameter($p, IQueryBuilder::PARAM_INT))->where($q->expr()->eq('id', $q->createNamedParameter((int) $id)))->andWhere($q->expr()->eq('day_id', $q->createNamedParameter($d['id'])))->executeStatement();
         }
+        $this->events?->emit('todo.day.reordered', (string) $b['owner_uid'], $actor, ['day' => $day, 'item_ids' => array_map('intval', array_values($ids))]);
     }
     public function createQuick(string $actor, string $day, string $title, ?string $owner = null, ?int $parentId = null, ?int $afterId = null): int
     {
         $id = $this->insertQuick($actor, $day, $title, $owner, $parentId, $afterId);
         $this->activity->itemAdded($actor, $owner ?? $actor, trim($title) ?: 'New item');
+        $this->events?->emit('todo.item.created', $owner ?? $actor, $actor, [
+            'item_id' => $id, 'day' => $day, 'title' => trim($title) ?: 'New item', 'kind' => 'quick', 'parent_id' => $parentId,
+        ]);
 
         return $id;
     }
@@ -602,7 +613,7 @@ final class BoardService
      */
     public function rename(string $actor, int $id, string $title): void
     {
-        [$i] = $this->itemForActor($actor, $id);
+        [$i, $d, $b] = $this->itemForActor($actor, $id);
         $title = trim($title);
         if ($title === '') {
             throw new \RuntimeException('A title is required');
@@ -619,6 +630,9 @@ final class BoardService
             $q->set('title_locked', $q->createNamedParameter(true, IQueryBuilder::PARAM_BOOL));
         }
         $q->where($q->expr()->eq('id', $q->createNamedParameter($id)))->executeStatement();
+        $this->events?->emit('todo.item.renamed', (string) $b['owner_uid'], $actor, [
+            'item_id' => $id, 'day' => (string) $d['day'], 'title' => $title, 'old_title' => (string) $i['title'], 'kind' => (string) $i['source_type'],
+        ]);
     }
     /**
      * Delete a quick item or trash a real task tree in Tasks. Returns the id of a short-lived copy
@@ -648,6 +662,9 @@ final class BoardService
             throw $error;
         }
         $this->activity->itemDeleted($actor, (string) $b['owner_uid'], (string) $i['title']);
+        $this->events?->emit('todo.item.deleted', (string) $b['owner_uid'], $actor, [
+            'item_id' => $id, 'day' => (string) $d['day'], 'title' => (string) $i['title'], 'kind' => (string) $i['source_type'], 'trash_id' => $trash,
+        ]);
 
         return $trash;
     }
@@ -697,6 +714,9 @@ final class BoardService
         }
         $trash = $this->trash((int) $b['id'], (string) $d['day'], $due, $block);
         $this->activity->itemPostponed($actor, (string) $b['owner_uid'], (string) $i['title'], $due);
+        $this->events?->emit('todo.item.postponed', (string) $b['owner_uid'], $actor, [
+            'item_id' => $id, 'day' => (string) $d['day'], 'title' => (string) $i['title'], 'kind' => (string) $i['source_type'], 'due' => $due, 'trash_id' => $trash,
+        ]);
 
         return ['trash' => $trash, 'due' => $due];
     }
@@ -776,6 +796,9 @@ final class BoardService
             $this->placeQuickRows($b, $this->dayRow($b, $logical), $block['rows'] ?? []);
         }
         $this->activity->itemRestored($actor, (string) $b['owner_uid'], (string) ($block['title'] ?? ''));
+        $this->events?->emit('todo.item.restored', (string) $b['owner_uid'], $actor, [
+            'trash_id' => $trashId, 'day' => $inPlace ? (string) $t['day'] : $logical, 'title' => (string) ($block['title'] ?? ''),
+        ]);
     }
 
     /**
