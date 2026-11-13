@@ -1,43 +1,58 @@
 # deploy
 
-How Atrium is built and run. Everything outside this folder is the server code.
+How Atrium is built and run in production. Everything outside this folder is
+the server code. **Development does not use this folder's stack**: run
+`make up` at the repo root (`compose.yaml`, scripts in `deploy/dev/`).
 
 | File | What |
 | --- | --- |
-| `build.sh` | Builds `atrium:local` (and `atrium:<commit>`) from this repo: HEAD plus uncommitted changes to tracked files. `VERIFY=1` also diffs the result against the official release tree. |
-| `Dockerfile` | Official `nextcloud:34.0.5-apache` image (pinned digest) with `/usr/src/nextcloud` replaced by our code. Adds back what the release tarball has and the repo does not: apps from separate repos (activity, viewer, text, ...), built docs, skeleton files, the image's `config/*.config.php`. Drops Nextcloud's code signatures. |
+| `build.sh` | Builds `atrium:local` (and `atrium:<commit>`) from this repo: HEAD plus uncommitted changes to tracked files. `ATRIUM_TAG=<tag>` builds another tag and leaves `atrium:local` alone. `VERIFY=1` also diffs the result against the official release tree. |
+| `Dockerfile` | Official `nextcloud:34.0.5-fpm` image (pinned digest) with `/usr/src/nextcloud` replaced by our code, plus Bun (baseline build: runs on CPUs without AVX) and the React UIs built in a separate stage. Adds back what the release has and the repo does not: apps from separate repos (viewer, text, ...), built docs, skeleton files, the image's `config/*.config.php`. Drops Nextcloud's code signatures (they only match unmodified code). |
+| `atrium-web.sh` | The container's command: runs PHP-FPM (127.0.0.1:9000) and the Bun web server (port 80) as `www-data`. If either exits, the container exits and Docker restarts it. |
+| `php-fpm.conf` | FPM pool behind Bun: local listen, `max_children 6`, long request timeout for DAV transfers, `clear_env = no`. Bind-mounted by `compose.yaml`, so a change needs a restart, not a rebuild. |
+| `atrium-entrypoint.sh` | Runs before the official entrypoint. If the image's build string differs from the installed one (same version number), it syncs the code into `/var/www/html`, switches off removed apps, runs `occ upgrade` and Atrium's core migrations, and clears theming's image cache. |
 | `gen-version.php` | Writes `version.php` in release format with channel `git` (no signature check, no updater nag) and build string `<date> <commit>`. |
-| `atrium-entrypoint.sh` | Runs before the official entrypoint. If the image's build string differs from the installed one (same version number), it syncs the code into `/var/www/html`, runs `occ upgrade` and refreshes `.htaccess`. |
-| `compose.yaml` | The live stack on the Atrium image. Data in `../live/data` (override with `DATA_DIR`), secrets in `../live/.env`, Daily Todo bind-mounted from `../apps/daily_todo`. |
-| `test/compose.yaml` | Test instance (`atrium-test`) on `127.0.0.1:8091`: own DB/redis/volumes, no cron, NC Mail on a local GreenMail server. |
+| `removed-apps` | Apps of the official release that Atrium does not ship. |
+| `compose.yaml` | Production stack: app (Bun + FPM), cron, PostgreSQL 17, Redis 8, with CPU/RAM limits. Domain from `ATRIUM_DOMAIN`, secrets and `POSTGRES_*` in `../live/.env`, data in `../live/data` (override with `DATA_DIR`). Sits behind an existing reverse proxy (external network `NPM_NETWORK`). A generic setup with Caddy is planned (TASKS.md P6-1). |
+| `test/compose.yaml` | Test instance (`atrium-test`, `127.0.0.1:8091`) restored from a production dump: own DB/redis/volumes, no cron, Mail pointed at a local GreenMail server. |
+| `night/` | Containers for night runs of AI agents (`night.sh` at the repo root). |
+| `dev/` | Dev stack scripts (`make up`). |
 
-Verified on 2026-10-31: the unmodified fork rebuilds the official 34.0.5 tree except `version.php` and the 57 `signature.json` files.
+The unmodified fork rebuilds the official 34.0.5 tree except `version.php` and
+the `signature.json` files (`VERIFY=1`, checked 2026-10-31).
 
-## Test instance from a copy of live
+## Production: build and deploy
 
-Reads live only (`pg_dump`, read-only mounts). See `test/compose.yaml`.
+1. Back up first: `pg_dump -Fc` of the database and a copy of
+   `live/data/nextcloud` (config, data, custom_apps).
+2. `bash deploy/build.sh` (10–15 min on a small CPU; no downtime).
+3. In `deploy/`: `docker compose -p atrium --env-file ../live/.env up -d`. The
+   first start of a new build syncs the code and runs the upgrade
+   (`atrium-entrypoint.sh`): count a few minutes of downtime, so batch changes.
+4. Check `status.php` (productname Atrium), login, Files, Calendar, Mail,
+   `/agent/mcp` (401 without a token).
 
-1. `pg_dump -Fc` from `atrium-db-1`; start the test `db`; create role `oc_admin` with the password from live `config.php` (`dbuser`/`dbpassword`); `pg_restore`.
-2. Copy `config/ data/ custom_apps/ themes/` from the live `/var/www/html` and `../apps/daily_todo` into volume `atrium-test_html`.
-3. `docker compose up -d app greenmail`, then on the copy: `mail_smtpmode null`, `has_internet_connection false`, `background:cron`, trusted domains/overwrite* to `127.0.0.1:8091`.
-4. Real mail credentials are taken out automatically. The dump holds the live Gmail accounts, so the `mailguard` service in `test/compose.yaml` runs before the app on every `up`: it points each account at GreenMail, drops passwords, OAuth and sieve credentials, and keeps background jobs on `cron` (no runner on the copy). The app does not start if it fails. `test/repoint-mail.sh` (run by the integration script) then sets the dummy GreenMail password and clears the cached live mail. Accounts with ids above 2 need a `test<id>` user in `greenmail.users`; the script says so. Set `ATRIUM_IMAGE=atrium:phase1` (or another test tag) in the copy's `.env`, so a plain `up` never runs the live image there.
+Rollback: rebuild or re-tag the previous `atrium:<commit>` image as
+`atrium:local` and `up -d` again; restore the database dump if a migration ran.
 
-## Switching live (done 2026-10-31)
+Everything live is under `live/` (gitignored, never commit it): `data/`
+(`nextcloud` = /var/www/html, `postgres`, `redis`), `.env`, `backups/`.
 
-Live now runs from here. Redeploy: `bash deploy/build.sh`, then in `deploy/`:
-`docker compose -p atrium --env-file ../live/.env up -d`.
+## Test instance from a copy of production
 
-Original switch steps:
+Reads production only (`pg_dump`, read-only mounts). See `test/compose.yaml`.
 
-1. Backup: `pg_dump` + copy of `nextcloud/data/nextcloud` (config, data, custom_apps).
-2. `bash deploy/build.sh`.
-3. In `deploy/`: `docker compose up -d` (same project name, same data paths). The first start installs the Atrium code (`atrium-entrypoint.sh`).
-4. Check `status.php` (productname Atrium), login, files, calendar, Daily Todo, Mail.
-
-Rollback: `docker compose up -d` in `../../nextcloud` (official image). Its entrypoint does NOT resync code when the version number is equal, so restore the backed-up code tree or bump nothing and re-copy `/usr/src/nextcloud` from the official image.
-
-## Layout since the move (2026-10-31)
-
-Everything live is under `atrium/live/` (gitignored, never commit it):
-`data/` (`nextcloud` = /var/www/html, `postgres`, `redis`; root/www-data owned), `.env`, `backups/` (pre-Atrium backup, `pre-move-20261031.dump`).
-The weekly host backup (a root-owned script outside the repo) snapshots `atrium/live` (minus `backups/` and raw postgres) plus `deploy/compose.yaml` and `apps/daily_todo`. The old `nextcloud/` dir was trashed on 2026-10-31; the rollback steps above refer to that old layout (its compose is in `live/old-nextcloud/`).
+1. `pg_dump -Fc` of the production DB; start the test `db`; create the DB role
+   from the production `config.php` (`dbuser`/`dbpassword`); `pg_restore`.
+2. Copy `config/ data/ custom_apps/ themes/` from production `/var/www/html` into
+   volume `atrium-test_html`.
+3. `docker compose up -d app greenmail`, then on the copy: `mail_smtpmode null`,
+   `has_internet_connection false`, `background:cron`, trusted domains and
+   `overwrite*` to `127.0.0.1:8091`.
+4. Real mail credentials are taken out automatically: the `mailguard` service
+   runs before the app on every `up`, points every mail account at GreenMail,
+   drops passwords, OAuth and sieve credentials, and keeps background jobs on
+   `cron`. The app does not start if it fails. `test/repoint-mail.sh` then sets
+   the dummy GreenMail passwords. Accounts with ids above 2 need a `test<id>`
+   user in `greenmail.users`; the script says so. Set `ATRIUM_IMAGE` to a test
+   tag in the copy's `.env`, so a plain `up` never runs the production image there.

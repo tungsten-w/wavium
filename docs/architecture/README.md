@@ -30,10 +30,10 @@ Runs only as containers (`deploy/`). There is no bare-metal install.
 | [0003](0003-agent-principal.md) | Agents are special user accounts owned by a user | accepted, data model in place |
 | [0004](0004-agent-grants.md) | Per user, per agent, per area grants | accepted, data model in place |
 | [0005](0005-agent-tools.md) | One tool definition per app, MCP and REST, full CRUD | accepted, contracts in place |
-| [0006](0006-events.md) | Push events to agents | accepted, not started |
-| [0007](0007-frontend-and-server.md) | React UIs, Bun server in front of PHP-FPM | accepted, not started |
+| [0006](0006-events.md) | Push events to agents | accepted; built for mail (event log + cursor + signed doorbell, `server/agent/events.ts`) |
+| [0007](0007-frontend-and-server.md) | React UIs, Bun server in front of PHP-FPM | accepted; built (`server/`, `core/web/`, `apps/*/web/`), in production since 2026-11-01 |
 | [0008](0008-client-compatibility.md) | What clients use and must keep working | accepted |
-| [0009](0009-agent-layer-mail-first.md) | Agent layer first slice: agents, approvals, events, mail tools | accepted (2026-11-08), not started |
+| [0009](0009-agent-layer-mail-first.md) | Agent layer first slice: agents, approvals, events, mail tools | accepted (2026-11-08); built in TypeScript (`server/agent/`), in production since 2026-11-08 |
 
 The phase checklist is `todo.md` at the repo root.
 
@@ -48,3 +48,7 @@ The phase checklist is `todo.md` at the repo root.
 | Apps | `apps/<id>/` |
 | Deployment | `deploy/` (see its README) |
 | Atrium-only checks | `build/atrium/` |
+| Bun web server | `server/` (`index.ts`, `routes.ts`, `php.ts`, `fastcgi.ts`) |
+| Agent layer (MCP, REST, approvals, events) | `server/agent/`; its tables `atrium_agent_*` are created by the Bun server (`server/agent/schema.ts`) |
+| React shell and design system | `core/web/` |
+| Dev stack | `compose.yaml` + `Makefile` at the root, scripts in `deploy/dev/` |
