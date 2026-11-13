@@ -61,7 +61,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [ ] P5-1 Daily digest: what needs a reply or an action today
 - [ ] P5-2 AI reply drafts through approval (nothing sent without a click)
 - [ ] P5-3 Filing rules in natural language (AI proposes, human validates, applied without AI)
-- [~] (instance A, 2026-11-13) P5-4 Scam detection: display name vs address domain
+- [x] P5-4 Scam detection: display name vs address domain — branch ready: night/P5-4 (heuristics; AI signal waits for P2-4)
 - [ ] P5-5 Assisted newsletter unsubscribe (`List-Unsubscribe`, confirmation)
 - [ ] P5-6 Built-in assistant panel (provider + MCP tools, same permissions)
 - [ ] P5-7 Mail → tasks and calendar ("this mail has a meeting → create it?")
