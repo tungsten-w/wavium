@@ -205,3 +205,4 @@ cypress/videos
 /.env
 /logs/
 /config/config.php.aborted.*
+/data.stale.*/

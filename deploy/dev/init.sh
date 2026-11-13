@@ -28,6 +28,24 @@ chmod 0770 data
 
 installed() { occ status --output=json 2>/dev/null | grep -q '"installed":true'; }
 
+# config.php says "installed" but the DB volume is new (docker compose down -v
+# without make reset): occ cannot even boot. Dev only: set the stale config and
+# data aside (not deleted) and install again.
+db_has_tables() {
+	php -r 'try { $p = new PDO("pgsql:host=db;dbname=".getenv("POSTGRES_DB"), getenv("POSTGRES_USER"), getenv("POSTGRES_PASSWORD"));
+		exit($p->query("SELECT to_regclass(\x27public.oc_appconfig\x27) IS NOT NULL")->fetchColumn() ? 0 : 1); } catch (Throwable $e) { exit(2); }'
+}
+if [ -f config/config.php ] && grep -q "'installed' => true" config/config.php; then
+	i=0; until db_has_tables; rc=$?; [ $rc -ne 2 ]; do i=$((i+1)); [ $i -lt 60 ] || break; sleep 2; done
+	if [ "${rc:-0}" = 1 ]; then
+		stale="data.stale.$(date +%s)"
+		log "config.php is installed but the database is empty: moving config.php and data/ to $stale and installing again"
+		mkdir -p "$stale"
+		mv config/config.php "$stale/"
+		find data -mindepth 1 -maxdepth 1 -exec mv {} "$stale/" \;
+	fi
+fi
+
 if ! installed; then
 	# A config.php without an install (aborted first start) would block the installer.
 	if [ -f config/config.php ] && ! grep -q "'installed' => true" config/config.php; then
