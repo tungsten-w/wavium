@@ -107,3 +107,54 @@ test('openai-compatible: custom base URL and headers, broken tool JSON kept raw'
 	expect(await p.listModels()).toEqual(['anthropic/claude-sonnet-4.5', 'openai/gpt-4.1'])
 	expect(calls[1].url).toBe('https://openrouter.ai/api/v1/models')
 })
+
+// --- after review (round 2) ---
+
+const ch = (delta: unknown, finish: string | null = null) => [null, { model: 'm', choices: [{ index: 0, delta, finish_reason: finish }] }] as [null, unknown]
+
+test('openai: a stream cut before [DONE] and without finish_reason is unavailable, with usage so far', async () => {
+	const { p } = provider({}, sseRes(sse([ch({ content: 'half' }), [null, { choices: [], usage: { prompt_tokens: 5, completion_tokens: 2 } }]])))
+	const e = await collect(p.stream({ messages: [{ role: 'user', content: 'x' }] })).catch((e) => e)
+	expect(e).toMatchObject({ code: 'unavailable', message: expect.stringContaining('[DONE]') })
+	expect(e.usage).toEqual({ inputTokens: 5, outputTokens: 2, reported: true })
+})
+
+test('openai-compatible: finish_reason without [DONE] is complete; no usage -> reported false', async () => {
+	const { p } = provider({ kind: 'openai-compatible', baseUrl: 'http://vllm:8000/v1' }, sseRes(sse([ch({ content: 'ok' }, 'stop')])))
+	const evs = await collect(p.stream({ messages: [{ role: 'user', content: 'x' }] }))
+	expect(evs.at(-1)).toMatchObject({ type: 'done', result: { text: 'ok', stopReason: 'end', usage: { inputTokens: 0, outputTokens: 0, reported: false } } })
+})
+
+test('openai: mid-stream insufficient_quota error is budget, like the HTTP one', async () => {
+	const { p } = provider({}, sseRes(sse([ch({ content: 'a' }), [null, { error: { message: 'You exceeded your current quota', type: 'insufficient_quota', code: 'insufficient_quota' } }]])))
+	expect(await collect(p.stream({ messages: [{ role: 'user', content: 'x' }] })).catch((e) => e)).toMatchObject({ code: 'budget' })
+})
+
+test('openai: streamed tool name repeated in every delta is taken once', async () => {
+	const tc = (args: string) => ch({ tool_calls: [{ index: 0, id: 'c1', function: { name: 'search_mail', arguments: args } }] })
+	const { p } = provider({}, sseRes(sse([tc('{"q":'), tc('"a"}'), ch({}, 'tool_calls'), [null, '[DONE]']])))
+	const evs = await collect(p.stream({ messages: [{ role: 'user', content: 'x' }], tools }))
+	expect(evs.filter((e) => e.type === 'tool_call')).toEqual([{ type: 'tool_call', call: { id: 'c1', name: 'search_mail', input: { q: 'a' } } }])
+})
+
+test('openai: toolChoice mapping, malformed arguments echoed back raw, unknown finish -> stop, cached tokens', async () => {
+	const { p, calls } = provider({},
+		...['auto', 'none', 'required', 'named'].map(() => completion({ role: 'assistant', content: 'a' }, 'weird_new_reason', { prompt_tokens: 50, completion_tokens: 1, prompt_tokens_details: { cached_tokens: 40 } } as any)),
+	)
+	let last
+	for (const toolChoice of ['auto', 'none', 'required', { name: 'search_mail' }] as const) {
+		last = await p.complete({ messages: [
+			{ role: 'user', content: 'x' },
+			{ role: 'assistant', content: [{ type: 'tool_call', id: 't1', name: 'search_mail', input: '{"q": "unterminated' }] },
+			{ role: 'user', content: [{ type: 'tool_result', toolCallId: 't1', content: 'bad input' }] },
+		], tools, toolChoice })
+	}
+	expect(calls.map((c) => c.body.tool_choice)).toEqual(['auto', 'none', 'required', { type: 'function', function: { name: 'search_mail' } }])
+	expect(calls[0].body.messages[1].tool_calls[0].function.arguments).toBe('{"q": "unterminated')
+	expect(last).toMatchObject({ stopReason: 'stop', providerStopReason: 'weird_new_reason', usage: { inputTokens: 50, outputTokens: 1, cacheReadTokens: 40, reported: true } })
+})
+
+test('openai: listModels on an unexpected shape is unavailable, not a TypeError', async () => {
+	const { p } = provider({}, jsonRes([1, 2]))
+	expect(await p.listModels().catch((e) => e)).toMatchObject({ name: 'AiError', code: 'unavailable' })
+})

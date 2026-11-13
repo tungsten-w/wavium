@@ -5,7 +5,7 @@
 import { expect, test } from 'bun:test'
 import { parseRetryAfter } from './errors'
 import { AiError, createProvider, type ProviderConfig } from './index'
-import { collect, fakeFetch, jsonRes } from './testkit'
+import { collect, fakeFetch, jsonRes, sseRes } from './testkit'
 
 const KEY = 'sk-test-SECRET-0123456789'
 const req = { messages: [{ role: 'user' as const, content: 'x' }] }
@@ -138,4 +138,84 @@ test('mock: streams the text in chunks, then tool calls, then done', async () =>
 		{ type: 'tool_call', call: { id: 'c1', name: 'f', input: {} } },
 		{ type: 'done', result: { text: 'one two  three', toolCalls: [{ id: 'c1', name: 'f', input: {} }], stopReason: 'tool_use', usage: expect.any(Object), model: 'mock-1' } },
 	])
+})
+
+// --- after review (round 2) ---
+
+test('errors: a plain 429 rate limit linking to the billing page stays rate_limit; retry-after-ms wins', async () => {
+	const body = { error: { message: 'Rate limit reached for gpt-4.1 in organization org-x on tokens per min (TPM): Limit 30000, Used 30000. Please try again in 1.2s. Visit https://platform.openai.com/account/billing to increase your limit.', type: 'tokens', param: null, code: 'rate_limit_exceeded' } }
+	const e = await errorFor('openai', jsonRes(body, 429, { 'retry-after': '2', 'retry-after-ms': '1200' }))
+	expect(e).toMatchObject({ code: 'rate_limit', retryAfter: 2 })
+	const e2 = await errorFor('openai', jsonRes(body, 429, { 'retry-after-ms': '300' }))
+	expect(e2.retryAfter).toBe(1)
+	// Free text alone never makes a budget error: only the structured fields do.
+	expect((await errorFor('anthropic', jsonRes({ type: 'error', error: { type: 'rate_limit_error', message: 'see billing / insufficient quota' } }, 429))).code).toBe('rate_limit')
+	expect((await errorFor('anthropic', jsonRes({ type: 'error', error: { type: 'billing_error', message: 'x' } }, 400))).code).toBe('budget')
+})
+
+test('redirects are not followed (key would travel along): 3xx -> invalid', async () => {
+	for (const kind of ['anthropic', 'openai'] as const) {
+		const f = fakeFetch(new Response(null, { status: 307, headers: { location: 'https://evil.example/v1/messages' } }))
+		const p = createProvider({ kind, apiKey: KEY, defaultModel: 'm' }, { fetch: f.fetch })
+		expect(await p.complete(req).catch((e) => e)).toMatchObject({ code: 'invalid', status: 307, message: expect.stringContaining('redirect') })
+		expect(f.calls[0].redirect).toBe('manual')
+	}
+})
+
+test('size limits: huge JSON answer -> unavailable; huge error body is cut but still classified', async () => {
+	const big = 'x'.repeat(9 * 1024 * 1024)
+	const f = fakeFetch(new Response(`{"a":"${big}"}`), new Response(JSON.stringify({ error: { message: 'bad key' }, pad: big }), { status: 401 }))
+	const p = createProvider({ kind: 'openai', apiKey: KEY, defaultModel: 'm' }, { fetch: f.fetch })
+	expect(await p.complete(req).catch((e) => e)).toMatchObject({ code: 'unavailable', message: expect.stringContaining('bytes') })
+	expect(await p.complete(req).catch((e) => e)).toMatchObject({ code: 'auth', status: 401 })
+})
+
+test('stream: an SSE line that never ends -> unavailable', async () => {
+	let sent = 0
+	const f = fakeFetch(() => new Response(new ReadableStream({
+		pull(ctrl) {
+			if (sent++ > 300) return ctrl.close()
+			ctrl.enqueue(new TextEncoder().encode('data: ' + 'y'.repeat(8192)))
+		},
+	})))
+	const p = createProvider({ kind: 'openai', apiKey: KEY, defaultModel: 'm' }, { fetch: f.fetch })
+	expect(await collect(p.stream(req)).catch((e) => e)).toMatchObject({ code: 'unavailable', message: expect.stringContaining('over') })
+})
+
+test('stream: the idle timeout does not count the time the caller spends between events', async () => {
+	const body = 'data: {"choices":[{"delta":{"content":"a"}}]}\n\ndata: {"choices":[{"delta":{"content":"b"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+	// Like a real connection, the body fails once our signal aborts.
+	const f = fakeFetch((c) => {
+		const inner = sseRes(body, 4).body!.getReader()
+		return new Response(new ReadableStream({
+			async pull(ctrl) {
+				if (c.signal!.aborted) return ctrl.error(new DOMException('aborted', 'AbortError'))
+				const { done, value } = await inner.read()
+				if (done) ctrl.close()
+				else ctrl.enqueue(value)
+			},
+		}))
+	})
+	const p = createProvider({ kind: 'openai', apiKey: KEY, defaultModel: 'm', timeoutMs: 30 }, { fetch: f.fetch })
+	const got: string[] = []
+	for await (const ev of p.stream(req)) {
+		if (ev.type === 'text') got.push(ev.text)
+		await Bun.sleep(60)
+	}
+	expect(got.join('')).toBe('ab')
+})
+
+test('stream: a caller abort carries the usage known so far too', async () => {
+	const ctrl = new AbortController()
+	const f = fakeFetch((c) => new Response(new ReadableStream({
+		start(s) {
+			s.enqueue(new TextEncoder().encode('event: message_start\ndata: {"type":"message_start","message":{"model":"m","usage":{"input_tokens":12,"output_tokens":1}}}\n\n'))
+			s.enqueue(new TextEncoder().encode('data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}\n\n'))
+			c.signal!.addEventListener('abort', () => s.error(new DOMException('aborted', 'AbortError')))
+		},
+	})))
+	const p = createProvider({ kind: 'anthropic', apiKey: KEY, defaultModel: 'm' }, { fetch: f.fetch })
+	const e = await (async () => { for await (const ev of p.stream({ ...req, signal: ctrl.signal })) if (ev.type === 'text') ctrl.abort(new Error('stop')) })().catch((e) => e)
+	expect(e).not.toBeInstanceOf(AiError)
+	expect(e.usage).toEqual({ inputTokens: 12, outputTokens: 1, reported: true })
 })

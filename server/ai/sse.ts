@@ -11,16 +11,34 @@ export interface SseEvent {
 	data: string
 }
 
-export async function* readSse(body: ReadableStream<Uint8Array>, onChunk?: () => void): AsyncGenerator<SseEvent> {
+export interface SseOptions {
+	/** Called around each network read: the idle timeout only runs while we wait for the server. */
+	beforeRead?: () => void
+	afterRead?: () => void
+	/** Max size of one event (a base URL is user-set: a server must not make us buffer forever). */
+	maxEventChars?: number
+}
+
+export const MAX_EVENT_CHARS = 1 << 20
+
+/** Thrown when a server sends a line or event over the limit. */
+export class SseLimitError extends RangeError {
+	name = 'SseLimitError'
+}
+
+export async function* readSse(body: ReadableStream<Uint8Array>, opts: SseOptions = {}): AsyncGenerator<SseEvent> {
+	const max = opts.maxEventChars ?? MAX_EVENT_CHARS
 	const reader = body.getReader()
 	const decoder = new TextDecoder()
 	let buf = ''
 	let event = ''
 	let data: string[] = []
+	let size = 0
 	const flush = (): SseEvent | null => {
 		const out = data.length ? { event: event || 'message', data: data.join('\n') } : null
 		event = ''
 		data = []
+		size = 0
 		return out
 	}
 	const line = (l: string): SseEvent | null => {
@@ -30,19 +48,24 @@ export async function* readSse(body: ReadableStream<Uint8Array>, onChunk?: () =>
 		const field = i < 0 ? l : l.slice(0, i)
 		let value = i < 0 ? '' : l.slice(i + 1)
 		if (value.startsWith(' ')) value = value.slice(1)
-		if (field === 'data') data.push(value)
-		else if (field === 'event') event = value
+		if (field === 'data') {
+			size += value.length
+			if (size > max) throw new SseLimitError(`stream event over ${max} characters`)
+			data.push(value)
+		} else if (field === 'event') event = value
 		return null
 	}
 	try {
 		for (;;) {
+			opts.beforeRead?.()
 			const { done, value } = await reader.read()
+			opts.afterRead?.()
 			buf += done ? decoder.decode() : decoder.decode(value, { stream: true })
-			if (!done) onChunk?.()
 			// A trailing "\r" may be the first half of "\r\n": wait for the next chunk.
 			const cut = done ? buf.length : buf.endsWith('\r') ? buf.length - 1 : buf.length
 			const lines = buf.slice(0, cut).split(/\r\n|\r|\n/)
 			buf = lines.pop()! + buf.slice(cut)
+			if (buf.length > max) throw new SseLimitError(`stream line over ${max} characters`)
 			for (const l of lines) {
 				const ev = line(l)
 				if (ev) yield ev

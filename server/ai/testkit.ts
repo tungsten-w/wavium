@@ -5,7 +5,7 @@
 // responses, and SSE bodies cut into awkward chunks.
 import type { FetchFn } from './types'
 
-export interface Call { url: string, method: string, headers: Record<string, string>, body: any, signal?: AbortSignal | null }
+export interface Call { url: string, method: string, headers: Record<string, string>, body: any, signal?: AbortSignal | null, redirect?: RequestRedirect }
 
 type Canned = Response | Error | ((c: Call) => Response | Promise<Response>)
 
@@ -13,7 +13,7 @@ export function fakeFetch(...canned: Canned[]): { fetch: FetchFn, calls: Call[] 
 	const calls: Call[] = []
 	const fetch: FetchFn = async (url, init = {}) => {
 		const headers = Object.fromEntries(new Headers(init.headers).entries())
-		const c: Call = { url, method: init.method ?? 'GET', headers, body: init.body ? JSON.parse(String(init.body)) : undefined, signal: init.signal }
+		const c: Call = { url, method: init.method ?? 'GET', headers, body: init.body ? JSON.parse(String(init.body)) : undefined, signal: init.signal, redirect: init.redirect }
 		calls.push(c)
 		const next = canned.shift()
 		if (!next) throw new Error('fakeFetch: no canned response left')

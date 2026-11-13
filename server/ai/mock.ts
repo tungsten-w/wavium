@@ -85,7 +85,7 @@ export function createMockProvider(opts: MockOptions = {}): MockProvider {
 			text,
 			toolCalls,
 			stopReason: script.stopReason ?? (toolCalls.length ? 'tool_use' : maxed ? 'max_tokens' : 'end'),
-			usage: { inputTokens: script.usage?.inputTokens ?? Math.ceil(requestChars(req) / 4), outputTokens: script.usage?.outputTokens ?? tokens(text) },
+			usage: { inputTokens: script.usage?.inputTokens ?? Math.ceil(requestChars(req) / 4), outputTokens: script.usage?.outputTokens ?? tokens(text), reported: true },
 			model: script.model ?? req.model ?? opts.defaultModel ?? 'mock-1',
 		}
 	}

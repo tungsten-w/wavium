@@ -107,3 +107,72 @@ test('anthropic: listModels / testConnection', async () => {
 	expect(bad.ok).toBe(false)
 	expect(bad.error?.code).toBe('auth')
 })
+
+// --- after review (round 2) ---
+
+const start = ['message_start', { type: 'message_start', message: { model: 'm', usage: { input_tokens: 10, output_tokens: 1, cache_read_input_tokens: 4, cache_creation_input_tokens: 2 } } }] as [string, unknown]
+const textBlock = (t: string): Array<[string, unknown]> => [
+	['content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }],
+	['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: t } }],
+	['content_block_stop', { type: 'content_block_stop', index: 0 }],
+]
+
+test('anthropic: a stream cut before message_stop is unavailable, with the usage known so far', async () => {
+	const { p } = provider(sseRes(sse([start, ...textBlock('half'), ['message_delta', { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 7 } }]])))
+	const e = await collect(p.stream({ messages: [{ role: 'user', content: 'go' }] })).catch((e) => e)
+	expect(e).toMatchObject({ code: 'unavailable', message: expect.stringContaining('message_stop') })
+	expect(e.usage).toEqual({ inputTokens: 16, outputTokens: 7, cacheReadTokens: 4, cacheWriteTokens: 2, reported: true })
+})
+
+test('anthropic: an unterminated tool_use block is an error, not dropped silently', async () => {
+	const { p } = provider(sseRes(sse([
+		start,
+		['content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 't', name: 'f', input: {} } }],
+		['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"a":' } }],
+		['message_stop', { type: 'message_stop' }],
+	])))
+	expect(await collect(p.stream({ messages: [{ role: 'user', content: 'go' }] })).catch((e) => e)).toMatchObject({ code: 'unavailable' })
+})
+
+test('anthropic: credit balance error event mid-stream is budget, like the HTTP one', async () => {
+	const { p } = provider(sseRes(sse([start, ['error', { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' } }]])))
+	const e = await collect(p.stream({ messages: [{ role: 'user', content: 'go' }] })).catch((e) => e)
+	expect(e).toMatchObject({ code: 'budget', status: undefined })
+	expect(e.usage.inputTokens).toBe(16)
+})
+
+test('anthropic: tool_result blocks first, empty text dropped, malformed tool input sent as {}', async () => {
+	const { p, calls } = provider(jsonRes({ model: 'm', content: [], stop_reason: 'end_turn', usage: {} }))
+	await p.complete({ messages: [
+		{ role: 'user', content: 'go' },
+		{ role: 'assistant', content: [{ type: 'text', text: '' }, { type: 'tool_call', id: 't1', name: 'f', input: '{"broken' }] },
+		{ role: 'user', content: [{ type: 'text', text: 'and also' }, { type: 'tool_result', toolCallId: 't1', content: 'r' }] },
+	] })
+	expect(calls[0].body.messages.slice(1)).toEqual([
+		{ role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'f', input: {} }] },
+		{ role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'r' }, { type: 'text', text: 'and also' }] },
+	])
+})
+
+test('anthropic: toolChoice mapping, omitted without tools', async () => {
+	const ok = () => jsonRes({ model: 'm', content: [], stop_reason: 'end_turn', usage: {} })
+	const { p, calls } = provider(ok(), ok(), ok(), ok(), ok())
+	for (const toolChoice of ['auto', 'none', 'required', { name: 'search_mail' }] as const) await p.complete({ messages: [{ role: 'user', content: 'x' }], tools, toolChoice })
+	await p.complete({ messages: [{ role: 'user', content: 'x' }], toolChoice: 'required' })
+	expect(calls.map((c) => c.body.tool_choice)).toEqual([{ type: 'auto' }, { type: 'none' }, { type: 'any' }, { type: 'tool', name: 'search_mail' }, undefined])
+})
+
+test('anthropic: stop reasons (context window, pause_turn, unknown) and cache usage', async () => {
+	const res = (stop_reason: string) => jsonRes({ model: 'm', content: [], stop_reason, usage: { input_tokens: 3, output_tokens: 1, cache_read_input_tokens: 100 } })
+	const { p } = provider(res('model_context_window_exceeded'), res('pause_turn'), res('something_new'), res('refusal'))
+	const got = []
+	for (let i = 0; i < 4; i++) got.push(await p.complete({ messages: [{ role: 'user', content: 'x' }] }))
+	expect(got.map((r) => r.stopReason)).toEqual(['max_tokens', 'stop', 'stop', 'error'])
+	expect(got[2].providerStopReason).toBe('something_new')
+	expect(got[0].usage).toEqual({ inputTokens: 103, outputTokens: 1, cacheReadTokens: 100, reported: true })
+})
+
+test('anthropic: listModels on an unexpected shape is unavailable, not a TypeError', async () => {
+	const { p } = provider(jsonRes({ models: 'nope' }))
+	expect(await p.listModels().catch((e) => e)).toMatchObject({ name: 'AiError', code: 'unavailable' })
+})

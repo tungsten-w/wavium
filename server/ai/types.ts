@@ -47,21 +47,40 @@ export interface ToolDef {
 	inputSchema: Record<string, unknown>
 }
 
+export type ToolChoice = 'auto' | 'none' | 'required' | { name: string }
+
 export interface AiRequest {
 	/** Falls back to the provider's defaultModel. */
 	model?: string
 	system?: string
 	messages: AiMessage[]
 	tools?: ToolDef[]
+	/** Ignored without tools. 'required' = must call some tool; {name} = must call that one (e.g. a forced classification). */
+	toolChoice?: ToolChoice
 	maxTokens?: number
 	temperature?: number
 	stop?: string[]
 	signal?: AbortSignal
 }
 
+/**
+ * 'stop' = stopped for another reason than the other four: a stop sequence,
+ * Anthropic's pause_turn, or a reason this layer does not know yet (the raw
+ * value is in AiResult.providerStopReason).
+ */
 export type StopReason = 'end' | 'max_tokens' | 'tool_use' | 'stop' | 'error'
 
-export interface Usage { inputTokens: number, outputTokens: number }
+export interface Usage {
+	/** All input tokens, cached ones included. */
+	inputTokens: number
+	outputTokens: number
+	/** Part of inputTokens read from the prompt cache (Anthropic cache_read, OpenAI cached_tokens). */
+	cacheReadTokens?: number
+	/** Part of inputTokens written to the prompt cache (Anthropic cache_creation). */
+	cacheWriteTokens?: number
+	/** False when the server sent no usage (some OpenAI-compatible ones): budgets must estimate. */
+	reported: boolean
+}
 
 export interface AiResult {
 	text: string
@@ -69,6 +88,8 @@ export interface AiResult {
 	stopReason: StopReason
 	usage: Usage
 	model: string
+	/** The provider's own stop reason, as sent. */
+	providerStopReason?: string
 	/** Provider's own response (or last stream event), for debugging. */
 	raw?: unknown
 }
