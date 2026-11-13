@@ -39,9 +39,9 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 
 ## Phase 3: agent tools for every app (ADR 0009 order)
 
-- [ ] P3-1 Daily Todo tools + `todo.*` events
+- [~] P3-1 Daily Todo tools + `todo.*` events (instance main, 2026-11-13)
 - [ ] P3-2 Calendar + Tasks tools, discoverable delegated calendars, `calendar.*` / `task.*` events
-- [ ] P3-3 Contacts tools (simple fields, no raw vCard)
+- [~] P3-3 Contacts tools (simple fields, no raw vCard) (instance A, 2026-11-13)
 - [ ] P3-4 Files tools (share = approval)
 - [ ] P3-5 Notes, then Activity (read only)
 - [ ] P3-6 Cross-app `search` tool — deps: P3-1..P3-5
