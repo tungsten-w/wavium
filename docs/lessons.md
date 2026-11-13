@@ -122,6 +122,10 @@ not part of this repository.
 - Unit tests written against SQLite may bind PHP `false` for booleans; on
   PostgreSQL that becomes `''` and fails. Use SQL `true`/`false` literals or
   typed parameters.
+- Apps shipped with the server (files, dav, ...) load classes from a frozen
+  Composer classmap (`apps/<app>/composer/composer/autoload_{classmap,static}.php`):
+  a new class must be added there by hand. A route to a missing controller
+  makes **every** request 500, not just that route.
 - Test UI changes in a real browser too: a unit-test fixture with the wrong
   shape (the agent `restUrl`) hid a bug that a Playwright run found at once.
 

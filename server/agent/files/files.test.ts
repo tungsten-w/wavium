@@ -20,7 +20,7 @@ let shares: PhpShare[]
 let calls: Array<[string, Record<string, unknown>]>
 let nextId = 100
 
-const node = (file_id: number, path: string, f: Partial<PhpNode> = {}): PhpNode & { content?: string } => ({
+const node = (file_id: number, path: string, f: Partial<PhpNode & { content: string }> = {}): PhpNode & { content?: string } => ({
 	file_id, path, name: path.split('/').pop() || '', type: 'file', mime: 'text/markdown', size: 10, modified: 1_700_000_000, etag: `e${file_id}a`,
 	can: { write: true, delete: true, share: true }, shared_with_me: false, ...f,
 })
@@ -131,6 +131,8 @@ test('write: options passed through, etag conflict', async () => {
 
 test('delete: approval by default, summary, void if changed, then executed', async () => {
 	await grant({ read: 'allowed', write: 'allowed' })
+	await expect(call('files_delete', { path: '/' })).rejects.toMatchObject({ code: 'invalid_input' })
+	await expect(call('files_share', { path: '/', type: 'link' })).rejects.toMatchObject({ code: 'invalid_input' })
 	const p1 = await call('files_delete', { path: '/Documents/plan.md' })
 	expect(p1.status).toBe('pending_approval')
 	expect((await approvals.get(p1.request_id))!.summary).toBe('Delete /Documents/plan.md (10 bytes)')

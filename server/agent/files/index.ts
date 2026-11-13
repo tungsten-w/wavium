@@ -165,6 +165,7 @@ export function filesTools(bridge: FilesBridge): Tool[] {
 			input: obj(target),
 			prepare: async (ctx, input) => {
 				const n = await stat(ctx, targetOf(input))
+				if (n.path === '/') throw new AgentError('invalid_input', 'Cannot delete the home folder')
 				const what = n.type === 'folder' ? `folder ${n.path}` : `${n.path} (${n.size} bytes)`
 				return { payload: { file_id: n.file_id, etag: n.etag, path: n.path }, summary: `Delete ${what}`, ref: `file:${n.file_id}` }
 			},
@@ -180,7 +181,7 @@ export function filesTools(bridge: FilesBridge): Tool[] {
 		},
 		{
 			name: 'files_share_list',
-			description: 'Shares the owner made (user, group, public link), on one item or all.',
+			description: 'Shares the owner made (user, group, public link), on one item or all. path null = the item is in the trash bin (the share comes back if it is restored).',
 			area: 'files',
 			input: obj(target),
 			run: async (ctx, input) => {
@@ -203,6 +204,7 @@ export function filesTools(bridge: FilesBridge): Tool[] {
 			}, ['type']),
 			prepare: async (ctx, input) => {
 				const n = await stat(ctx, targetOf(input))
+				if (n.path === '/') throw new AgentError('invalid_input', 'Cannot share the home folder')
 				const type = String(input.type)
 				if (type !== 'link' && !input.with) throw new AgentError('invalid_input', `with is required for a ${type} share`)
 				if (type === 'link' && input.with) throw new AgentError('invalid_input', 'A public link has no `with`')
