@@ -44,3 +44,10 @@ A took P2-2 (settings store, routes, page); the other session took P2-3
 `routing.ts`), each creating its own tables, so no shared migration list and no
 shared file except the AI README. Agreed boundaries by message before starting;
 both P2-3 and P2-5 were ready before P2-2 with no conflict.
+
+## 2026-11-13: P3-7 (instance A, solo)
+
+Journal + undo built on the existing tools instead of new PHP: each undo is an
+inverse tool call computed from the action's own result. The real-stack run
+caught a script mistake (events_since needs a cursor) and a thin summary for
+notes created from content only (fixed: fall back to the result's fields).
