@@ -445,3 +445,7 @@ export async function undoDelete(accountId: number, trashId: number, messageId: 
 		throw e
 	}
 }
+
+/** P4-1: contacts and past correspondents matching `term` (Mail's own autocomplete). */
+export interface Suggestion { id?: string | number, label: string, email: string }
+export const autoComplete = (term: string) => mail<Suggestion[]>(`/autoComplete?term=${encodeURIComponent(term)}`)

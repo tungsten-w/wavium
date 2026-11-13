@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useRef, useState } from 'react'
 import { Button, Dialog, Icon, IconButton, Select, TextArea, TextField, confirmDialog, toast } from '@atrium/ui'
+import { AddressField } from './AddressField'
 import { HttpError } from '@atrium/sdk'
 import { createOutbox, deleteOutbox, parseAddresses, saveDraft, sendOutbox, updateOutbox, uploadAttachment, type Account, type Attachment, type ComposeData } from './api'
 
@@ -134,8 +135,8 @@ export function ComposeDialog({ initial, accounts, onClose, onDone, onPickDraft 
 					</Select>
 					<Button variant="text" size="s" onClick={() => setShowCc((v) => !v)}>Cc / Bcc</Button>
 				</div>
-				<TextField label="To" required autoFocus value={draft.to} onChange={(e) => patch({ to: e.target.value })} placeholder="name@example.org" />
-				{showCc && <div className="ml-composer__cc"><TextField label="Cc" value={draft.cc} onChange={(e) => patch({ cc: e.target.value })} /><TextField label="Bcc" value={draft.bcc} onChange={(e) => patch({ bcc: e.target.value })} /></div>}
+				<AddressField label="To" required autoFocus value={draft.to} onChange={(v) => patch({ to: v })} placeholder="name@example.org" />
+				{showCc && <div className="ml-composer__cc"><AddressField label="Cc" value={draft.cc} onChange={(v) => patch({ cc: v })} /><AddressField label="Bcc" value={draft.bcc} onChange={(v) => patch({ bcc: v })} /></div>}
 				<TextField label="Subject" value={draft.subject} onChange={(e) => patch({ subject: e.target.value })} />
 				<TextArea className="ml-composer__body" label="Message" rows={14} value={draft.body} onChange={(e) => patch({ body: e.target.value })} />
 				{draft.attachments.length > 0 && <div className="ml-attachments ml-attachments--compose">

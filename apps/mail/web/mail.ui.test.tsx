@@ -186,3 +186,20 @@ test('delete moves to Trash with Undo; Undo syncs Trash and puts the mail back',
 	await waitFor(() => getByText(document.body, 'Message restored'))
 	void bar
 })
+
+test('To suggests contacts after two letters; picking one completes the last address', async () => {
+	server.on('GET', '/apps/mail/api/autoComplete', (req) => req.query.get('term') === 'bo' ? [{ id: 1, label: 'Bob Durand', email: 'bob@atrium.test' }, { id: 2, label: 'bob2@x.test', email: 'bob2@x.test' }] : [])
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(container, 'Dinner on Friday?'))
+	await click(getButton(container, 'New message'))
+	const dialog = await waitFor(() => document.querySelector<HTMLElement>('.ml-composer'))
+	const to = getField(dialog, 'To') as HTMLInputElement
+	to.focus()
+	await type(to, 'claire@x.test, bo')
+	const list = await waitFor(() => dialog.querySelector('[aria-label="To suggestions"]'))
+	expect(server.calls('GET', '/apps/mail/api/autoComplete').at(-1)!.query.get('term')).toBe('bo')
+	expect(list.textContent).toContain('bob@atrium.test')
+	await click(getByText(list as HTMLElement, 'Bob Durand').closest('button')!)
+	expect(to.value).toBe('claire@x.test, Bob Durand <bob@atrium.test>, ')
+	await waitFor(() => !dialog.querySelector('[aria-label="To suggestions"]'))
+})

@@ -264,3 +264,10 @@
 .ml-extract li small { color: var(--at-on-surface-variant); }
 .ml-extract__ok { display: inline-flex; align-items: center; gap: 4px; color: var(--at-primary); font-size: 13px; }
 .ml-extract__err { color: var(--at-error, #b3261e); }
+
+/* Address suggestions (P4-1) */
+.ml-addr { position: relative; }
+.ml-addr__list { position: absolute; z-index: 20; left: 0; right: 0; top: 100%; margin: 2px 0 0; padding: 4px; list-style: none; border-radius: var(--at-radius-m); background: var(--at-surface-container-highest, var(--at-surface)); box-shadow: 0 4px 16px rgb(0 0 0 / 0.18); }
+.ml-addr__list button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 6px 10px; border: 0; border-radius: var(--at-radius-s); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ml-addr__list li[aria-selected="true"] button, .ml-addr__list button:hover { background: var(--at-surface-container-high); }
+.ml-addr__list small { color: var(--at-on-surface-variant); }
