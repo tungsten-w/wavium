@@ -50,7 +50,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 ## Phase 4: finish the React apps
 
 - [~] (sodium-7a, 2026-11-13) P4-1 Mail: threads, contact autocomplete, HTML compose, tags, snooze, unified inbox, Sieve, undo delete
-- [~] (sodium-93, 2026-11-13) P4-2 Calendar: appointments, attendees, subscriptions, old event URLs
+- [x] P4-2 Calendar: appointments, attendees, subscriptions, old event URLs — branch ready: night/P4-2
 - [~] (sodium-93, 2026-11-13) P4-3 Tasks: recurring, drag sort, sharing
 - [~] (sodium-93, 2026-11-13) P4-4 Files: versions, comments, tags, file requests, templates, external storage
 - [~] (sodium-93, 2026-11-13) P4-5 Dashboard: JS widgets, weather
