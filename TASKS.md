@@ -28,7 +28,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 
 ## Phase 2: AI (after P0)
 
-- [x] P2-1 Provider layer `server/ai/`: Anthropic, OpenAI, Mistral, OpenAI-compatible, Ollama, mock — branch ready: night/P2-1 (2 should-fix left, see its report: do before P2-3)
+- [x] P2-1 Provider layer `server/ai/`: Anthropic, OpenAI, Mistral, OpenAI-compatible, Ollama, mock — branch ready: night/P2-1 (review items all fixed; usage via AiRequest.onUsage)
 - [ ] P2-2 Settings > AI: providers, encrypted keys, test connection — deps: P2-1
 - [ ] P2-3 Budgets and usage: daily/monthly caps, tokens and cost, pause on errors — deps: P2-1
 - [ ] P2-4 Mail triage on the provider layer (instead of tollgate), `mail-v2` kept — deps: P2-1, P2-3
