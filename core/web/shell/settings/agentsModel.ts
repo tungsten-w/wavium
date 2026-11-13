@@ -156,7 +156,8 @@ function shq(s: string): string {
  */
 export function connectGuides(info: Pick<ConnectInfo, 'mcpUrl' | 'restUrl' | 'openapiUrl' | 'token'>): ClientGuide[] {
 	const { mcpUrl, token } = info
-	const base = info.restUrl.replace(/\/agent\/v1\/?$/, '')
+	// restUrl reads "<base>/agent/v1/tools/<tool>" (server/agent/owner.ts).
+	const base = info.restUrl.replace(/\/agent\/v1(\/.*)?$/, '')
 	const bearer = `Bearer ${token}`
 	const json = (v: unknown) => JSON.stringify(v, null, 2)
 	return [
@@ -201,7 +202,7 @@ export function connectGuides(info: Pick<ConnectInfo, 'mcpUrl' | 'restUrl' | 'op
 		{
 			id: 'rest',
 			label: 'Script (REST)',
-			intro: `Any language can call the tools over HTTP: POST ${info.restUrl}/tools/<tool> with a JSON body. The list of tools and their inputs: ${info.openapiUrl}.`,
+			intro: `Any language can call the tools over HTTP: POST ${base}/agent/v1/tools/<tool> with a JSON body. The list of tools and their inputs: ${info.openapiUrl}.`,
 			steps: [
 				{
 					label: 'atrium.sh',

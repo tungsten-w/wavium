@@ -7,7 +7,7 @@ import { connectGuides } from './agentsModel'
 
 const info = {
 	mcpUrl: 'https://atrium.example.com/agent/mcp',
-	restUrl: 'https://atrium.example.com/agent/v1',
+	restUrl: 'https://atrium.example.com/agent/v1/tools/<tool>', // exactly as server/agent/owner.ts returns it
 	openapiUrl: 'https://atrium.example.com/agent/v1/openapi.json',
 	token: "tok'en-123",
 }
@@ -48,6 +48,10 @@ describe('connect box guides', () => {
 		expect(toml.value).toContain('bearer_token_env_var = "ATRIUM_TOKEN"')
 		expect(toml.value).not.toContain(info.token)
 		expect(env.value).toBe(`export ATRIUM_TOKEN='tok'\\''en-123'`)
+	})
+
+	it('REST intro names the tool URL once', () => {
+		expect(guide('rest').intro).toContain('POST https://atrium.example.com/agent/v1/tools/<tool> ')
 	})
 
 	it('REST script runs: right URL, header and body, default body {}', () => {
