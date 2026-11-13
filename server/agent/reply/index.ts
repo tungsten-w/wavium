@@ -33,8 +33,8 @@ const MAX_INSTRUCTION = 500
 export const replySubject = (s: string) => (/^\s*(re|aw|sv|antw)\s*:/i.test(s) ? s.trim() : `Re: ${s.trim() || '(no subject)'}`)
 
 /** The thread as the model sees it: oldest first, newest kept whole when it must be cut. */
-export function threadText(messages: Array<{ from: { name?: string, address?: string } | null, date: string, subject: string, text?: string }>): string {
-	const parts = messages.map((m) => `From: ${m.from?.name ? `${m.from.name} <${m.from.address}>` : m.from?.address ?? 'unknown'}\nDate: ${m.date}\nSubject: ${m.subject}\n\n${(m.text ?? '').trim()}`)
+export function threadText(messages: Array<{ from: { name?: string, address?: string } | null, date: string | null, subject: string, text?: string }>): string {
+	const parts = messages.map((m) => `From: ${m.from?.name ? `${m.from.name} <${m.from.address}>` : m.from?.address ?? 'unknown'}\nDate: ${m.date ?? 'unknown'}\nSubject: ${m.subject}\n\n${(m.text ?? '').trim()}`)
 	let out = parts.join('\n\n-----\n\n')
 	// Drop the oldest messages first: the one being answered matters most.
 	while (out.length > MAX_THREAD_CHARS && parts.length > 1) {
