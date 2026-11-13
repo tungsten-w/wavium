@@ -250,3 +250,7 @@
 .ml-rules__list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ml-rules__desc { flex: 1 1 240px; min-width: 0; font-size: 13px; color: var(--at-on-surface-variant); }
 .ml-rules__recent small { color: var(--at-on-surface-variant); }
+
+/* Assisted unsubscribe (P5-5) */
+.ml-unsub { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 0; padding: 6px 12px; border-radius: var(--at-radius-m); background: var(--at-surface-container-high); font-size: 13px; }
+.ml-unsub--done { color: var(--at-on-surface-variant); }

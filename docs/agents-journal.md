@@ -94,3 +94,11 @@ without AI, and the AI only turning a sentence into that same data, checked by
 the same validator (folder = enum of real folders, Trash never offered). A
 claim table makes filing idempotent, which the reclassify button exercises in
 the end-to-end run.
+
+### 2026-11-14 · P5-5 (sodium-7a)
+
+Nextcloud Mail already had one-click unsubscribe in PHP but no React UI and
+nothing for agents. Kept its route for the UI, added two internal ops for the
+agent tool (link frozen in the approval, re-checked before executing), and
+never executed against the demo list: its domain is real (rule A1), so the
+POST is covered by fakes only.

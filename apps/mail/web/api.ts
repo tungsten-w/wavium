@@ -104,6 +104,10 @@ export interface MessageBody {
 	databaseId: number
 	isSenderTrusted: boolean
 	signature?: string | null
+	/** List-Unsubscribe (P5-5): https link, RFC 8058 one-click, mailto. */
+	unsubscribeUrl?: string | null
+	isOneClickUnsubscribe?: boolean
+	unsubscribeMailto?: string | null
 	/** Where the reader body came from: Atrium's copy or the mail server (fetched once, then kept). */
 	atriumCopy?: { source: 'atrium' | 'server', goneFromServer: boolean, text: boolean, full: boolean, storedAt?: number | null }
 }
@@ -416,4 +420,17 @@ export async function suggestReply(dbId: number, instruction?: string): Promise<
 		if (e instanceof HttpError) throw new Error((e.body as { error?: { message?: string } } | null)?.error?.message ?? `HTTP ${e.status}`)
 		throw e
 	}
+}
+
+/** P5-5: one-click unsubscribe (RFC 8058), through Mail's own route. */
+export const unsubscribeList = (id: number) => mail<unknown>(`/list/unsubscribe/${id}`, { method: 'POST' })
+
+/** mailto:list@x?subject=..&body=.. -> composer fields; null when it is not a mailto. */
+export function parseMailto(href: string | null | undefined): { to: string, subject: string, body: string } | null {
+	if (!href || !/^mailto:/i.test(href)) return null
+	const [addr, query = ''] = href.slice(7).split('?')
+	const q = new URLSearchParams(query)
+	const to = decodeURIComponent(addr).trim()
+	if (!/^[^@\s,]+@[^@\s,]+$/.test(to)) return null
+	return { to, subject: q.get('subject') ?? 'unsubscribe', body: q.get('body') ?? '' }
 }
