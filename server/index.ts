@@ -142,7 +142,8 @@ async function handle(req: Request, remote: string, received: Received): Promise
 		securityHeaders(res.headers, url.pathname)
 		return res
 	}
-	if (pathname === '/agent' || pathname.startsWith('/agent/')) {
+	// OAuth discovery for MCP clients (server/agent/oauth.ts) is served by the agent layer.
+	if (pathname === '/agent' || pathname.startsWith('/agent/') || /^\/\.well-known\/oauth-(?:protected-resource|authorization-server)(?:\/|$)/.test(pathname)) {
 		// Agent bodies are small JSON: read them first, so a slow tool call is not cut.
 		if (agent && req.body) req = new Request(req, { body: await req.arrayBuffer() })
 		received()

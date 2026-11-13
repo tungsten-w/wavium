@@ -12,6 +12,7 @@ import { Profile } from './Profile'
 import { Security } from './Security'
 import { Appearance } from './Appearance'
 import { AgentActivity } from './AgentActivity'
+import { AgentConnect } from './AgentConnect'
 import { Agents } from './Agents'
 import { Ai } from './Ai'
 import { Users } from './Users'
@@ -19,7 +20,7 @@ import { Apps } from './Apps'
 import { AdminSharing, AdminTheming, Overview, PersonalSharing, Server } from './Admin'
 import { AdminSecurity, Delegation, Groupware, Notifications, Presets } from './Extra'
 
-interface ReactSection { path: string, label: string, icon: string, admin?: boolean, replaces?: string, Component: ComponentType<{ session: Session }> }
+interface ReactSection { path: string, label: string, icon: string, admin?: boolean, hidden?: boolean, replaces?: string, Component: ComponentType<{ session: Session }> }
 
 /** Paths owned by React; the classic section with the same id is hidden from the list. */
 const SECTIONS: ReactSection[] = [
@@ -30,6 +31,8 @@ const SECTIONS: ReactSection[] = [
 	{ path: '/settings/user/notifications', label: 'Notifications', icon: 'bell', replaces: 'notifications', Component: Notifications },
 	{ path: '/settings/user/agents', label: 'Agents', icon: 'agent', Component: Agents },
 	{ path: '/settings/user/agent-activity', label: 'Agent activity', icon: 'activity', Component: AgentActivity },
+	// The OAuth consent screen: reached from an app, not from the menu.
+	{ path: '/settings/user/agent-connect', label: 'Connect an agent', icon: 'agent', hidden: true, Component: AgentConnect },
 	{ path: '/settings/user/ai', label: 'AI providers', icon: 'plug', Component: Ai },
 	{ path: '/settings/admin/overview', label: 'Overview', icon: 'dashboard', admin: true, replaces: 'overview', Component: Overview },
 	{ path: '/settings/admin/server', label: 'Basic settings', icon: 'settings', admin: true, replaces: 'server', Component: Server },
@@ -67,7 +70,7 @@ export function Settings({ session }: { session: Session, index: AppIndex }) {
 	return (
 		<AppLayout nav={<>
 			<NavSection title="Personal">
-				{sections.filter((s) => !s.admin).map((s) => <NavItem key={s.path} icon={s.icon} label={s.label} href={s.path} active={own === s} onClick={() => go(s.path)} />)}
+				{sections.filter((s) => !s.admin && !s.hidden).map((s) => <NavItem key={s.path} icon={s.icon} label={s.label} href={s.path} active={own === s} onClick={() => go(s.path)} />)}
 				{personal.map((s) => {
 					const href = `/settings/user/${s.id}`
 					return <NavItem key={s.id} icon={sectionIcon(s.id)} label={s.name} href={href} active={path === href} onClick={() => go(href)} />

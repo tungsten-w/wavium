@@ -17,6 +17,7 @@ import { loadNcConfig, type NcConfig } from './config'
 import { connect, type Db, migrate } from './db'
 import { EventLog, type Notifier } from './events'
 import { Journal } from './journal'
+import { OAuth } from './oauth'
 import { handleMcp } from './mcp'
 import { ntfyNotifier } from './notify'
 import { openapi } from './openapi'
@@ -85,9 +86,15 @@ export async function createLayer(opts: { cfg: NcConfig, db: Db, php: PhpCaller,
 		if (!a) throw new AgentError('not_found', `Agent ${agentUid} no longer exists`)
 		return buildCtx(core.baseCtx({ uid: a.uid, displayName: a.displayName, owner: a.owner }), grantor)
 	}
+	// OAuth 2.1 for MCP clients (oauth.ts): tokens for one of the user's agents.
+	const oauth = new OAuth(db, cfg.baseUrl, async (uid) => {
+		const res = await php.ocs<{ agents: Array<{ uid: string, displayName: string, owner: string }> }>('GET', 'core/atrium/agent/internal/agents', { query: { uid } })
+		const a = res.agents[0]
+		return a ? { uid: a.uid, displayName: a.displayName, owner: a.owner } : null
+	}, opts.fetcher)
 	const journal = new Journal(db, registry)
 	journal.ctxFor = approvals.ctxFor
-	const owner = new OwnerApi(db, php, auth, approvals, cfg.baseUrl, registry, journal)
+	const owner = new OwnerApi(db, php, auth, approvals, cfg.baseUrl, registry, journal, oauth)
 
 	async function visibleTools(caller: Caller): Promise<Tool[]> {
 		const readable = new Set<string>()
@@ -98,9 +105,13 @@ export async function createLayer(opts: { cfg: NcConfig, db: Db, php: PhpCaller,
 	}
 
 	async function route(req: Request, url: URL, pathname: string): Promise<Response> {
+		const oauthRes = await oauth.handle(req, url, pathname)
+		if (oauthRes) return oauthRes
 		if (pathname === '/agent/mcp') {
 			if (req.method !== 'POST') return new Response(null, { status: 405, headers: { Allow: 'POST' } })
-			const caller = await auth.agent(req)
+			const authz = req.headers.get('authorization')
+			// An OAuth access token is only valid here (its resource); agent tokens work everywhere.
+			const caller = OAuth.isAccessToken(authz) ? await oauth.caller(authz!) : await auth.agent(req)
 			return handleMcp(req, {
 				list: () => visibleTools(caller),
 				call: (name, input) => callTool(registry, core.baseCtx(identity(caller)), name, input),
@@ -144,7 +155,7 @@ export async function createLayer(opts: { cfg: NcConfig, db: Db, php: PhpCaller,
 			} catch (e) {
 				if (e instanceof AgentError) {
 					const res = errorResponse(e)
-					if (e.code === 'auth') res.headers.set('WWW-Authenticate', 'Bearer realm="atrium"')
+					if (e.code === 'auth') res.headers.set('WWW-Authenticate', pathname === '/agent/mcp' ? oauth.challenge : 'Bearer realm="atrium"')
 					return res
 				}
 				console.error(`agent ${req.method} ${pathname}:`, e)

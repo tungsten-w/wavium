@@ -29,7 +29,12 @@ export interface Agent {
 	doorbellErrorAt: number | null
 	access: AccessMap
 	tokens: AgentToken[]
+	/** Apps connected through OAuth (P2-7). */
+	connectedApps?: ConnectedApp[]
 }
+export interface ConnectedApp { grantId: string, clientName: string, clientId: string, createdAt: number, lastUsedAt: number }
+/** An OAuth connection request waiting for the user (Settings > Connect an agent). */
+export interface OAuthFlow { flow_id: string, client_id: string, client_name: string, client_kind: 'cimd' | 'dcr', redirect_uri: string, redirect_host: string, localhost: boolean }
 export interface ConnectInfo {
 	agent: string
 	mcpUrl: string

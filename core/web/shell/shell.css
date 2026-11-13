@@ -310,3 +310,7 @@ html, body, #atrium { height: 100%; }
 
 /* Settings > Agent activity: request details (P2-8) */
 .agent-request__body { white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; background: var(--at-surface-container, rgba(127,127,127,.08)); padding: 12px; border-radius: 8px; font-size: 13px; font-family: inherit; }
+/* Settings > Connect an agent (P2-7) */
+.agent-connect__warn { border-left: 3px solid var(--at-error, #b3261e); padding-left: 10px; }
+.agent-connect__error { color: var(--at-error, #b3261e); }
+.agent-connect__access { margin-top: 12px; }

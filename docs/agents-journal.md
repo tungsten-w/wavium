@@ -85,3 +85,12 @@ split; this session owns `TASKS.md` on main and marks the other column's
 branches ready on request. P2-8 merges two tables into one paged timeline; a
 mutation (tie condition) survived until the paging test inserted seconds out
 of order, a reminder that test data that grows with time hides cursor bugs.
+## 2026-11-13: P2-7 (sodium-93, solo)
+
+Read the MCP authorization spec (2025-11-25) first: it changed the plan (the
+plan said "reuse apps/oauth2"; that app's admin-registered clients and
+whole-account tokens do not fit self-registering MCP clients acting as one
+agent). The OAuth server lives in Bun and issues its own tokens. The browser
+run (logged out → login → consent → app callback) passed first time; the only
+surprise was a type import line already changed by P3-7 (caught by lint, not
+by vitest, which does not typecheck).
