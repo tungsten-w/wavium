@@ -12,6 +12,8 @@
 #   make lint     typecheck + PHP syntax + shell syntax
 #   make build    production build of every React UI
 #   make image    production image (deploy/build.sh)
+#   make backup   DB + files of the dev instance into backups/<date> (deploy/backup.sh)
+#   make restore BACKUP=backups/<date>   put a backup back (replaces everything)
 #   make logs / make shell / make occ ARGS="status"
 #
 # The real Nextcloud test suite (hours) is not part of `make test`; run it with
@@ -29,7 +31,7 @@ PHP_LINT_DIRS = lib/private/Agent lib/public/Agent lib/private/Authentication/Sc
 	core/Command/Agent apps/mail/lib apps/daily_todo/lib deploy/dev tests/lib/Agent \
 	tests/lib/Authentication/Scope apps/mail/tests/Unit/Atrium
 
-.PHONY: up down reset logs shell occ test test-server test-web test-php test-daily-todo test-e2e \
+.PHONY: backup restore test-backup up down reset logs shell occ test test-server test-web test-php test-daily-todo test-e2e \
 	lint build image phpunit-nextcloud check-env
 
 up:
@@ -112,3 +114,16 @@ build:
 
 image:
 	bash deploy/build.sh
+
+# --------------------------------------------------------------------- backup
+
+backup:
+	bash deploy/backup.sh backup $(BACKUP)
+
+# End-to-end test of backup/restore; DESTROYS this checkout's dev instance (twice).
+test-backup:
+	bash deploy/dev/backup-test.sh
+
+restore:
+	@[ -n "$(BACKUP)" ] || { echo "usage: make restore BACKUP=backups/<date>"; exit 2; }
+	bash deploy/backup.sh restore $(BACKUP) --yes

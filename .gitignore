@@ -209,3 +209,6 @@ cypress/videos
 # PHPUnit's own instance (deploy/dev/test-instance.sh)
 /config-autotest/
 /data-autotest/
+
+# make backup output (dev)
+/backups/
