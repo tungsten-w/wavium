@@ -4,7 +4,7 @@
 // mail.received (ADR 0009): emitted only once a new mail is classified. PHP
 // classifies on arrival (ClassifyOnArrivalListener + TriageJob); this watcher
 // turns new mail_triage rows of live mail into events, in classification order,
-// and alerts the owner when live mail waits for classification (cap, tollgate
+// and alerts the owner when live mail waits for classification (cap, AI
 // down, IMAP trouble) instead of emitting anything unclassified.
 import { type Db, getMeta, num, setMeta } from '../db'
 import { enqueue, type Notifier } from '../events'
@@ -178,10 +178,10 @@ async function triageReason(db: Db): Promise<string> {
 	const state = String(s.state ?? 'unknown')
 	const text: Record<string, string> = {
 		disabled: 'Classification is turned off.',
-		not_configured: 'Classification has no tollgate token.',
+		not_configured: 'Classification has no AI: add one in Settings > AI.',
 		daily_cap: 'Today’s classification budget is used up.',
-		budget_exhausted: 'tollgate’s budget is exhausted until midnight.',
-		unauthorized: 'tollgate refused the token.',
+		budget_exhausted: 'The classification AI budget is exhausted.',
+		unauthorized: 'The classification AI refused its key.',
 		backoff: 'Classification is backing off after errors.',
 	}
 	const err = s.lastError ? ` Last error: ${String(s.lastError).slice(0, 200)}` : ''

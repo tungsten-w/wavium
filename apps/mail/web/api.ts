@@ -313,7 +313,7 @@ export interface Triage {
 export interface TriageStatus {
 	now: number
 	canManage: boolean
-	settings: { enabled: boolean, configured: boolean, capTotalEur: number, capBackfillEur: number, model: string, questionsVersion: string, timezone: string }
+	settings: { enabled: boolean, backend?: 'ai' | 'tollgate', configured: boolean, capTotalEur: number, capBackfillEur: number, model: string, questionsVersion: string, timezone: string }
 	state: { state: string, pausedUntil: number | null, lastRun: number | null, lastOk: number | null, lastScan: number | null, lastError: string | null, lastErrorAt: number | null }
 	spent: { todayEur: number, todayBackfillEur: number, monthEur: number }
 	queue: { pendingNew: number, pendingBacklog: number, done: number, parked: number }

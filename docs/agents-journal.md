@@ -44,3 +44,12 @@ A took P2-2 (settings store, routes, page); the other session took P2-3
 `routing.ts`), each creating its own tables, so no shared migration list and no
 shared file except the AI README. Agreed boundaries by message before starting;
 both P2-3 and P2-5 were ready before P2-2 with no conflict.
+
+### 2026-11-13 · P2-4 (sodium-7a)
+
+Mail triage moved from tollgate to the provider layer without moving the
+pipeline: PHP keeps the queue, IMAP and caps and only swaps the HTTP call for
+an internal one to Bun, which answers in tollgate's decisions shape. A P2-1
+acceptance test (server/agent imports server/ai only through agent/ai.ts)
+caught the first layout; the route moved to server/ai with the header check
+injected from agent/ai.ts, instead of loosening the rule.

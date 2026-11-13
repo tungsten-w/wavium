@@ -30,8 +30,12 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Atrium triage: classifies mail through the decisions API (via tollgate,
- * which holds the OpenAI key and the monthly budget).
+ * Atrium triage: classifies mail with the AI chosen in Settings > AI (P2-4:
+ * the Bun provider layer, POST /agent/v1/internal/ai/triage, small model,
+ * usage counted in the AI budget), or, where it was set up before, through
+ * tollgate's decisions API. Both answer in the same decisions shape (mail-v2).
+ * Backend: app config `triage_backend` = ai | tollgate; unset = tollgate when a
+ * tollgate token exists (existing installs keep working), else ai.
  *
  * Pipeline: enqueue() finds inbox/spam mail not seen yet -> mail_triage_queue
  * (pending) -> classify() fetches the text over IMAP (peek), asks the
@@ -44,6 +48,9 @@ class TriageService {
 
 	/** @var array<int, \Horde_Imap_Client_Socket> One IMAP login per account per run: Gmail locks out frequent logins. */
 	private array $imap = [];
+
+	/** When the AI said to come back (unix time), for the last 'budget' / 'transient' / 'unauthorized' result. */
+	private ?int $retryAt = null;
 
 	public function __construct(
 		private IDBConnection $db,
@@ -83,13 +90,22 @@ class TriageService {
 		}
 	}
 
-	/** @return array{enabled: bool, configured: bool, url: string, capTotal: float, capBackfill: float, pricePerMUsd: float, usdToEur: float, bodyChars: int, newDays: int, timezone: string} */
+	/** @return array{enabled: bool, backend: string, configured: bool, url: string, serverUrl: string, capTotal: float, capBackfill: float, pricePerMUsd: float, usdToEur: float, bodyChars: int, newDays: int, timezone: string} */
 	public function settings(): array {
 		$a = Application::APP_ID;
+		$hasToken = $this->appConfig->getValueString($a, 'triage_tollgate_token', '') !== '';
+		$backend = $this->appConfig->getValueString($a, 'triage_backend', '');
+		if ($backend !== 'ai' && $backend !== 'tollgate') {
+			$backend = $hasToken ? 'tollgate' : 'ai';
+		}
 		return [
 			'enabled' => $this->appConfig->getValueBool($a, 'triage_enabled', false),
-			'configured' => $this->appConfig->getValueString($a, 'triage_tollgate_token', '') !== '',
+			'backend' => $backend,
+			// ai: whether a provider exists is known only to the Bun server; it answers 409 when none.
+			'configured' => $backend === 'ai' || $hasToken,
 			'url' => rtrim($this->appConfig->getValueString($a, 'triage_tollgate_url', 'http://tollgate:8787'), '/'),
+			// The Bun server on the private network (dev compose: service "web").
+			'serverUrl' => rtrim((string)(getenv('ATRIUM_SERVER_URL') ?: $this->config->getSystemValueString('atrium.server_url', 'http://web:8080')), '/'),
 			'capTotal' => $this->appConfig->getValueFloat($a, 'triage_cap_total_eur', 1.0),
 			'capBackfill' => $this->appConfig->getValueFloat($a, 'triage_cap_backfill_eur', 0.30),
 			'pricePerMUsd' => $this->appConfig->getValueFloat($a, 'triage_price_per_m_usd', 0.10),
@@ -347,15 +363,21 @@ class TriageService {
 				$done++;
 				$this->saveState(['lastOk' => $this->time->getTime(), 'lastError' => null, 'transientFailures' => 0]);
 			} elseif ($result === 'budget') {
-				// tollgate: monthly budget used up for today. Wait for local midnight.
-				$this->saveState(['state' => 'budget_exhausted', 'pausedUntil' => $this->midnight() + 86400]);
+				// Budget used up (tollgate: monthly budget; AI: a cap or no credit). Wait
+				// until the AI says, else local midnight.
+				$this->saveState(['state' => 'budget_exhausted', 'pausedUntil' => $this->retryAt ?? $this->midnight() + 86400]);
 				return $done;
 			} elseif ($result === 'unauthorized') {
-				$this->saveState(['state' => 'unauthorized', 'pausedUntil' => $this->time->getTime() + 3600]);
+				$this->saveState(['state' => 'unauthorized', 'pausedUntil' => max($this->retryAt ?? 0, $this->time->getTime() + 3600)]);
+				return $done;
+			} elseif ($result === 'not_configured') {
+				// No AI provider for this mail's owner: look again in 10 minutes.
+				$this->saveState(['state' => 'not_configured', 'pausedUntil' => $this->time->getTime() + 600]);
 				return $done;
 			} elseif ($result === 'transient') {
 				$n = (int)($this->state()['transientFailures'] ?? 0) + 1;
-				$this->saveState(['state' => 'backoff', 'transientFailures' => $n, 'pausedUntil' => $this->time->getTime() + min(1800, 30 * 2 ** min($n, 6))]);
+				$backoff = $this->time->getTime() + min(1800, 30 * 2 ** min($n, 6));
+				$this->saveState(['state' => 'backoff', 'transientFailures' => $n, 'pausedUntil' => max($backoff, $this->retryAt ?? 0)]);
 				return $done;
 			}
 		}
@@ -365,10 +387,11 @@ class TriageService {
 
 	/**
 	 * @param array<string, mixed> $job
-	 * @return string ok | skipped | budget | unauthorized | transient
+	 * @return string ok | skipped | budget | unauthorized | not_configured | transient
 	 */
 	private function classifyOne(array $job, array $s, array $qs, string $token): string {
 		$queueId = (int)$job['id'];
+		$this->retryAt = null;
 		try {
 			$input = $this->buildInput($job, $s);
 		} catch (DoesNotExistException $e) {
@@ -389,8 +412,10 @@ class TriageService {
 			return 'skipped';
 		}
 
+		$ai = $s['backend'] === 'ai';
+		$who = $ai ? 'AI' : 'Decisions API';
 		try {
-			$response = $this->clients->newClient()->post($s['url'] . '/v1/decisions', [
+			$response = $ai ? $this->askAi($job, $s, $input, $qs) : $this->clients->newClient()->post($s['url'] . '/v1/decisions', [
 				'json' => ['model' => $qs['model'], 'input' => $input, 'questions' => $qs['questions']],
 				'headers' => ['Authorization' => 'Bearer ' . $token],
 				'timeout' => 90,
@@ -398,29 +423,56 @@ class TriageService {
 				// tollgate is a container on the private network.
 				'nextcloud' => ['allow_local_address' => true],
 			]);
+		} catch (DoesNotExistException $e) {
+			$this->markQueue($queueId, 'parked', $e->getMessage());
+			return 'skipped';
 		} catch (Throwable $e) {
-			$this->markQueue($queueId, 'pending', 'Decisions API unreachable: ' . $e->getMessage());
-			$this->saveState(['lastError' => 'Decisions API unreachable: ' . $e->getMessage(), 'lastErrorAt' => $this->time->getTime()]);
+			$this->markQueue($queueId, 'pending', "$who unreachable: " . $e->getMessage());
+			$this->saveState(['lastError' => "$who unreachable: " . $e->getMessage(), 'lastErrorAt' => $this->time->getTime()]);
 			return 'transient';
 		}
 		$status = $response->getStatusCode();
 		$body = (string)$response->getBody();
+		if ($ai && $status !== 200) {
+			$err = json_decode($body, true);
+			$until = is_array($err) && is_numeric($err['until'] ?? null) ? (int)$err['until'] : null;
+			$this->retryAt = $until !== null && $until > $this->time->getTime() ? $until : null;
+			$message = is_array($err) && is_string($err['message'] ?? null) ? $err['message'] : mb_substr($body, 0, 200);
+			if ($status === 409) {
+				$this->markQueue($queueId, 'pending', $message);
+				$this->saveState(['lastError' => $message, 'lastErrorAt' => $this->time->getTime()]);
+				return 'not_configured';
+			}
+			if ($status === 422) {
+				// The model kept answering badly for this mail: count a try, park after 5.
+				$this->markQueue($queueId, (int)$job['attempts'] >= 4 ? 'parked' : 'pending', $message, true);
+				$this->saveState(['lastError' => "AI: $message", 'lastErrorAt' => $this->time->getTime()]);
+				return 'skipped';
+			}
+			$this->saveState(['lastError' => "AI ($status): $message", 'lastErrorAt' => $this->time->getTime()]);
+		}
 		if ($status === 402) {
-			$this->saveState(['lastError' => 'tollgate: budget exhausted (402)', 'lastErrorAt' => $this->time->getTime()]);
+			if (!$ai) {
+				$this->saveState(['lastError' => 'tollgate: budget exhausted (402)', 'lastErrorAt' => $this->time->getTime()]);
+			}
 			return 'budget';
 		}
 		if ($status === 401 || $status === 403) {
-			$this->saveState(['lastError' => "tollgate refused the token ($status)", 'lastErrorAt' => $this->time->getTime()]);
+			if (!$ai) {
+				$this->saveState(['lastError' => "tollgate refused the token ($status)", 'lastErrorAt' => $this->time->getTime()]);
+			}
 			return 'unauthorized';
 		}
 		if ($status >= 500 || $status === 429) {
-			$this->markQueue($queueId, 'pending', "Decisions API $status");
-			$this->saveState(['lastError' => "Decisions API $status: " . mb_substr($body, 0, 200), 'lastErrorAt' => $this->time->getTime()]);
+			$this->markQueue($queueId, 'pending', "$who $status");
+			if (!$ai) {
+				$this->saveState(['lastError' => "Decisions API $status: " . mb_substr($body, 0, 200), 'lastErrorAt' => $this->time->getTime()]);
+			}
 			return 'transient';
 		}
 		if ($status >= 400) {
 			$this->markQueue($queueId, (int)$job['attempts'] >= 4 ? 'parked' : 'pending', "$status: " . mb_substr($body, 0, 300), true);
-			$this->saveState(['lastError' => "Decisions API $status: " . mb_substr($body, 0, 200), 'lastErrorAt' => $this->time->getTime()]);
+			$this->saveState(['lastError' => "$who $status: " . mb_substr($body, 0, 200), 'lastErrorAt' => $this->time->getTime()]);
 			return 'skipped';
 		}
 
@@ -430,6 +482,10 @@ class TriageService {
 			return 'skipped';
 		}
 		$tokens = $resp['usage']['input_tokens'] ?? null;
+		if ($ai && is_int($tokens)) {
+			// The AI answers with a tool call: its output tokens cost too.
+			$tokens += (int)($resp['usage']['output_tokens'] ?? 0);
+		}
 		if (!is_int($tokens)) {
 			// Never count a call as free: estimate from the input size.
 			$tokens = (int)ceil(mb_strlen($input) / 4);
@@ -451,7 +507,7 @@ class TriageService {
 				'account_id' => $i->createNamedParameter((int)$job['account_id'], IQueryBuilder::PARAM_INT),
 				'msg_hash' => $i->createNamedParameter($job['msg_hash']),
 				'version' => $i->createNamedParameter($qs['version']),
-				'model' => $i->createNamedParameter((string)($resp['model'] ?? $qs['model'])),
+				'model' => $i->createNamedParameter(mb_substr((string)($resp['model'] ?? $qs['model']), 0, 64)),
 				'category' => $i->createNamedParameter($sum['category']),
 				'category_confidence' => $i->createNamedParameter($sum['category_confidence']),
 				'urgency' => $i->createNamedParameter($sum['urgency']),
@@ -473,7 +529,33 @@ class TriageService {
 			$this->db->rollBack();
 			throw $e;
 		}
+		if ($ai) {
+			$this->saveState(['lastModel' => trim(($resp['providerLabel'] ?? $resp['provider'] ?? '') . ' · ' . ($resp['model'] ?? ''), ' ·')]);
+		}
 		return 'ok';
+	}
+
+	/**
+	 * One mail to the Bun provider layer (server/agent/triage.ts), as the
+	 * owner of the mail account: their AI settings and budget apply.
+	 * @throws DoesNotExistException when the account is gone
+	 */
+	private function askAi(array $job, array $s, string $input, array $qs): \OCP\Http\Client\IResponse {
+		$q = $this->db->getQueryBuilder();
+		$uid = $q->select('user_id')->from('mail_accounts')
+			->where($q->expr()->eq('id', $q->createNamedParameter((int)$job['account_id'], IQueryBuilder::PARAM_INT)))
+			->executeQuery()->fetchOne();
+		if (!is_string($uid) || $uid === '') {
+			throw new DoesNotExistException('Mail account ' . $job['account_id'] . ' no longer exists');
+		}
+		return $this->clients->newClient()->post($s['serverUrl'] . '/agent/v1/internal/ai/triage', [
+			'json' => ['uid' => $uid, 'input' => $input, 'questions' => $qs['questions'], 'version' => $qs['version']],
+			'headers' => [\OC\Agent\InternalAuth::HEADER => \OCP\Server::get(\OC\Agent\InternalAuth::class)->expected()],
+			'timeout' => 120,
+			'http_errors' => false,
+			// The Bun server is on the private network.
+			'nextcloud' => ['allow_local_address' => true],
+		]);
 	}
 
 	/**
@@ -876,6 +958,8 @@ class TriageService {
 			$reason = 'Classification is off; the mail is queued.';
 		} elseif (!$s['configured']) {
 			$reason = 'Classification is not configured; the mail is queued.';
+		} elseif (($this->state()['state'] ?? '') === 'not_configured' && (int)($this->state()['pausedUntil'] ?? 0) > $now) {
+			$reason = 'No AI is set up for classification (Settings > AI); the mail is queued.';
 		} elseif ((int)($this->state()['pausedUntil'] ?? 0) > $now) {
 			$reason = 'Classification is paused; the mail runs when it resumes.';
 		} elseif ($this->spentToday()['total'] >= $s['capTotal']) {
@@ -1112,7 +1196,8 @@ class TriageService {
 		$spent = $this->spentToday();
 		return [
 			'now' => $now,
-			'settings' => ['enabled' => $s['enabled'], 'configured' => $s['configured'], 'capTotalEur' => $s['capTotal'], 'capBackfillEur' => $s['capBackfill'], 'model' => $this->questions()['model'], 'questionsVersion' => $this->questions()['version'], 'timezone' => $s['timezone']],
+			'settings' => ['enabled' => $s['enabled'], 'backend' => $s['backend'], 'configured' => $s['configured'], 'capTotalEur' => $s['capTotal'], 'capBackfillEur' => $s['capBackfill'],
+				'model' => $s['backend'] === 'ai' ? (string)($state['lastModel'] ?? 'Settings > AI') : $this->questions()['model'], 'questionsVersion' => $this->questions()['version'], 'timezone' => $s['timezone']],
 			'state' => [
 				'state' => $s['enabled'] ? ($state['state'] ?? 'idle') : 'disabled',
 				'pausedUntil' => (int)($state['pausedUntil'] ?? 0) > $now ? (int)$state['pausedUntil'] : null,

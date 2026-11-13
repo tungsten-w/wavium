@@ -11,10 +11,10 @@ const stateText: Record<string, [string, string]> = {
 	idle: ['Up to date', 'ok'],
 	backfill_cap: ['New mail only: today’s backlog budget is used', 'warn'],
 	daily_cap: ['Paused: today’s budget is used', 'warn'],
-	budget_exhausted: ['Paused: tollgate budget exhausted until midnight', 'warn'],
+	budget_exhausted: ['Paused: the AI budget is used up', 'warn'],
 	backoff: ['Waiting after errors', 'warn'],
-	unauthorized: ['tollgate refused the token', 'error'],
-	not_configured: ['Not configured: no tollgate token', 'error'],
+	unauthorized: ['The AI refused the key', 'error'],
+	not_configured: ['Not configured: add an AI in Settings > AI', 'error'],
 	disabled: ['Off', 'off'],
 }
 const eur = (v: number) => v < 0.01 && v > 0 ? `€${v.toFixed(4)}` : `€${v.toFixed(2)}`
@@ -101,7 +101,7 @@ export function MailStatus({ onCuratedChange }: { onCuratedChange?: () => void }
 			<Progress value={s.spent.todayEur / s.settings.capTotalEur} />
 			<div className="ml-st__meter"><span>Today on the backlog</span><span>{eur(s.spent.todayBackfillEur)} of {eur(s.settings.capBackfillEur)}</span></div>
 			<Progress value={s.spent.todayBackfillEur / s.settings.capBackfillEur} />
-			<p className="ml-st__muted">This month: {eur(s.spent.monthEur)}. Days reset at midnight ({s.settings.timezone}). tollgate's monthly budget applies on top.</p>
+			<p className="ml-st__muted">This month: {eur(s.spent.monthEur)}. Days reset at midnight ({s.settings.timezone}). {s.settings.backend === 'tollgate' ? 'tollgate’s monthly budget applies on top.' : 'Estimated from tokens; the caps in Settings > AI apply on top.'}</p>
 		</Card>
 
 		<Card className="ml-st__card">
