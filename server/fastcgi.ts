@@ -72,7 +72,7 @@ export function fastcgi(
 ): Promise<FastCgiResponse> {
 	return new Promise((resolve, reject) => {
 		const socket = net.createConnection(target)
-		let pending = Buffer.alloc(0)
+		let pending: Buffer = Buffer.alloc(0)
 		let headerBuf = Buffer.alloc(0)
 		let headersDone = false
 		let controller!: ReadableStreamDefaultController<Uint8Array>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ - SPDX-FileCopyrightText: 2026 Atrium contributors
+ - SPDX-License-Identifier: AGPL-3.0-or-later
+ - Atrium's own core tests (agent accounts, scopes, the agent controller), not
+ - the whole Nextcloud suite. Needs the installed dev instance:
+ -   make test-php
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 bootstrap="bootstrap.php"
+		 colors="false"
+		 cacheDirectory="/tmp/atrium-phpunit-cache"
+		 xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd">
+	<testsuite name="Atrium core">
+		<directory>lib/Agent</directory>
+		<directory>lib/Authentication/Scope</directory>
+		<file>lib/Authentication/Login/AgentLoginBlockCommandTest.php</file>
+		<file>lib/AppFramework/Middleware/Security/ScopeMiddlewareTest.php</file>
+		<file>Core/Controller/AtriumAgentControllerTest.php</file>
+	</testsuite>
+</phpunit>

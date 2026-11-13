@@ -1,0 +1,149 @@
+# Atrium DEV stack: `docker compose up` (or `make up`) and open
+# http://localhost:8092 (alice / alice-demo-pass, bob / bob-demo-pass,
+# admin / admin-demo-pass).
+#
+# - The repo is bind-mounted at /var/www/html: PHP changes are live, the Bun
+#   server restarts on change and the React UIs rebuild in watch mode.
+# - PostgreSQL, Redis and a throwaway GreenMail server (fake IMAP/SMTP, mail in
+#   memory) run next to it. Nothing here talks to a real mail server, domain or
+#   database. The production stack is deploy/compose.yaml: never run it for dev.
+# - First start installs Nextcloud/Atrium into the dev DB and loads the demo
+#   accounts, mails, events and contacts (deploy/dev/init.sh). `make reset`
+#   wipes all of it and starts over.
+# - Every value has a dev default; .env.example lists them. Several checkouts
+#   (git worktrees) can run side by side with their own COMPOSE_PROJECT_NAME and
+#   ATRIUM_PORT.
+name: ${COMPOSE_PROJECT_NAME:-atrium-dev}
+
+x-env: &env
+  POSTGRES_HOST: db
+  POSTGRES_DB: ${ATRIUM_DB_NAME:-atrium}
+  POSTGRES_USER: ${ATRIUM_DB_USER:-atrium}
+  POSTGRES_PASSWORD: ${ATRIUM_DB_PASSWORD:-atrium-dev-only}
+  REDIS_HOST: redis
+  ATRIUM_PORT: ${ATRIUM_PORT:-8092}
+  ATRIUM_DOMAIN: ${ATRIUM_DOMAIN:-localhost}
+  ATRIUM_ADMIN_USER: ${ATRIUM_ADMIN_USER:-admin}
+  ATRIUM_ADMIN_PASSWORD: ${ATRIUM_ADMIN_PASSWORD:-admin-demo-pass}
+  ATRIUM_DEMO: ${ATRIUM_DEMO:-1}
+  ATRIUM_NTFY_URL: ${ATRIUM_NTFY_URL:-}
+  ATRIUM_WEBHOOK_ALLOW: ${ATRIUM_WEBHOOK_ALLOW:-}
+  ATRIUM_MAX_BODY: ${ATRIUM_MAX_BODY:-}
+  ATRIUM_AI_PROVIDERS: ${ATRIUM_AI_PROVIDERS:-mock}
+  HOME: /tmp
+
+x-user: &user "${ATRIUM_UID:-1000}:${ATRIUM_GID:-1000}"
+
+x-bun: &bun
+  build:
+    context: deploy/dev
+    dockerfile: bun.Dockerfile
+  image: atrium-bun:dev
+  user: *user
+  working_dir: /var/www/html
+  volumes:
+    - .:/var/www/html
+
+x-php: &php
+  image: nextcloud:34.0.5-fpm
+  user: *user
+  working_dir: /var/www/html
+  environment: *env
+  volumes:
+    - .:/var/www/html
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${ATRIUM_DB_NAME:-atrium}
+      POSTGRES_USER: ${ATRIUM_DB_USER:-atrium}
+      POSTGRES_PASSWORD: ${ATRIUM_DB_PASSWORD:-atrium-dev-only}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      retries: 40
+
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 20
+
+  # Throwaway IMAP/SMTP: alice@atrium.test / bob@atrium.test, password
+  # demo-mail. Host "greenmail", IMAP 3143 / SMTP 3025, no TLS. In memory: a
+  # restart empties it (`make reset` reloads the demo mails).
+  greenmail:
+    image: greenmail/standalone:2.1.3
+    environment:
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.smtp -Dgreenmail.setup.test.imap
+        -Dgreenmail.hostname=0.0.0.0
+        -Dgreenmail.users=alice:demo-mail@atrium.test,bob:demo-mail@atrium.test
+        -Dgreenmail.users.login=email
+
+  # PHP-FPM (Nextcloud backend) on the repo. Skips the official
+  # installer/upgrader entrypoint: deploy/dev/init.sh installs into the dev DB
+  # on first start, then runs php-fpm. Healthy once installed.
+  php:
+    <<: *php
+    entrypoint: ["sh", "/var/www/html/deploy/dev/init.sh"]
+    command: ["php-fpm"]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/atrium-ready"]
+      interval: 5s
+      start_period: 600s
+      retries: 3
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      greenmail: { condition: service_started }
+
+  # Background jobs (mail sync, triage, cleanup), every 5 minutes.
+  cron:
+    <<: *php
+    entrypoint: ["sh", "-c", "while :; do php -f /var/www/html/cron.php || true; sleep 300; done"]
+    depends_on:
+      php: { condition: service_healthy }
+
+  # Bun web server (replaces Apache) + React UIs in watch mode.
+  web:
+    <<: *bun
+    command: ["sh", "deploy/dev/web.sh"]
+    environment:
+      <<: *env
+      ATRIUM_DOCROOT: /var/www/html
+      ATRIUM_FPM: php:9000
+      PORT: "8080"
+    ports:
+      - "127.0.0.1:${ATRIUM_PORT:-8092}:8080"
+    depends_on:
+      php: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8080/status.php"]
+      interval: 5s
+      start_period: 600s
+      retries: 3
+
+  # Toolchains for make test / make lint (profile "tools", run on demand).
+  bun:
+    <<: *bun
+    profiles: [tools]
+    environment:
+      <<: *env
+      ATRIUM_DOCROOT: /var/www/html
+  composer:
+    image: composer:2.8.12
+    profiles: [tools]
+    user: *user
+    working_dir: /var/www/html
+    environment:
+      COMPOSER_HOME: /tmp/composer
+    volumes:
+      - .:/var/www/html
+
+volumes:
+  db:

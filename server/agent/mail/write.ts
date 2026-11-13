@@ -452,7 +452,7 @@ async function mailRoutes(core: LayerCore, bridge: MailBridge, req: Request, _ur
 		const ctx = await core.agentCtx(req, 'mail')
 		const len = Number(req.headers.get('content-length') ?? 0)
 		if (len > UPLOAD_MAX + 64 * 1024) throw new AgentError('invalid_input', 'Max 25 MB')
-		let form: FormData
+		let form: Awaited<ReturnType<Request['formData']>>
 		try { form = await req.formData() } catch { throw new AgentError('invalid_input', 'Send multipart/form-data with a "file" field') }
 		const file = form.get('file')
 		if (!(file instanceof File)) throw new AgentError('invalid_input', 'Missing "file" field')

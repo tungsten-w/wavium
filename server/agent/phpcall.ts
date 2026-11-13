@@ -41,7 +41,7 @@ export function phpCaller(php: PhpTarget, secret: string, baseUrl: string): PhpC
 			headers['content-type'] = 'application/json'
 			headers['content-length'] = String(Buffer.byteLength(body))
 		}
-		const req = new Request(url, { method, headers, body })
+		const req = new Request(url.toString(), { method, headers, body })
 		return servePhp(php, req, url, script, pathInfo, '127.0.0.1', opts.internal === false ? {} : { internal: { 'X-Atrium-Internal': internal } })
 	}
 
