@@ -126,3 +126,101 @@ export const statusLabels: Record<Approval['status'], string> = {
 	pending: 'Waiting', approved: 'Approved', rejected: 'Rejected', executed: 'Done', failed: 'Failed',
 	void: 'Changed after asking', expired: 'Expired', cancelled: 'Cancelled by the agent',
 }
+
+// ---------------------------------------------------------------- connect box
+
+export type ClientId = 'claude-code' | 'claude-desktop' | 'cursor' | 'codex' | 'rest'
+export interface ConnectStep {
+	label: string
+	value: string
+	multiline?: boolean
+}
+export interface ClientGuide {
+	id: ClientId
+	label: string
+	/** One or two sentences: where this goes. */
+	intro: string
+	steps: ConnectStep[]
+	note?: string
+}
+
+/** Single quotes for a POSIX shell. */
+function shq(s: string): string {
+	return `'${s.replace(/'/g, `'\\''`)}'`
+}
+
+/**
+ * Ready-to-copy instructions per client for the connect box (PLAN.md P2-6).
+ * Pure: built from the URLs and the token the server returned once. The
+ * server name is "atrium"; MCP clients prefix the tools with it.
+ */
+export function connectGuides(info: Pick<ConnectInfo, 'mcpUrl' | 'restUrl' | 'openapiUrl' | 'token'>): ClientGuide[] {
+	const { mcpUrl, token } = info
+	// restUrl reads "<base>/agent/v1/tools/<tool>" (server/agent/owner.ts).
+	const base = info.restUrl.replace(/\/agent\/v1(\/.*)?$/, '')
+	const bearer = `Bearer ${token}`
+	const json = (v: unknown) => JSON.stringify(v, null, 2)
+	return [
+		{
+			id: 'claude-code',
+			label: 'Claude Code',
+			intro: 'Run this once in a terminal. Add --scope user to use Atrium in every project, or put the JSON in a project\'s .mcp.json instead.',
+			steps: [
+				{ label: 'Command', value: `claude mcp add --transport http atrium ${shq(mcpUrl)} --header ${shq(`Authorization: ${bearer}`)}` },
+				{ label: '.mcp.json (alternative)', value: json({ mcpServers: { atrium: { type: 'http', url: mcpUrl, headers: { Authorization: bearer } } } }), multiline: true },
+			],
+			note: 'Check with: claude mcp list',
+		},
+		{
+			id: 'claude-desktop',
+			label: 'Claude Desktop',
+			intro: 'Settings › Developer › Edit Config, add this to claude_desktop_config.json, then restart Claude Desktop. It goes through mcp-remote (needs Node.js), because local config entries cannot send a token header themselves.',
+			steps: [
+				{
+					label: 'claude_desktop_config.json',
+					value: json({ mcpServers: { atrium: { command: 'npx', args: ['-y', 'mcp-remote', mcpUrl, '--header', 'Authorization:${ATRIUM_AUTH}'], env: { ATRIUM_AUTH: bearer } } } }),
+					multiline: true,
+				},
+			],
+			note: 'Adding Atrium as a custom connector on claude.ai needs OAuth, which comes later (TASKS.md P2-7).',
+		},
+		{
+			id: 'cursor',
+			label: 'Cursor',
+			intro: 'Put this in ~/.cursor/mcp.json (every project) or .cursor/mcp.json (one project).',
+			steps: [{ label: 'mcp.json', value: json({ mcpServers: { atrium: { url: mcpUrl, headers: { Authorization: bearer } } } }), multiline: true }],
+		},
+		{
+			id: 'codex',
+			label: 'Codex',
+			intro: 'Add this to ~/.codex/config.toml and keep the token in an environment variable, not in the file.',
+			steps: [
+				{ label: 'config.toml', value: `[mcp_servers.atrium]\nurl = "${mcpUrl}"\nbearer_token_env_var = "ATRIUM_TOKEN"`, multiline: true },
+				{ label: 'Shell (e.g. ~/.profile)', value: `export ATRIUM_TOKEN=${shq(token)}` },
+			],
+		},
+		{
+			id: 'rest',
+			label: 'Script (REST)',
+			intro: `Any language can call the tools over HTTP: POST ${base}/agent/v1/tools/<tool> with a JSON body. The list of tools and their inputs: ${info.openapiUrl}.`,
+			steps: [
+				{
+					label: 'atrium.sh',
+					value: [
+						'#!/bin/sh',
+						'# Usage: ./atrium.sh <tool> [json-input]   e.g. ./atrium.sh mail_message_list \'{"limit": 5}\'',
+						`ATRIUM_URL=${shq(base)}`,
+						`ATRIUM_TOKEN=${shq(token)}`,
+						"body=${2:-'{}'}",
+						'curl -sS -X POST "$ATRIUM_URL/agent/v1/tools/$1" \\',
+						'  -H "Authorization: Bearer $ATRIUM_TOKEN" -H "Content-Type: application/json" \\',
+						'  -d "$body"',
+					].join('\n'),
+					multiline: true,
+				},
+				{ label: 'First call', value: './atrium.sh agent_whoami' },
+			],
+			note: 'Events: call events_since with the last next_cursor you got (start without one).',
+		},
+	]
+}
