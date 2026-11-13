@@ -144,7 +144,7 @@ export function guardedFetch(policy: WebhookPolicy, inner: FetchFn): FetchFn {
 			await assertPublicWebhook(url, policy)
 		} catch (e) {
 			const msg = e instanceof BlockedWebhook ? e.message.replace('webhook URL', 'base URL') : 'base URL host does not resolve'
-			throw new AiError('invalid', msg)
+			throw new AiError('invalid', msg, 'ai')
 		}
 		return inner(url, init)
 	}

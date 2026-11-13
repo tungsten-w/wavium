@@ -188,6 +188,16 @@ html, body, #atrium { height: 100%; }
 .settings-head h3 { margin: 0; }
 .settings-note { margin: -4px 0 14px; font-size: 14px; }
 .settings-bad { color: var(--at-error); }
+/* Settings > AI */
+.ai-table td:first-child { width: 100%; }
+.ai-name { font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.ai-sub { font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
+.ai-ok { color: var(--at-primary); }
+.ai-actions { white-space: nowrap; }
+.ai-actions > * { vertical-align: middle; }
+.ai-form { display: grid; gap: 12px; min-width: min(480px, 80vw); }
+.ai-form p { margin: 0; }
+@media (max-width: 600px) { .ai-actions { white-space: normal; } .ai-table tr { display: grid; } }
 .settings-summary { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 12px 16px; border-radius: var(--at-radius-m); font-weight: 500; }
 .settings-summary--ok { background: color-mix(in srgb, #2e7d32 14%, transparent); color: light-dark(#1b5e20, #a5d6a7); }
 .settings-summary--warn { background: color-mix(in srgb, #e8a200 18%, transparent); color: light-dark(#6d4c00, #ffd666); }

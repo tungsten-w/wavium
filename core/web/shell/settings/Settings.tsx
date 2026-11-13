@@ -12,6 +12,7 @@ import { Profile } from './Profile'
 import { Security } from './Security'
 import { Appearance } from './Appearance'
 import { Agents } from './Agents'
+import { Ai } from './Ai'
 import { Users } from './Users'
 import { Apps } from './Apps'
 import { AdminSharing, AdminTheming, Overview, PersonalSharing, Server } from './Admin'
@@ -27,6 +28,7 @@ const SECTIONS: ReactSection[] = [
 	{ path: '/settings/user/sharing', label: 'Sharing', icon: 'share', replaces: 'sharing', Component: PersonalSharing },
 	{ path: '/settings/user/notifications', label: 'Notifications', icon: 'bell', replaces: 'notifications', Component: Notifications },
 	{ path: '/settings/user/agents', label: 'Agents', icon: 'agent', Component: Agents },
+	{ path: '/settings/user/ai', label: 'AI providers', icon: 'plug', Component: Ai },
 	{ path: '/settings/admin/overview', label: 'Overview', icon: 'dashboard', admin: true, replaces: 'overview', Component: Overview },
 	{ path: '/settings/admin/server', label: 'Basic settings', icon: 'settings', admin: true, replaces: 'server', Component: Server },
 	{ path: '/settings/users', label: 'Accounts', icon: 'group', admin: true, Component: Users },
