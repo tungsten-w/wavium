@@ -136,6 +136,9 @@ not part of this repository.
   Composer classmap (`apps/<app>/composer/composer/autoload_{classmap,static}.php`):
   a new class must be added there by hand. A route to a missing controller
   makes **every** request 500, not just that route.
+- Agent layer SQL: on sqlite, `$1`, `$2` are *named* parameters numbered by
+  first appearance, so `SET x = $2 WHERE uid = $1` with `[uid, x]` swaps them
+  (Postgres is fine). Write placeholders in order of the params array.
 - Test UI changes in a real browser too: a unit-test fixture with the wrong
   shape (the agent `restUrl`) hid a bug that a Playwright run found at once.
 

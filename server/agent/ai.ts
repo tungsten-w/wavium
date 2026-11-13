@@ -18,8 +18,10 @@
 // Keys go in, never out. The settings store lives in server/ai/settings.ts.
 import { timingSafeEqual } from 'node:crypto'
 import { Budget } from '../ai/budget'
+import { resolveRoute, withModel } from '../ai/routing'
 import { AiSettings, AiSettingsError, type AiCaller } from '../ai/settings'
 import { handleTriage, TRIAGE_PATH } from '../ai/triage-route'
+import type { AiProvider } from '../ai/types'
 import { SqlUsageStore } from '../ai/usage-store'
 import type { AgentModule, LayerCore } from './index'
 import { internalHeaderValue } from './phpcall'
@@ -39,7 +41,15 @@ export interface AiModule extends AgentModule {
 	settings(): AiSettings | null
 	/** Usage and caps of every AI call made by Atrium itself (P2-3). */
 	budget(): Budget | null
+	/**
+	 * For features in other modules (digest, ...): `uid`'s provider for `task`,
+	 * model chosen (P2-5), behind the budget (P2-3). Null when they have no AI
+	 * or no model fits. Only once the layer started.
+	 */
+	forTask(uid: string, task: string): Promise<AiProvider | null>
 }
+
+export type { AiProvider }
 
 export function aiModule(make?: (core: LayerCore) => AiSettings, makeBudget?: (core: LayerCore) => Budget): AiModule {
 	let store: AiSettings | null = null
@@ -92,11 +102,28 @@ export function aiModule(make?: (core: LayerCore) => AiSettings, makeBudget?: (c
 		throw new AgentError('not_found', `No route ${m} /agent/v1/ai/${path}`)
 	}
 
+	let started: LayerCore | null = null
+	async function forTask(uid: string, task: string): Promise<AiProvider | null> {
+		if (!started) return null
+		const s = get(started)
+		const cfg = await s.config(uid)
+		let route
+		try {
+			route = resolveRoute(task, { defaultProvider: cfg.defaultProvider ?? undefined }, cfg.providers)
+		} catch {
+			return null
+		}
+		const raw = await s.provider(uid, route.provider.id)
+		return raw ? getBudget(started).wrap(withModel(raw, route.model), { user: uid, task }) : null
+	}
+
 	return {
 		tools: () => [],
 		settings: () => store,
 		budget: () => budget,
+		forTask,
 		start(core) {
+			started = core
 			void get(core).migrate().catch((e) => console.error(`ai settings: ${(e as Error).message}`))
 		},
 		async route(core, req, _url, pathname) {
