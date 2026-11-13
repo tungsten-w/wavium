@@ -78,6 +78,34 @@ With nothing queued it answers `mock: <last user text>`.
 - Open items from review (usage on shared abort signals, JSON cap socket
   cleanup, base-URL checks) are listed in `reports/P2-1.md`.
 
+## Budgets and usage (`budget.ts`, P2-3)
+
+```ts
+import { Budget, BudgetBlocked } from './budget'
+import { SqlUsageStore } from './usage-store'
+
+const budget = new Budget(new SqlUsageStore(db), () => ({
+	rules: [
+		{ task: 'triage', dailyCost: 0.5 },          // $0.50 a day for triage, all providers
+		{ provider: 'claude', monthlyCost: 20 },      // $20 a month on that provider
+		{ monthlyTokens: 5_000_000 },                 // everything together
+	],
+	prices: { 'claude:claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1 } }, // USD / M tokens
+}))
+const ai = budget.wrap(createProvider(cfg), { user: 'alice', task: 'triage' })
+// same AiProvider interface; a refused call throws BudgetBlocked (code 'budget', .until, .reason)
+```
+
+- Every call is stored in `atrium_ai_usage` (tokens, cost, estimated, error), also failed,
+  aborted and early-stopped streams. No usage from the server: estimated, 4 chars = 1 token.
+- Caps: daily / monthly, in USD and/or tokens, scoped by provider and/or task. Checked
+  before each call (calls in flight can pass a cap a little). Day and month = local time.
+- Pauses (`atrium_ai_pause`, per user and provider), as in TriageService: no credit until
+  midnight, bad key 1 h, rate limit Retry-After, unavailable backoff 30 s → 30 min.
+  `budget.resume(user, provider)` lifts one. `budget.summary(user, providers)` feeds a usage page.
+- Rules and prices are read at each call (a function), so settings changes apply at once.
+- A model without a price costs 0 (its tokens still count for token caps).
+
 ## What builds on it
 
 - P2-2: provider settings and key storage; must validate user-entered base URLs and headers.
