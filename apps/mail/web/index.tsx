@@ -6,6 +6,7 @@ import { AppLayout, Avatar, Button, Dialog, EmptyState, Icon, IconButton, Menu, 
 import { AccountSettings, AccountSetup } from './Account'
 import { ComposeDialog, blankComposer, type ComposerState } from './Compose'
 import { MailRules } from './Rules'
+import { ExtractDialog } from './Extract'
 import { UnsubscribeBanner } from './Unsubscribe'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
@@ -495,6 +496,8 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 	}
 	const [showImages, setShowImages] = useState(false)
 	useEffect(() => setShowImages(false), [id])
+	const [extractOpen, setExtractOpen] = useState(false)
+	useEffect(() => setExtractOpen(false), [id])
 	// Mail's sanitizer swaps remote images for a placeholder and keeps the proxied URL in data-original-src.
 	const blocked = !!body?.body.includes('data-original-src')
 	const html = useMemo(() => {
@@ -512,6 +515,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			<IconButton icon="delete" label="Delete message" onClick={onDelete} />
 			<Menu trigger={(open, expanded) => <IconButton icon="moreVert" label="More actions" aria-expanded={expanded} onClick={open} />} items={[
 				{ label: classifying ? 'Classifying…' : 'Reclassify', icon: 'refresh', onClick: () => void runReclassify() },
+				{ label: 'Find dates…', icon: 'calendar', onClick: () => setExtractOpen(true) },
 			]} />
 		</header>
 		{!body && !error && <div className="ml-center"><Spinner /></div>}
@@ -521,6 +525,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			<div className="ml-sender"><Avatar name={displayAddress(body.from[0])} size={44} /><div><strong>{displayAddress(body.from[0])}</strong>{body.from[0]?.email && <span className="ml-from" title="The address this mail really came from">{body.from[0].email}</span>}<span>to {body.to.map((a) => a.label || a.email).join(', ') || 'me'}</span></div><time>{messageDate(body.dateInt)}</time></div>
 			<TriageLine t={triage} busy={classifying} />
 			<SpoofBanner from={body.from[0]} />
+			<ExtractDialog dbId={body.databaseId} open={extractOpen} onClose={() => setExtractOpen(false)} />
 			{onMailto && <UnsubscribeBanner body={body} onMailto={onMailto} />}
 			{(body.atriumCopy?.goneFromServer || message?.goneFromServer) && <p className="ml-kept ml-kept--reader"><Icon name="archive" /> Only in Atrium: no longer on the mail server.{' '}{body.atriumCopy?.text === false ? 'Its text was never copied before it left the server, so only the sender, subject and date are kept.' : body.atriumCopy?.full === false ? 'Shown from the text Atrium kept (formatting and attachments are not kept).' : 'Attachments are not kept.'}</p>}
 			{!body.atriumCopy?.goneFromServer && !message?.goneFromServer && body.atriumCopy?.source === 'atrium' && body.atriumCopy.full === false && <p className="ml-kept ml-kept--reader"><Icon name="archive" /> The mail server could not be reached: shown from the text Atrium kept.</p>}

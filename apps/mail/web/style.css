@@ -254,3 +254,13 @@
 /* Assisted unsubscribe (P5-5) */
 .ml-unsub { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 0; padding: 6px 12px; border-radius: var(--at-radius-m); background: var(--at-surface-container-high); font-size: 13px; }
 .ml-unsub--done { color: var(--at-on-surface-variant); }
+
+/* Mail -> calendar and tasks (P5-7) */
+.ml-extract { display: flex; flex-direction: column; gap: 8px; min-width: min(420px, 80vw); }
+.ml-extract h3 { margin: 4px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--at-on-surface-variant); }
+.ml-extract ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ml-extract li { display: flex; align-items: center; gap: 10px; }
+.ml-extract li > span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ml-extract li small { color: var(--at-on-surface-variant); }
+.ml-extract__ok { display: inline-flex; align-items: center; gap: 4px; color: var(--at-primary); font-size: 13px; }
+.ml-extract__err { color: var(--at-error, #b3261e); }
