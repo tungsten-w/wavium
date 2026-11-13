@@ -9,6 +9,7 @@ import { Component, Suspense, useEffect, useMemo, useState, type ReactNode } fro
 import { AppCtx, avatarUrl, linkHandler, navigate, setPasswordPrompt, useLocation, type AppContext, type AtriumAppModule, type NavEntry, type Session } from '@atrium/sdk'
 import { Avatar, Badge, Button, Dialog, Icon, IconButton, Menu, Spinner, TextField } from '@atrium/ui'
 import { findApp, importApp, navApps, type AppIndex, type AppManifest } from './apps'
+import { Assistant } from './Assistant'
 import { LegacyFrame } from './LegacyFrame'
 import { Search } from './Search'
 import { Settings } from './settings/Settings'
@@ -34,6 +35,11 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 	}
 	const home = allApps.find((a) => a.id === 'dashboard' || a.app === 'dashboard')?.href ?? apps[0]?.href ?? '/settings/user'
 	const [picker, setPicker] = useState(false)
+	const [assistant, setAssistant] = useState(readAssistantOpen)
+	const toggleAssistant = (open: boolean) => {
+		setAssistant(open)
+		try { localStorage.setItem(ASSISTANT_KEY, open ? '1' : '0') } catch { /* not remembered */ }
+	}
 
 	useEffect(() => {
 		if (pathname === '/' || pathname === '/index.php' || pathname === '/index.php/') {
@@ -69,6 +75,7 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 					{apps.map((a) => <AppLink key={a.id} app={a} active={a === active} dragging={dragId === a.id} onDragStart={() => setDragId(a.id)} onDragEnd={() => setDragId(null)} onDropOn={() => { if (dragId) moveApp(dragId, a.id); setDragId(null) }} />)}
 				</nav>
 				<div className="shell-user">
+					<IconButton className="shell-assistant-btn" icon="agent" label={assistant ? 'Close the assistant' : 'Assistant'} aria-pressed={assistant} onClick={() => toggleAssistant(!assistant)} />
 					<Menu
 						trigger={(open, expanded) => (
 							<button className="shell-user-btn" aria-label="Account menu" aria-expanded={expanded} onClick={open}>
@@ -85,7 +92,8 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 					/>
 				</div>
 			</header>
-			<div className={`shell-body${pathname.startsWith('/apps/dashboard') ? ' shell-body--bare' : ''}`}>{body}</div>
+			<div className={`shell-body${pathname.startsWith('/apps/dashboard') ? ' shell-body--bare' : ''}${assistant ? ' shell-body--assistant' : ''}`}>{body}</div>
+			{assistant && <Assistant onClose={() => toggleAssistant(false)} />}
 			<Dialog open={picker} title="Apps" onClose={() => setPicker(false)}>
 				<div className="shell-picker">
 					{apps.map((a) => (
@@ -98,6 +106,11 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 			</Dialog>
 		</div>
 	)
+}
+
+const ASSISTANT_KEY = 'atrium-assistant-open'
+function readAssistantOpen(): boolean {
+	try { return localStorage.getItem(ASSISTANT_KEY) === '1' } catch { return false }
 }
 
 const ORDER_KEY = 'atrium-app-order'

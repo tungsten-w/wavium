@@ -77,3 +77,11 @@ internal routes from P3-1 and P3-2. Two catches from testing: sqlite numbers
 `$n` placeholders by first appearance (lesson added), and the end-to-end run
 showed a phishing demo mail listed as "reply": suspicious mail is now left out,
 at the Mail chip threshold.
+
+## 2026-11-13: P5-6 (sodium-93, solo)
+
+The assistant is an agent account, so it needed no permission code of its
+own: everything goes through callTool. The dev mock could not drive a tool
+loop on the real stack, so it learned one dev-only convention (`mock-tool:`);
+the browser screenshots then found two UI bugs the DOM tests could not see
+(z-index under the app's mobile drawer, text of two turns glued together).
