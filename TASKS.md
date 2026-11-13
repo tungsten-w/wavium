@@ -23,8 +23,8 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [x] P1-3 Bun limits: `idleTimeout`, `ATRIUM_MAX_BODY` — deps: P1-2 (same file area) — branch ready: night/P1-3 (merge first)
 - [x] P1-4 Auth cache (`server/agent/auth.ts`): revoked token refused at once — branch ready: night/P1-4
 - [x] P1-5 Webhooks: block internal addresses unless `ATRIUM_WEBHOOK_ALLOW` — branch ready: night/P1-5
-- [~] (instance main, 2026-11-13) P1-6 React tests: shell + Mail (list, open, send a draft), vitest + fake server
-- [~] (instance main, 2026-11-13) P1-7 Playwright end-to-end: login, Mail, Calendar, Files not empty
+- [x] P1-6 React tests: shell + Mail (list, open, send a draft), vitest + fake server — branch ready: night/P1-6
+- [x] P1-7 Playwright end-to-end: login, Mail, Calendar, Files not empty — branch ready: night/P1-7
 
 ## Phase 2: AI (after P0)
 
