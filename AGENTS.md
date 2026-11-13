@@ -62,7 +62,10 @@ An instance that cannot follow them stops and says so in its report.
   the Nextcloud backend needs it.
 - Server tests: `server/**/*.test.ts` (`bun test`). Web tests:
   `core/web/**/*.test.ts(x)` and `apps/*/web/**/*.test.ts(x)` (vitest, one config:
-  `core/web/vitest.config.ts`). DOM tests: `// @vitest-environment happy-dom`.
+  `core/web/vitest.config.ts`). DOM tests: first line `import '<rel>/core/web/testing/dom'`
+  (happy-dom; the `@vitest-environment` comment breaks under Bun), then
+  `core/web/testing/fakeServer.ts` (fake `fetch`) and `render.tsx` (render, click,
+  type, waitFor). Examples: `apps/mail/web/mail.ui.test.tsx`, `core/web/shell/shell.ui.test.tsx`.
 - Check that a new test really tests: break the code, watch it fail.
 - Commit messages: what and why, in English. One task per branch.
 - Host CPUs may lack AVX: only the Bun *baseline* build is used (images do that).
