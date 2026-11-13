@@ -9,6 +9,7 @@ import { getSettings } from './access'
 import type { Db } from './db'
 import { num } from './db'
 import { enqueue, type Notifier } from './events'
+import { recordAction } from './journal'
 import type { ApprovalsApi, Prepared, Registry, Tool, ToolCtx } from './tools'
 import { AgentError, iso, nowSec, sha256Hex, stableJson, ulid } from './util'
 
@@ -182,6 +183,7 @@ export class Approvals implements ApprovalsApi {
 			} else {
 				const result = await tool.execute(ctx, payload, { request_id: rid })
 				done = await this.setStatus(approved, 'executed', { result: result ?? null }, ['approved'])
+				await recordAction(ctx, tool, (parse(r.input) ?? {}) as Record<string, unknown>, result, { summary: r.summary, requestId: rid })
 			}
 		} catch (e) {
 			done = await this.setStatus(approved, 'failed', { error: (e as Error).message }, ['approved'])

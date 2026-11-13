@@ -224,3 +224,18 @@ export function connectGuides(info: Pick<ConnectInfo, 'mcpUrl' | 'restUrl' | 'op
 		},
 	]
 }
+
+/** One change an agent made (owner journal, server/agent/journal.ts). */
+export interface AgentAction {
+	action_id: string
+	agent: string
+	area: string
+	tool: string
+	summary: string
+	request_id: string | null
+	at: string | null
+	/** What Undo does; null = cannot be undone here (or already undone). */
+	undo: string | null
+	undone_at: string | null
+	undo_error: string | null
+}

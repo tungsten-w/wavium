@@ -61,3 +61,9 @@ tools through the registry instead of adding PHP, so it touched only one new
 folder and one line of `server/agent/index.ts`. The real-stack check found
 nothing in the tool; it found that the owner API ignores an unknown preset
 (noted in the report).
+## 2026-11-13: P3-7 (instance A, solo)
+
+Journal + undo built on the existing tools instead of new PHP: each undo is an
+inverse tool call computed from the action's own result. The real-stack run
+caught a script mistake (events_since needs a cursor) and a thin summary for
+notes created from content only (fixed: fall back to the result's fields).

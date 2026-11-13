@@ -16,6 +16,7 @@ import { baseTools } from './base-tools'
 import { loadNcConfig, type NcConfig } from './config'
 import { connect, type Db, migrate } from './db'
 import { EventLog, type Notifier } from './events'
+import { Journal } from './journal'
 import { handleMcp } from './mcp'
 import { ntfyNotifier } from './notify'
 import { openapi } from './openapi'
@@ -84,7 +85,9 @@ export async function createLayer(opts: { cfg: NcConfig, db: Db, php: PhpCaller,
 		if (!a) throw new AgentError('not_found', `Agent ${agentUid} no longer exists`)
 		return buildCtx(core.baseCtx({ uid: a.uid, displayName: a.displayName, owner: a.owner }), grantor)
 	}
-	const owner = new OwnerApi(db, php, auth, approvals, cfg.baseUrl, registry)
+	const journal = new Journal(db, registry)
+	journal.ctxFor = approvals.ctxFor
+	const owner = new OwnerApi(db, php, auth, approvals, cfg.baseUrl, registry, journal)
 
 	async function visibleTools(caller: Caller): Promise<Tool[]> {
 		const readable = new Set<string>()

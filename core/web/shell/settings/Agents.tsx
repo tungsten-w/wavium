@@ -3,11 +3,13 @@
 //
 // Settings > Agents (ADR 0009): create agents, connect them (MCP URL, token,
 // webhook secret), set what each may do per app (off / allowed / ask me), wake
-// and doorbell settings, tokens, and the approvals inbox. Talks to the Bun
+// and doorbell settings, tokens, the approvals inbox and the journal of agent
+// actions with Undo (AgentActions.tsx). Talks to the Bun
 // agent layer's owner API (agentsApi.ts); logic in agentsModel.ts.
 import { useCallback, useEffect, useState } from 'react'
 import { relativeTime, type Session } from '@atrium/sdk'
 import { Avatar, Button, Card, Dialog, EmptyState, IconButton, Select, Spinner, Switch, Tabs, TextArea, TextField, confirmDialog, toast } from '@atrium/ui'
+import { AgentActions } from './AgentActions'
 import { api } from './agentsApi'
 import {
 	type Action, ACTIONS, actionLabels, type Agent, applyCell, type Approval, areaLabel, type ClientId, connectGuides, type ConnectInfo, describeModes,
@@ -67,6 +69,7 @@ export function Agents(_: { session: Session }) {
 					</div>
 					{agents.length === 0 && <Card className="settings-block"><EmptyState icon="agent" title="No agents yet">Create one, then connect it with the MCP URL and token shown once.</EmptyState></Card>}
 					{agents.map((a) => <AgentCard key={a.uid} agent={a} areas={areas} onChange={replace} onConnect={setConnect} onDeleted={() => void load()} />)}
+					{agents.length > 0 && <AgentActions names={names} refresh={history.length} />}
 					{history.length > 0 && <History items={history} names={names} />}
 				</>}
 			<CreateDialog open={creating} onClose={() => setCreating(false)} onCreated={(c) => { setCreating(false); setConnect(c); void load() }} />

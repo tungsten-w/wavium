@@ -9,6 +9,7 @@ import {
 	type Preset, presetAccess, setAccess, tokenScopes, updateSettings,
 } from './access'
 import type { Approvals } from './approvals'
+import type { Journal } from './journal'
 import type { Auth, Caller } from './auth'
 import type { Db } from './db'
 import type { PhpCaller } from './phpcall'
@@ -27,7 +28,7 @@ interface TokenRow { id: number, name: string, lastActivity: number, agent: bool
 export class OwnerApi {
 	private areasCache: { at: number, areas: Record<string, Action[]> } | null = null
 
-	constructor(private db: Db, private php: PhpCaller, private auth: Auth, private approvals: Approvals, private baseUrl: string, private registry?: Registry) {}
+	constructor(private db: Db, private php: PhpCaller, private auth: Auth, private approvals: Approvals, private baseUrl: string, private registry?: Registry, private journal?: Journal) {}
 
 	/** Agent tools per area (areas without tools still grant the app's own API through token scopes). */
 	toolCounts(): Record<string, number> {
@@ -228,6 +229,15 @@ export class OwnerApi {
 				const note = input.note === undefined || input.note === null || input.note === '' ? null : String(input.note).slice(0, 2000)
 				return Response.json(c === 'approve' ? await this.approvals.approve(owner.uid, b, note) : await this.approvals.reject(owner.uid, b, note))
 			}
+		}
+
+		// Journal of agent actions on the owner's data, and undo (journal.ts).
+		if (a === 'actions' && this.journal) {
+			if (!b && m === 'GET') {
+				const limit = Number(url.searchParams.get('limit') ?? 50) || 50
+				return Response.json(await this.journal.list(owner.uid, { agent: url.searchParams.get('agent') ?? undefined, cursor: url.searchParams.get('cursor') ?? undefined, limit }))
+			}
+			if (b && c === 'undo' && !d && m === 'POST') return Response.json(await this.journal.undo(owner.uid, b))
 		}
 
 		throw new AgentError('not_found', `No route ${m} /agent/v1/owner/${parts.join('/')}`)

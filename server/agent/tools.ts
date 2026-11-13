@@ -7,6 +7,7 @@
 import { type AccessMap, type Action, getAccess, getSettings, modeOf } from './access'
 import type { Db } from './db'
 import type { PhpCaller } from './phpcall'
+import { recordAction } from './journal'
 import { type Schema, validate } from './schema'
 import { AgentError } from './util'
 
@@ -116,8 +117,19 @@ export async function callTool(registry: Registry, base: Omit<ToolCtx, 'grantor'
 			return ctx.approvals.request(ctx, tool, rest, await tool.prepare(ctx, rest))
 		}
 	}
-	if (tool.run) return tool.run(ctx, rest)
-	if (tool.prepare && tool.execute) return tool.execute(ctx, (await tool.prepare(ctx, rest)).payload, null)
+	// Changes go to the owner's journal (journal.ts), with how to undo them.
+	const changes = tool.area !== null && (typeof tool.action === 'function' ? await tool.action(ctx, rest) : (tool.action ?? 'read')) !== 'read'
+	if (tool.run) {
+		const result = await tool.run(ctx, rest)
+		if (changes) await recordAction(ctx, tool, rest, result)
+		return result
+	}
+	if (tool.prepare && tool.execute) {
+		const prepared = await tool.prepare(ctx, rest)
+		const result = await tool.execute(ctx, prepared.payload, null)
+		if (changes) await recordAction(ctx, tool, rest, result, { summary: prepared.summary })
+		return result
+	}
 	throw new AgentError('unavailable', `${tool.name} has no implementation`)
 }
 
