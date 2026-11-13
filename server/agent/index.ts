@@ -10,7 +10,7 @@
 import type { PhpTarget } from '../php'
 import { grantorsFor, modeOf } from './access'
 import { Approvals } from './approvals'
-import { Auth, type Caller } from './auth'
+import { Auth, authFingerprint, type Caller } from './auth'
 import { baseTools } from './base-tools'
 import { loadNcConfig, type NcConfig } from './config'
 import { connect, type Db, migrate } from './db'
@@ -57,7 +57,7 @@ export async function createLayer(opts: { cfg: NcConfig, db: Db, php: PhpCaller,
 	const { cfg, db, php } = opts
 	await migrate(db)
 	const notifier = opts.notifier ?? null
-	const auth = new Auth(php)
+	const auth = new Auth(php, () => authFingerprint(db))
 	const approvals = new Approvals(db, notifier, `${cfg.baseUrl}/settings/user/agents`)
 	const events = new EventLog(db, notifier, opts.fetcher)
 	const registry = new Registry()
