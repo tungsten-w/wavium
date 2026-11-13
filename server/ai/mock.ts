@@ -75,6 +75,15 @@ export function sampleOf(schema: any): unknown {
 function defaultReply(req: AiRequest): MockReply {
 	const forced = req.toolChoice && typeof req.toolChoice === 'object' ? req.tools?.find((t) => t.name === (req.toolChoice as { name: string }).name) : undefined
 	if (forced) return { toolCalls: [{ name: forced.name, input: sampleOf(forced.inputSchema) }] }
+	// Dev stack: "mock-tool: <name> {json}" as the last user message calls that tool (if offered),
+	// so a tool loop (the assistant, P5-6) can be tried end to end without a real model.
+	const last = req.messages[req.messages.length - 1]
+	const m = last?.role === 'user' && typeof last.content === 'string' ? /^mock-tool:\s*([\w.-]+)\s*(\{.*\})?\s*$/s.exec(last.content) : null
+	if (m && req.tools?.some((t) => t.name === m[1])) {
+		let input: unknown = {}
+		try { input = m[2] ? JSON.parse(m[2]) : {} } catch { /* empty input */ }
+		return { text: `mock: calling ${m[1]}`, toolCalls: [{ name: m[1], input }] }
+	}
 	return { text: `mock: ${lastUserText(req)}` }
 }
 

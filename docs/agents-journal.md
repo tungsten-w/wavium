@@ -94,3 +94,10 @@ agent). The OAuth server lives in Bun and issues its own tokens. The browser
 run (logged out → login → consent → app callback) passed first time; the only
 surprise was a type import line already changed by P3-7 (caught by lint, not
 by vitest, which does not typecheck).
+## 2026-11-13: P5-6 (sodium-93, solo)
+
+The assistant is an agent account, so it needed no permission code of its
+own: everything goes through callTool. The dev mock could not drive a tool
+loop on the real stack, so it learned one dev-only convention (`mock-tool:`);
+the browser screenshots then found two UI bugs the DOM tests could not see
+(z-index under the app's mobile drawer, text of two turns glued together).

@@ -127,6 +127,15 @@ test('mock: echo by default, scripted replies, recorded requests, simulated erro
 	expect(await m.testConnection()).toEqual({ ok: true, models: ['mock-big'] })
 })
 
+test('mock: "mock-tool: name {json}" calls an offered tool (dev stack), otherwise echoes', async () => {
+	const m = createProvider({ kind: 'mock' })
+	const tools = [{ name: 'notes_note_list', description: '', inputSchema: { type: 'object' } }]
+	const r = await m.complete({ messages: [{ role: 'user', content: 'mock-tool: notes_note_list {"limit":1}' }], tools })
+	expect(r).toMatchObject({ text: 'mock: calling notes_note_list', toolCalls: [{ name: 'notes_note_list', input: { limit: 1 } }], stopReason: 'tool_use' })
+	expect((await m.complete({ messages: [{ role: 'user', content: 'mock-tool: other_tool' }], tools })).toolCalls).toEqual([])
+	expect((await m.complete({ messages: [{ role: 'user', content: 'mock-tool: notes_note_list' }] })).toolCalls).toEqual([])
+})
+
 test('mock: streams the text in chunks, then tool calls, then done', async () => {
 	const m = createProvider({ kind: 'mock' })
 	m.enqueue({ text: 'one two  three', toolCalls: [{ id: 'c1', name: 'f' }] })
