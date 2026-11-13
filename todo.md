@@ -79,21 +79,21 @@ User, 2026-11-01: agent foundations are low priority, just leave room so phase 3
 
 ## Phase 3: agent layer
 
-Plan of 2026-11-08 (the owner + the agent's own session): build the shared pieces once, mail is the first provider, then Daily Todo. Every app must end up MCP compatible. Contract: `docs/architecture/0009-agent-layer-mail-first.md` (accepted 2026-11-08).
+Plan of 2026-11-08 (the owner + the agent's own session): build the shared pieces once, mail is the first provider, then Daily Todo. Every app must end up MCP compatible. Contract: `docs/architecture/0009-agent-layer-mail-first.md` (accepted 2026-11-08). First slice (base + mail) in production since 2026-11-08. Remaining work is tracked in `TASKS.md` (phases 2 and 3).
 
-- [ ] Settings > Agents > New agent creates the hidden user + connect box (URL, token, snippet); per-agent permission table (per app: read/write/delete/send/share, each off / allowed / needs approval), presets; wakes switch per agent, off by default
-- [ ] Convert the existing `nova` user into the owner's agent (one-time admin step, keeps history)
-- [ ] Generic approval queue: frozen + hashed payload, approve/reject in the UI, ntfy ping, events back to the agent, expiry 30 days (same as Trash)
-- [ ] Event cursor `events.since()` (source of truth) + HMAC webhook doorbell (agent host on the LAN)
-- [ ] Mail provider: search (date, account, folder, category/urgency/needs-action, from, subject, text, snippets), read, drafts, flags, archive; send/delete approval-gated
-- [ ] Mail: classify on arrival (not every 5 min), `mail.received` only after classification (`schema: mail-v2`, `message_key`), alert instead of waking when classification fails
-- [ ] Curated categories as a user setting; agent wakes reuse it
-- [ ] Agent accounts in Settings: add an agent, grant per app read/write/both or full
-- [ ] Grant enforcement (reuse the scope system: `ScopeGuard`, `ScopeMiddleware`, DAV `ScopePlugin`)
-- [ ] MCP endpoint (Streamable HTTP) + REST, generated from the tool registry
+- [x] Settings > Agents > New agent creates the hidden user + connect box (URL, token, snippet); per-agent permission table (per app: read/write/delete/send/share, each off / allowed / needs approval), presets; wakes switch per agent, off by default
+- [x] Convert the existing `nova` user into the owner's agent (one-time admin step, keeps history)
+- [x] Generic approval queue: frozen + hashed payload, approve/reject in the UI, ntfy ping, events back to the agent, expiry 30 days (same as Trash)
+- [x] Event cursor `events.since()` (source of truth) + HMAC webhook doorbell (agent host on the LAN)
+- [x] Mail provider: search (date, account, folder, category/urgency/needs-action, from, subject, text, snippets), read, drafts, flags, archive; send/delete approval-gated
+- [x] Mail: classify on arrival (not every 5 min), `mail.received` only after classification (`schema: mail-v2`, `message_key`), alert instead of waking when classification fails
+- [x] Curated categories as a user setting; agent wakes reuse it
+- [x] Agent accounts in Settings: add an agent, grant per app read/write/both or full
+- [x] Grant enforcement (agent tokens carry the scopes of their "allowed" cells; the TS layer checks every call: `server/agent/access.ts`)
+- [x] MCP endpoint (Streamable HTTP) + REST, generated from the tool registry
 - [ ] Full CRUD tools: Contacts, Calendar, Tasks, Daily Todo first, then Files, ...
-- [ ] Events/webhooks to agents (calendar, tasks, Daily Todo, mail)
-- [ ] Approvals for risky actions; activity feed with undo; per-item "done by agent X"
+- [~] Events/webhooks to agents (calendar, tasks, Daily Todo, mail) — mail done; others: TASKS.md P3
+- [~] Approvals for risky actions; activity feed with undo; per-item "done by agent X" — approvals done; the rest: TASKS.md P2-8, P3-7
 - [ ] Cross-app search tool
 - [ ] Nova migration (7 pain points, see `docs/lessons.md`)
 

@@ -57,8 +57,6 @@ RUN set -eu; \
 
 # Proof that the fork rebuilds the release: diff against the official tree.
 # docker build --target verify prints every difference.
-# Proof that the fork rebuilds the release: diff against the official tree.
-# docker build --target verify prints every difference.
 FROM atrium AS verify
 COPY --from=release /usr/src/nextcloud /tmp/release
 RUN diff -rq /tmp/release /usr/src/nextcloud | tee /tmp/diff.txt; echo "differences: $(wc -l < /tmp/diff.txt)"
