@@ -14,7 +14,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [x] P0-5 CI: GitHub Actions running `make lint test` (not run yet: no remote)
 - [x] P0-6 Agent files: CLAUDE.md, AGENTS.md, TASKS.md, reports/
 - [x] P0-7 Atrium README
-- [~] (night 1, 2026-11-12) P0-8 Agent team: `.claude/agents/*.md`, `night.sh`, `docs/agents-journal.md`
+- [x] P0-8 Agent team: `.claude/agents/*.md`, `night.sh`, `docs/agents-journal.md` (one full cycle on P2-1; night.sh unattended run needs a token)
 
 ## Phase 1: clean up and secure
 
@@ -28,7 +28,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 
 ## Phase 2: AI (after P0)
 
-- [~] (team trial, 2026-11-13) P2-1 Provider layer `server/ai/`: Anthropic, OpenAI, Mistral, OpenAI-compatible, Ollama, mock
+- [x] P2-1 Provider layer `server/ai/`: Anthropic, OpenAI, Mistral, OpenAI-compatible, Ollama, mock — branch ready: night/P2-1 (2 should-fix left, see its report: do before P2-3)
 - [ ] P2-2 Settings > AI: providers, encrypted keys, test connection — deps: P2-1
 - [ ] P2-3 Budgets and usage: daily/monthly caps, tokens and cost, pause on errors — deps: P2-1
 - [ ] P2-4 Mail triage on the provider layer (instead of tollgate), `mail-v2` kept — deps: P2-1, P2-3
