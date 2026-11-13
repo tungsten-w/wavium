@@ -178,11 +178,12 @@ export async function startAgentLayer(opts: { docroot: string, php: PhpTarget })
 	const { replyModule } = await import('./reply')
 	const { rulesModule } = await import('./rules')
 	const { unsubscribeModule } = await import('./unsubscribe')
+	const { extractModule } = await import('./extract')
 	const ai = aiModule()
 	const layer = await createLayer({
 		cfg, db, php,
 		notifier: ntfyNotifier(process.env.ATRIUM_NTFY_URL, process.env.ATRIUM_NTFY_TOKEN),
-		modules: [mailModule(), ai, todoModule(), contactsModule(), notesModule(), activityModule(), calendarModule(), filesModule(), searchModule(), digestModule(ai), replyModule(ai), rulesModule(ai), unsubscribeModule()],
+		modules: [mailModule(), ai, todoModule(), contactsModule(), notesModule(), activityModule(), calendarModule(), filesModule(), searchModule(), digestModule(ai), replyModule(ai), rulesModule(ai), unsubscribeModule(), extractModule(ai)],
 	})
 	console.log(`agent layer: ${cfg.dbtype} ${cfg.baseUrl}/agent/mcp`)
 	return layer
