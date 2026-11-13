@@ -14,7 +14,7 @@ import type { AiModule, AiProvider } from '../ai'
 import type { Db } from '../db'
 import type { AgentModule, LayerCore } from '../index'
 import { draftKey, messageKey, msgHash, threadKey } from '../mail/keys'
-import { getThread, recipientsFor, rowsForKey } from '../mail/read'
+import { getThread, needsFetch, recipientsFor, rowsForKey, storedBody } from '../mail/read'
 import { type MailBridge, phpBridge } from '../mail/write'
 import type { Tool } from '../tools'
 import { AgentError, nowSec } from '../util'
@@ -63,7 +63,7 @@ export function replyPrompt(thread: string, me: { name: string, email: string },
 
 export interface ReplyDeps {
 	db: Db
-	bridge: Pick<MailBridge, 'saveDraft'>
+	bridge: Pick<MailBridge, 'saveDraft' | 'fetchBody'>
 	ai: (uid: string) => Promise<AiProvider | null>
 }
 
@@ -90,6 +90,10 @@ export async function suggestReply(deps: ReplyDeps, uid: string, input: { messag
 
 	const ai = await deps.ai(uid)
 	if (!ai) throw new AgentError('unavailable', 'No AI is set up for drafting: add one in Settings > AI')
+	// The mail being answered must have its text: fetch it once from the server if Atrium has no copy yet.
+	if (needsFetch(await storedBody(deps.db, account.id, String(row.msg_hash))) && !row.server_gone_at) {
+		try { await deps.bridge.fetchBody(uid, Number(row.id)) } catch { /* the preview is used instead */ }
+	}
 	const thread = await getThread(deps.db, uid, { thread_key: threadKey(account.id, String(row.thread_hash ?? row.msg_hash)), max_chars: 4000 })
 	const text = threadText(thread.messages.map((m) => ({ from: m.from, date: m.date, subject: m.subject, text: m.body })))
 	let res

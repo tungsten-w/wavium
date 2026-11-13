@@ -77,3 +77,12 @@ internal routes from P3-1 and P3-2. Two catches from testing: sqlite numbers
 `$n` placeholders by first appearance (lesson added), and the end-to-end run
 showed a phishing demo mail listed as "reply": suspicious mail is now left out,
 at the Mail chip threshold.
+
+### 2026-11-14 · P5-2 (sodium-7a)
+
+AI reply drafts reuse what was there: `ai.forTask` (P5-1) for the model and
+budget, the Mail bridge for drafts, `mail_send` with its approval for sending.
+The end-to-end run caught what the fixture could not: on a fresh stack the mail
+text is not stored yet, so the model saw only headers; the body is now fetched
+first. Work was split around a usage-limit pause: a WIP commit with numbered
+resume steps in the report made the restart cheap.

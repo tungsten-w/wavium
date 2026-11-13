@@ -29,7 +29,8 @@ function fakeAi(replies: Array<string | Error> = []) {
 
 let db: Db
 let saved: DraftInput[]
-const bridge = { saveDraft: async (d: DraftInput) => { saved.push(d); return 41 } }
+let fetched: number[]
+const bridge = { saveDraft: async (d: DraftInput) => { saved.push(d); return 41 }, fetchBody: async (_uid: string, id: number) => { fetched.push(id) } }
 const A = `1:${md5('<a@x>')}`
 
 beforeEach(async () => {
@@ -37,6 +38,7 @@ beforeEach(async () => {
 	await migrate(db)
 	await seedMail(db)
 	saved = []
+	fetched = []
 })
 
 describe('helpers', () => {
@@ -79,7 +81,9 @@ describe('suggestReply', () => {
 		expect(content).toContain('Subject: Hello')
 		expect(content).toContain('Subject: Re: Hello')
 		expect(content).toContain('accept')
-		expect(Object.keys(bridge)).toEqual(['saveDraft'])
+		// No stored copy of <a@x>: its text was fetched first (row 1, the INBOX copy).
+		expect(fetched).toEqual([1])
+		expect(Object.keys(bridge)).toEqual(['saveDraft', 'fetchBody'])
 	})
 
 	test('refusals: no AI, other user\'s mail, own mail, bad input', async () => {
