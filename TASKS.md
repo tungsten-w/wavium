@@ -31,7 +31,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [x] P2-1 Provider layer `server/ai/`: Anthropic, OpenAI, Mistral, OpenAI-compatible, Ollama, mock — branch ready: night/P2-1 (review items all fixed; usage via AiRequest.onUsage)
 - [x] P2-2 Settings > AI: providers, encrypted keys, test connection — deps: P2-1 — branch ready: night/P2-2
 - [x] P2-3 Budgets and usage: daily/monthly caps, tokens and cost, pause on errors — deps: P2-1 — branch ready: night/P2-3
-- [~] (sodium-7a, 2026-11-13) P2-4 Mail triage on the provider layer (instead of tollgate), `mail-v2` kept — deps: P2-1, P2-3
+- [x] P2-4 Mail triage on the provider layer (instead of tollgate), `mail-v2` kept — deps: P2-1, P2-3 — branch ready: night/P2-4
 - [x] P2-5 Model per task (small for triage, bigger for summaries/drafts) — deps: P2-1 — branch ready: night/P2-5
 - [x] P2-6 "Connect an agent" box: Claude Code, Claude Desktop, Cursor, Codex, REST — branch ready: night/P2-6
 - [ ] P2-7 OAuth 2.1 for MCP (discovery, PKCE, consent screen)
@@ -58,7 +58,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 
 ## Phase 5: mail organiser (after P2-1..P2-4)
 
-- [ ] P5-1 Daily digest: what needs a reply or an action today
+- [~] (sodium-7a, 2026-11-13, on night/P2-4) P5-1 Daily digest: what needs a reply or an action today
 - [ ] P5-2 AI reply drafts through approval (nothing sent without a click)
 - [ ] P5-3 Filing rules in natural language (AI proposes, human validates, applied without AI)
 - [x] P5-4 Scam detection: display name vs address domain — branch ready: night/P5-4 (heuristics; AI signal waits for P2-4)
