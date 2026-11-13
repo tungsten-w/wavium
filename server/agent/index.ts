@@ -6,7 +6,7 @@
 //   POST /agent/v1/tools/<name>         REST, body = tool input, bare JSON back
 //   GET  /agent/v1/openapi.json         REST description
 //   *    /agent/v1/owner/...            Settings > Agents and approvals (owner session)
-//   + routes of app modules (mail uploads and attachment downloads)
+//   + routes of app modules (mail uploads and attachment downloads, /agent/v1/ai = Settings > AI)
 import type { PhpTarget } from '../php'
 import { grantorsFor, modeOf } from './access'
 import { Approvals } from './approvals'
@@ -163,10 +163,11 @@ export async function startAgentLayer(opts: { docroot: string, php: PhpTarget })
 	const db = connect(cfg)
 	const php = phpCaller(opts.php, cfg.secret, cfg.baseUrl)
 	const { mailModule } = await import('./mail')
+	const { aiModule } = await import('./ai')
 	const layer = await createLayer({
 		cfg, db, php,
 		notifier: ntfyNotifier(process.env.ATRIUM_NTFY_URL, process.env.ATRIUM_NTFY_TOKEN),
-		modules: [mailModule()],
+		modules: [mailModule(), aiModule()],
 	})
 	console.log(`agent layer: ${cfg.dbtype} ${cfg.baseUrl}/agent/mcp`)
 	return layer

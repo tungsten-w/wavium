@@ -120,6 +120,8 @@ services:
       <<: *env
       ATRIUM_DOCROOT: /var/www/html
       ATRIUM_FPM: php:9000
+      # Offer the mock AI provider in Settings > AI (dev only; rule A2: no real key).
+      ATRIUM_AI_MOCK: "1"
       PORT: "8080"
     ports:
       - "127.0.0.1:${ATRIUM_PORT:-8092}:8080"
