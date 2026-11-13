@@ -85,7 +85,7 @@ export class Approvals implements ApprovalsApi {
 		[rid, ctx.agent.uid, ctx.grantor, tool.name, JSON.stringify(input), payload, sha256Hex(payload), prepared.summary.slice(0, 1000), prepared.ref ?? null, now, now + APPROVAL_TTL_SEC])
 		if (this.notifier) {
 			if ((await getSettings(this.db, ctx.agent.uid)).notifyApprovals) {
-				await this.notifier.notify(`${ctx.agent.displayName} asks: ${tool.name}`, prepared.summary, { tags: ['robot'], click: this.ownerUrl }).catch(() => {})
+				await this.notifier.notify(`${ctx.agent.displayName} asks: ${tool.name}`, prepared.summary, { tags: ['robot'], click: `${this.ownerUrl}?request=${rid}` }).catch(() => {})
 			}
 		}
 		return { status: 'pending_approval' as const, request_id: rid, expires_at: iso(now + APPROVAL_TTL_SEC) }

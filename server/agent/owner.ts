@@ -8,8 +8,9 @@ import {
 	type AccessMap, type Action, ACTIONS, dropAgent, getAccess, getSettings, normalizeModes,
 	type Preset, presetAccess, setAccess, tokenScopes, updateSettings,
 } from './access'
-import type { Approvals } from './approvals'
+import { type Approvals, view as approvalView } from './approvals'
 import type { Journal } from './journal'
+import { timeline } from './timeline'
 import type { Auth, Caller } from './auth'
 import type { Db } from './db'
 import type { PhpCaller } from './phpcall'
@@ -222,13 +223,25 @@ export class OwnerApi {
 			if (!b && m === 'GET') {
 				const status = url.searchParams.get('status') ?? undefined
 				const limit = Math.min(Number(url.searchParams.get('limit') ?? 50) || 50, 200)
-				return Response.json(await this.approvals.list({ grantor: owner.uid, status }, url.searchParams.get('cursor') ?? undefined, limit))
+				const agent = url.searchParams.get('agent') || undefined
+				return Response.json(await this.approvals.list({ grantor: owner.uid, status, agent }, url.searchParams.get('cursor') ?? undefined, limit))
+			}
+			if (b && !c && m === 'GET') {
+				const r = await this.approvals.get(b)
+				if (!r || r.grantor_uid !== owner.uid) throw new AgentError('not_found', `No request ${b}`)
+				return Response.json(approvalView(r))
 			}
 			if (b && (c === 'approve' || c === 'reject') && m === 'POST') {
 				const input = await body()
 				const note = input.note === undefined || input.note === null || input.note === '' ? null : String(input.note).slice(0, 2000)
 				return Response.json(c === 'approve' ? await this.approvals.approve(owner.uid, b, note) : await this.approvals.reject(owner.uid, b, note))
 			}
+		}
+
+		// Agent activity: journal actions + requests, one timeline (timeline.ts).
+		if (a === 'activity' && !b && m === 'GET') {
+			const limit = Number(url.searchParams.get('limit') ?? 50) || 50
+			return Response.json(await timeline(this.db, owner.uid, { agent: url.searchParams.get('agent') || undefined, cursor: url.searchParams.get('cursor') || undefined, limit }))
 		}
 
 		// Journal of agent actions on the owner's data, and undo (journal.ts).

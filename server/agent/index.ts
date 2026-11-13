@@ -60,7 +60,7 @@ export async function createLayer(opts: { cfg: NcConfig, db: Db, php: PhpCaller,
 	await migrate(db)
 	const notifier = opts.notifier ?? null
 	const auth = new Auth(php, () => authFingerprint(db))
-	const approvals = new Approvals(db, notifier, `${cfg.baseUrl}/settings/user/agents`)
+	const approvals = new Approvals(db, notifier, `${cfg.baseUrl}/settings/user/agent-activity`)
 	const events = new EventLog(db, notifier, opts.fetcher, opts.webhookPolicy)
 	const registry = new Registry()
 	const modules = opts.modules ?? []

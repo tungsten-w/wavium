@@ -5,7 +5,7 @@
 // data over the last 30 days, with Undo where Atrium knows the inverse (restore
 // from a trash, delete what was created, untick, unshare, move back).
 import { useCallback, useEffect, useState } from 'react'
-import { relativeTime } from '@atrium/sdk'
+import { navigate, relativeTime } from '@atrium/sdk'
 import { Button, Card, toast } from '@atrium/ui'
 import { api } from './agentsApi'
 import type { AgentAction } from './agentsModel'
@@ -76,6 +76,7 @@ export function AgentActions({ names, refresh }: { names: Map<string, string>, r
 				))}</tbody>
 			</table></div>
 			{next && <Button variant="text" onClick={() => void more()}>Show more</Button>}
+			<Button variant="text" onClick={() => navigate('/settings/user/agent-activity')}>All agent activity</Button>
 		</Card>
 	)
 }
