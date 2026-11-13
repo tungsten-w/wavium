@@ -216,3 +216,24 @@ test('the reader lists the other messages of the conversation; one click opens o
 	await click(conv.querySelector('button')!)
 	await waitFor(() => location.pathname === '/apps/mail/view/inbox/thread/12')
 })
+
+test('snooze: the first time creates the Snoozed folder, then snoozes the mail', async () => {
+	server
+		.on('POST', '/apps/mail/api/mailboxes', () => box(9, 'Snoozed', ''))
+		.on('PATCH', '/apps/mail/api/accounts/1', () => ({ ...account, snoozeMailboxId: 9 }))
+		.on('POST', '/apps/mail/api/messages/11/snooze', () => ({}))
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(container, 'Dinner on Friday?'))
+	await click(getByText(container, 'Dinner on Friday?').closest('button')!)
+	const reader = await waitFor(() => container.querySelector('[aria-label="Message"]'))
+	await click(getButton(reader, 'More actions'))
+	await click(await waitFor(() => getByText(document.body, 'Snooze…')))
+	await click(await waitFor(() => getButton(document.body, 'Tomorrow morning (08:00)')))
+	await waitFor(() => server.calls('POST', '/apps/mail/api/messages/11/snooze').length === 1)
+	expect(server.calls('POST', '/apps/mail/api/mailboxes')[0].body).toEqual({ accountId: 1, name: 'Snoozed' })
+	expect(server.calls('PATCH', '/apps/mail/api/accounts/1')[0].body).toEqual({ snoozeMailboxId: 9 })
+	const s = server.calls('POST', '/apps/mail/api/messages/11/snooze')[0].body as { unixTimestamp: number, destMailboxId: number }
+	expect(s.destMailboxId).toBe(9)
+	expect(new Date(s.unixTimestamp * 1000).getHours()).toBe(8)
+	await waitFor(() => !getByText(container, 'Your invoice') || !queryByText(container, 'Dinner on Friday?') ? true : null)
+})

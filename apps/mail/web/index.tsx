@@ -8,11 +8,12 @@ import { ComposeDialog, blankComposer, type ComposerState } from './Compose'
 import { MailRules } from './Rules'
 import { ExtractDialog } from './Extract'
 import { ThreadList } from './Thread'
+import { SnoozeDialog } from './Snooze'
 import { UnsubscribeBanner } from './Unsubscribe'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
 import { archiveTarget, kindBoxes, labelQuery, sortBoxes, type ViewKind } from './labels'
-import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, suggestReply, undoDelete, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
+import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, suggestReply, undoDelete, snoozeMessage, patchAccount, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
 import './style.css'
 
 const errorText = (e: unknown) => e instanceof Error ? e.message : String(e)
@@ -256,6 +257,25 @@ function Mail() {
 			}
 		} catch (e) { toast.error(errorText(e)) }
 	}
+	/** P4-1: snooze; the first time, an account without a snooze folder gets "Snoozed". */
+	const snooze = async (message: Message, at: number) => {
+		const acc = accounts?.find((a) => a.id === boxes.find((b) => b.databaseId === message.mailboxId)?.accountId)
+		if (!acc) return
+		try {
+			let sid = acc.snoozeMailboxId
+			if (sid === null) {
+				const existing = boxes.find((b) => b.accountId === acc.id && b.displayName === 'Snoozed')
+				const box = existing ?? await createMailbox(acc.id, 'Snoozed')
+				await patchAccount(acc.id, { snoozeMailboxId: box.databaseId })
+				sid = box.databaseId
+				void loadAccounts()
+			}
+			await snoozeMessage(message.databaseId, at, sid)
+			setMessages((ms) => (ms ?? []).filter((m) => m.databaseId !== message.databaseId))
+			if (messageId === message.databaseId) navigate(boxPath)
+			toast(`Snoozed until ${new Date(at * 1000).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`)
+		} catch (e) { toast.error(errorText(e)) }
+	}
 	const saveFolder = async () => {
 		if (!folderDialog?.name.trim() || !account) return
 		try {
@@ -355,7 +375,7 @@ function Mail() {
 			<section className="ml-reader" aria-label="Message">
 				{messageId ? <Reader id={messageId} message={selected} triage={triage[messageId]} onTriage={(t) => setTriage((m) => ({ ...m, [messageId]: t }))} boxes={accountBoxes} moveTarget={moveTarget} setMoveTarget={setMoveTarget}
 					onClose={() => navigate(boxPath)} onFlags={(flags) => { if (selected) void patchMessage(selected, flags) }} onMove={(id) => { if (selected) void move(selected, id) }} onDelete={() => { if (selected) void remove(selected) }}
-					onReply={reply} onSuggest={suggest} suggesting={suggesting} onMailto={(m) => startCompose({ to: m.to, subject: m.subject, body: m.body })} onOpenOther={(id) => navigate(`${boxPath}/thread/${id}`)} onForward={forward} onEdit={(body) => startCompose({ to: addressText(body.to), cc: addressText(body.cc), bcc: addressText(body.bcc), subject: body.subject, body: bodyText(body), draftId: body.databaseId, inReplyToMessageId: body.messageId })} />
+					onReply={reply} onSuggest={suggest} suggesting={suggesting} onMailto={(m) => startCompose({ to: m.to, subject: m.subject, body: m.body })} onOpenOther={(id) => navigate(`${boxPath}/thread/${id}`)} onSnooze={(at) => { if (selected) void snooze(selected, at) }} onForward={forward} onEdit={(body) => startCompose({ to: addressText(body.to), cc: addressText(body.cc), bcc: addressText(body.bcc), subject: body.subject, body: bodyText(body), draftId: body.databaseId, inReplyToMessageId: body.messageId })} />
 					: <EmptyState icon="mail" title="Choose a message to read" />}
 			</section>
 		</div>
@@ -475,13 +495,14 @@ function MessageRow({ message, triage, selected, outgoing, onOpen, onFlag, onArc
 	</li>
 }
 
-function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarget, onClose, onFlags, onMove, onDelete, onReply, onSuggest, suggesting, onMailto, onOpenOther, onForward, onEdit }: {
+function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarget, onClose, onFlags, onMove, onDelete, onReply, onSuggest, suggesting, onMailto, onOpenOther, onSnooze, onForward, onEdit }: {
 	id: number, message: Message | null, triage?: Triage | null, onTriage: (t: Triage | null) => void, boxes: Mailbox[], moveTarget: string, setMoveTarget: (v: string) => void,
 	onClose: () => void, onFlags: (f: { seen?: boolean, flagged?: boolean }) => void, onMove: (id: number) => void, onDelete: () => void,
 	onReply: (b: MessageBody, all?: boolean) => void, onForward: (b: MessageBody) => void, onEdit: (b: MessageBody) => void,
 	onSuggest?: (b: MessageBody) => void, suggesting?: boolean,
 	onMailto?: (m: { to: string, subject: string, body: string }) => void,
 	onOpenOther?: (id: number) => void,
+	onSnooze?: (at: number) => void,
 }) {
 	const [body, setBody] = useState<MessageBody | null>(null)
 	const [error, setError] = useState('')
@@ -510,6 +531,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 	const [showImages, setShowImages] = useState(false)
 	useEffect(() => setShowImages(false), [id])
 	const [extractOpen, setExtractOpen] = useState(false)
+	const [snoozeOpen, setSnoozeOpen] = useState(false)
 	useEffect(() => setExtractOpen(false), [id])
 	// Mail's sanitizer swaps remote images for a placeholder and keeps the proxied URL in data-original-src.
 	const blocked = !!body?.body.includes('data-original-src')
@@ -529,6 +551,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			<Menu trigger={(open, expanded) => <IconButton icon="moreVert" label="More actions" aria-expanded={expanded} onClick={open} />} items={[
 				{ label: classifying ? 'Classifying…' : 'Reclassify', icon: 'refresh', onClick: () => void runReclassify() },
 				{ label: 'Find dates…', icon: 'calendar', onClick: () => setExtractOpen(true) },
+				...(onSnooze ? [{ label: 'Snooze…', icon: 'clock', onClick: () => setSnoozeOpen(true) }] : []),
 			]} />
 		</header>
 		{!body && !error && <div className="ml-center"><Spinner /></div>}
@@ -539,6 +562,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			<TriageLine t={triage} busy={classifying} />
 			<SpoofBanner from={body.from[0]} />
 			<ExtractDialog dbId={body.databaseId} open={extractOpen} onClose={() => setExtractOpen(false)} />
+			{onSnooze && <SnoozeDialog open={snoozeOpen} onClose={() => setSnoozeOpen(false)} onPick={(at) => { setSnoozeOpen(false); onSnooze(at) }} />}
 			{onMailto && <UnsubscribeBanner body={body} onMailto={onMailto} />}
 			{(body.atriumCopy?.goneFromServer || message?.goneFromServer) && <p className="ml-kept ml-kept--reader"><Icon name="archive" /> Only in Atrium: no longer on the mail server.{' '}{body.atriumCopy?.text === false ? 'Its text was never copied before it left the server, so only the sender, subject and date are kept.' : body.atriumCopy?.full === false ? 'Shown from the text Atrium kept (formatting and attachments are not kept).' : 'Attachments are not kept.'}</p>}
 			{!body.atriumCopy?.goneFromServer && !message?.goneFromServer && body.atriumCopy?.source === 'atrium' && body.atriumCopy.full === false && <p className="ml-kept ml-kept--reader"><Icon name="archive" /> The mail server could not be reached: shown from the text Atrium kept.</p>}

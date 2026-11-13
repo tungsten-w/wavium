@@ -459,3 +459,6 @@ export async function getThread(id: number): Promise<Message[]> {
 		throw e
 	}
 }
+
+/** P4-1: snooze into the account's snooze folder until `at` (unix s); Mail's WakeJob brings it back. */
+export const snoozeMessage = (id: number, at: number, snoozeMailboxId: number) => mail(`/messages/${id}/snooze`, { method: 'POST', body: { unixTimestamp: at, destMailboxId: snoozeMailboxId } })
