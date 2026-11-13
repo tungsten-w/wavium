@@ -52,6 +52,7 @@ beforeEach(() => {
 		.on('POST', /^\/apps\/mail\/api\/mailboxes\/\d+\/sync$/, () => ({ newMessages: [], changedMessages: [], vanishedMessages: [], stats: { total: 2, unread: 1 } }))
 		.on('GET', /^\/apps\/mail\/api\/messages\/(\d+)\/body$/, (_r, [id]) => body(inbox.find((m) => m.databaseId === Number(id))!))
 		.on('PUT', /^\/apps\/mail\/api\/messages\/(\d+)\/flags$/, () => ({}))
+		.on('GET', /^\/apps\/mail\/api\/messages\/\d+\/thread$/, () => [])
 })
 
 afterEach(() => {
@@ -202,4 +203,16 @@ test('To suggests contacts after two letters; picking one completes the last add
 	await click(getByText(list as HTMLElement, 'Bob Durand').closest('button')!)
 	expect(to.value).toBe('claire@x.test, Bob Durand <bob@atrium.test>, ')
 	await waitFor(() => !dialog.querySelector('[aria-label="To suggestions"]'))
+})
+
+test('the reader lists the other messages of the conversation; one click opens one', async () => {
+	server.on('GET', '/apps/mail/api/messages/11/thread', () => [inbox[0], { ...inbox[1], databaseId: 12, previewText: 'Earlier: shall we?' }])
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(container, 'Dinner on Friday?'))
+	await click(getByText(container, 'Dinner on Friday?').closest('button')!)
+	const conv = await waitFor(() => container.querySelector('[aria-label="Conversation"]'))
+	expect(conv.textContent).toContain('1 other message in this conversation')
+	expect(conv.textContent).toContain('Earlier: shall we?')
+	await click(conv.querySelector('button')!)
+	await waitFor(() => location.pathname === '/apps/mail/view/inbox/thread/12')
 })

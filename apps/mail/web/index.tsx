@@ -7,6 +7,7 @@ import { AccountSettings, AccountSetup } from './Account'
 import { ComposeDialog, blankComposer, type ComposerState } from './Compose'
 import { MailRules } from './Rules'
 import { ExtractDialog } from './Extract'
+import { ThreadList } from './Thread'
 import { UnsubscribeBanner } from './Unsubscribe'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
@@ -354,7 +355,7 @@ function Mail() {
 			<section className="ml-reader" aria-label="Message">
 				{messageId ? <Reader id={messageId} message={selected} triage={triage[messageId]} onTriage={(t) => setTriage((m) => ({ ...m, [messageId]: t }))} boxes={accountBoxes} moveTarget={moveTarget} setMoveTarget={setMoveTarget}
 					onClose={() => navigate(boxPath)} onFlags={(flags) => { if (selected) void patchMessage(selected, flags) }} onMove={(id) => { if (selected) void move(selected, id) }} onDelete={() => { if (selected) void remove(selected) }}
-					onReply={reply} onSuggest={suggest} suggesting={suggesting} onMailto={(m) => startCompose({ to: m.to, subject: m.subject, body: m.body })} onForward={forward} onEdit={(body) => startCompose({ to: addressText(body.to), cc: addressText(body.cc), bcc: addressText(body.bcc), subject: body.subject, body: bodyText(body), draftId: body.databaseId, inReplyToMessageId: body.messageId })} />
+					onReply={reply} onSuggest={suggest} suggesting={suggesting} onMailto={(m) => startCompose({ to: m.to, subject: m.subject, body: m.body })} onOpenOther={(id) => navigate(`${boxPath}/thread/${id}`)} onForward={forward} onEdit={(body) => startCompose({ to: addressText(body.to), cc: addressText(body.cc), bcc: addressText(body.bcc), subject: body.subject, body: bodyText(body), draftId: body.databaseId, inReplyToMessageId: body.messageId })} />
 					: <EmptyState icon="mail" title="Choose a message to read" />}
 			</section>
 		</div>
@@ -474,12 +475,13 @@ function MessageRow({ message, triage, selected, outgoing, onOpen, onFlag, onArc
 	</li>
 }
 
-function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarget, onClose, onFlags, onMove, onDelete, onReply, onSuggest, suggesting, onMailto, onForward, onEdit }: {
+function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarget, onClose, onFlags, onMove, onDelete, onReply, onSuggest, suggesting, onMailto, onOpenOther, onForward, onEdit }: {
 	id: number, message: Message | null, triage?: Triage | null, onTriage: (t: Triage | null) => void, boxes: Mailbox[], moveTarget: string, setMoveTarget: (v: string) => void,
 	onClose: () => void, onFlags: (f: { seen?: boolean, flagged?: boolean }) => void, onMove: (id: number) => void, onDelete: () => void,
 	onReply: (b: MessageBody, all?: boolean) => void, onForward: (b: MessageBody) => void, onEdit: (b: MessageBody) => void,
 	onSuggest?: (b: MessageBody) => void, suggesting?: boolean,
 	onMailto?: (m: { to: string, subject: string, body: string }) => void,
+	onOpenOther?: (id: number) => void,
 }) {
 	const [body, setBody] = useState<MessageBody | null>(null)
 	const [error, setError] = useState('')
@@ -542,6 +544,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			{!body.atriumCopy?.goneFromServer && !message?.goneFromServer && body.atriumCopy?.source === 'atrium' && body.atriumCopy.full === false && <p className="ml-kept ml-kept--reader"><Icon name="archive" /> The mail server could not be reached: shown from the text Atrium kept.</p>}
 			{blocked && !showImages && <div className="ml-images"><Icon name="image" /><span>Remote images are hidden to protect your privacy.</span><Button variant="text" size="s" onClick={() => setShowImages(true)}>Show images</Button></div>}
 			<MailBody html={html} plain={!body.hasHtmlBody} />
+			{onOpenOther && <ThreadList id={body.databaseId} onOpen={onOpenOther} />}
 			{body.signature && <details className="ml-signature"><summary>Signature</summary><div className="ml-body ml-body--plain">{body.signature}</div></details>}
 			{body.attachments.length > 0 && (body.atriumCopy?.goneFromServer || message?.goneFromServer) && <section className="ml-files"><h2>Attachments</h2><p className="ml-kept">Not kept in Atrium: {body.attachments.map((a) => a.fileName).join(', ')}</p></section>}
 			{body.attachments.length > 0 && <section className="ml-files"><h2>Attachments</h2><div className="ml-attachments">{body.attachments.map((a) => <a className="ml-attachment" key={a.id} href={a.downloadUrl ?? appUrl('mail', `/api/messages/${body.databaseId}/attachment/${encodeURIComponent(a.id)}`)}><Icon name="attachment" /><span>{a.fileName}<small>{a.size ? formatBytes(a.size) : a.mimeType ?? a.mime}</small></span><Icon name="download" /></a>)}</div><a className="at-btn at-btn--text" href={appUrl('mail', `/api/messages/${body.databaseId}/attachments`)}><Icon name="download" />Download all</a></section>}

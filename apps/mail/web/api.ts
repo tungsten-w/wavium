@@ -449,3 +449,13 @@ export async function undoDelete(accountId: number, trashId: number, messageId: 
 /** P4-1: contacts and past correspondents matching `term` (Mail's own autocomplete). */
 export interface Suggestion { id?: string | number, label: string, email: string }
 export const autoComplete = (term: string) => mail<Suggestion[]>(`/autoComplete?term=${encodeURIComponent(term)}`)
+
+/** P4-1: the other messages of a mail's thread (404 = no thread: empty). */
+export async function getThread(id: number): Promise<Message[]> {
+	try {
+		return await mail<Message[]>(`/messages/${id}/thread`)
+	} catch (e) {
+		if (e instanceof HttpError && e.status === 404) return []
+		throw e
+	}
+}

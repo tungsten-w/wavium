@@ -271,3 +271,13 @@
 .ml-addr__list button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 6px 10px; border: 0; border-radius: var(--at-radius-s); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .ml-addr__list li[aria-selected="true"] button, .ml-addr__list button:hover { background: var(--at-surface-container-high); }
 .ml-addr__list small { color: var(--at-on-surface-variant); }
+
+/* Conversation (P4-1) */
+.ml-thread { margin-top: 16px; border-top: 1px solid var(--at-outline-variant); padding-top: 10px; }
+.ml-thread h2 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--at-on-surface-variant); }
+.ml-thread ul { list-style: none; margin: 0; padding: 0; }
+.ml-thread button { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--at-radius-m); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ml-thread button:hover { background: var(--at-surface-container-high); }
+.ml-thread__who { flex: none; font-weight: 600; font-size: 13px; }
+.ml-thread__preview { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--at-on-surface-variant); }
+.ml-thread time { flex: none; font-size: 12px; color: var(--at-on-surface-variant); }
