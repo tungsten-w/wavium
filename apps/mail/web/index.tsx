@@ -11,7 +11,7 @@ import { UnsubscribeBanner } from './Unsubscribe'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
 import { archiveTarget, kindBoxes, labelQuery, sortBoxes, type ViewKind } from './labels'
-import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, suggestReply, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
+import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, suggestReply, undoDelete, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
 import './style.css'
 
 const errorText = (e: unknown) => e instanceof Error ? e.message : String(e)
@@ -241,7 +241,18 @@ function Mail() {
 			await deleteMessage(message.databaseId)
 			setMessages((ms) => (ms ?? []).filter((m) => m.databaseId !== message.databaseId))
 			if (messageId === message.databaseId) navigate(boxPath)
-			toast('Message deleted')
+			const acc = accounts?.find((a) => a.id === boxes.find((b) => b.databaseId === message.mailboxId)?.accountId)
+			const trashId = acc?.trashMailboxId ?? null
+			// Undo: only for mail moved to Trash (not for a delete inside Trash) with a Message-ID to find it again.
+			if (acc && trashId !== null && trashId !== message.mailboxId && message.messageId) {
+				toast('Moved to Trash', { action: { label: 'Undo', onClick: () => {
+					undoDelete(acc.id, trashId, message.messageId, message.mailboxId)
+						.then(() => { toast('Message restored'); setCuratedVer((v) => v + 1) })
+						.catch((e) => toast.error(errorText(e)))
+				} } })
+			} else {
+				toast('Message deleted')
+			}
 		} catch (e) { toast.error(errorText(e)) }
 	}
 	const saveFolder = async () => {

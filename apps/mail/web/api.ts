@@ -434,3 +434,14 @@ export function parseMailto(href: string | null | undefined): { to: string, subj
 	if (!/^[^@\s,]+@[^@\s,]+$/.test(to)) return null
 	return { to, subject: q.get('subject') ?? 'unsubscribe', body: q.get('body') ?? '' }
 }
+
+/** P4-1: put a deleted mail back from Trash (found by Message-ID; Trash is synced first). */
+export async function undoDelete(accountId: number, trashId: number, messageId: string, to: number): Promise<{ restored: boolean }> {
+	await syncMailbox(trashId).catch(() => {})
+	try {
+		return await request(`/agent/v1/mail/undo-delete`, { method: 'POST', body: { account: accountId, message_id: messageId, to }, headers: { 'OCS-APIRequest': 'true' } })
+	} catch (e) {
+		if (e instanceof HttpError) throw new Error((e.body as { error?: { message?: string } } | null)?.error?.message ?? `HTTP ${e.status}`)
+		throw e
+	}
+}
