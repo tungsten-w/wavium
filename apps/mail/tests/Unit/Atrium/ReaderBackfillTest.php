@@ -36,8 +36,8 @@ class ReaderBackfillTest extends MailDbTestCase {
 
 	private function body(string $messageId, ?string $reader): void {
 		$this->db->executeStatement(
-			'INSERT INTO *PREFIX*mail_bodies (account_id, msg_hash, headers, body, attachments, has_unsubscribe, sent_at, fetched_at, reader_body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-			[$this->account->getId(), md5($messageId), 'h', 'b', '', false, 1, 1, $reader],
+			'INSERT INTO *PREFIX*mail_bodies (account_id, msg_hash, headers, body, attachments, has_unsubscribe, sent_at, fetched_at, reader_body) VALUES (?, ?, ?, ?, ?, false, ?, ?, ?)',
+			[$this->account->getId(), md5($messageId), 'h', 'b', '', 1, 1, $reader],
 		);
 	}
 

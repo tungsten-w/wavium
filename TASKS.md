@@ -9,12 +9,12 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 
 - [x] P0-1 Git repository from the zip (`import atrium-main 2026-11-08`)
 - [x] P0-2 Remove personal data; `memory/` archived outside; `docs/lessons.md`
-- [~] P0-3 Dev stack in one command (`docker compose up`): Bun + PHP-FPM, PostgreSQL, Redis, GreenMail, demo data (night 1, 2026-11-12)
-- [~] P0-4 `Makefile`: up, down, test, lint, build, reset (night 1, 2026-11-12)
-- [ ] P0-5 CI: GitHub Actions running `make lint test`
-- [~] P0-6 Agent files: CLAUDE.md, AGENTS.md, TASKS.md, reports/ (night 1, 2026-11-12)
-- [ ] P0-7 Atrium README
-- [ ] P0-8 Agent team: `.claude/agents/*.md`, `night.sh`, `docs/agents-journal.md`
+- [x] P0-3 Dev stack in one command (`docker compose up`): Bun + PHP-FPM, PostgreSQL, Redis, GreenMail, demo data
+- [x] P0-4 `Makefile`: up, down, test, lint, build, reset
+- [x] P0-5 CI: GitHub Actions running `make lint test` (not run yet: no remote)
+- [x] P0-6 Agent files: CLAUDE.md, AGENTS.md, TASKS.md, reports/
+- [x] P0-7 Atrium README
+- [~] (night 1, 2026-11-12) P0-8 Agent team: `.claude/agents/*.md`, `night.sh`, `docs/agents-journal.md`
 
 ## Phase 1: clean up and secure
 

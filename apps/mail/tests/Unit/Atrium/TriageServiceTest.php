@@ -131,7 +131,7 @@ class TriageServiceTest extends MailDbTestCase {
 		$a = $this->serverMail($inbox, 1, '<a@t>');
 		$gone = $this->serverMail($inbox, 2, '<gone@t>');
 		$this->serverMail($other, 3, '<o@t>');
-		$this->db->executeStatement('UPDATE *PREFIX*mail_messages SET flag_deleted = ? WHERE id = ?', [true, $gone->getId()]);
+		$this->db->executeStatement('UPDATE *PREFIX*mail_messages SET flag_deleted = true WHERE id = ?', [$gone->getId()]);
 
 		$this->assertSame([$a->getId()], $this->ids([$inbox]));
 		$this->assertSame([], $this->triage->idsByLabel('someone-else', [$inbox->getId()], [], false, null, 50));
@@ -152,8 +152,8 @@ class TriageServiceTest extends MailDbTestCase {
 	public function testReaderCopyRoundTrip(): void {
 		$hash = TriageService::hash('<r@t>', 1);
 		$this->db->executeStatement(
-			'INSERT INTO *PREFIX*mail_bodies (account_id, msg_hash, headers, body, attachments, has_unsubscribe, sent_at, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-			[$this->row->getId(), $hash, 'From: A', 'plain text', '', false, 1700000000, 1700000001],
+			'INSERT INTO *PREFIX*mail_bodies (account_id, msg_hash, headers, body, attachments, has_unsubscribe, sent_at, fetched_at) VALUES (?, ?, ?, ?, ?, false, ?, ?)',
+			[$this->row->getId(), $hash, 'From: A', 'plain text', '', 1700000000, 1700000001],
 		);
 		$this->assertNull($this->triage->loadCopy($this->row->getId(), $hash)['reader_body']);
 
@@ -170,8 +170,8 @@ class TriageServiceTest extends MailDbTestCase {
 	public function testReaderCopyTooBigIsNotKeptAndMissingRowIsNull(): void {
 		$hash = TriageService::hash('<big@t>', 1);
 		$this->db->executeStatement(
-			'INSERT INTO *PREFIX*mail_bodies (account_id, msg_hash, headers, body, attachments, has_unsubscribe, sent_at, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-			[$this->row->getId(), $hash, 'h', 'b', '', false, 1, 1],
+			'INSERT INTO *PREFIX*mail_bodies (account_id, msg_hash, headers, body, attachments, has_unsubscribe, sent_at, fetched_at) VALUES (?, ?, ?, ?, ?, false, ?, ?)',
+			[$this->row->getId(), $hash, 'h', 'b', '', 1, 1],
 		);
 		$this->triage->storeReaderCopy($this->row->getId(), $hash, ['body' => str_repeat('x', TriageService::MAX_READER_CHARS + 1)]);
 		$this->assertNull($this->triage->loadCopy($this->row->getId(), $hash)['reader_body']);

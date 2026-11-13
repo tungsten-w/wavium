@@ -85,7 +85,7 @@ lint:
 	$(BUN) sh -c 'sh deploy/dev/deps.sh && cd core/web && bun --bun node_modules/.bin/tsc -p tsconfig.json --noEmit && bun --bun node_modules/.bin/tsc -p ../../server/tsconfig.json --noEmit'
 	$(COMPOSE) run --rm -T --no-deps --entrypoint sh php -c '\
 		find $(PHP_LINT_DIRS) -name "*.php" -not -path "*/vendor/*" -print0 | xargs -0 -n1 -P4 php -l >/dev/null'
-	$(BUN) sh -c 'for f in deploy/*.sh deploy/dev/*.sh deploy/test/*.sh night.sh; do [ ! -f "$$f" ] || sh -n "$$f" || exit 1; done'
+	$(BUN) sh -c 'for f in deploy/*.sh deploy/dev/*.sh deploy/test/*.sh night.sh; do [ ! -f "$$f" ] || bash -n "$$f" || exit 1; done'
 
 # --------------------------------------------------------------------- build
 

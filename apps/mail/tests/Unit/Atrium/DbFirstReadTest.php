@@ -32,8 +32,8 @@ use ReflectionClass;
 class DbFirstReadTest extends MailDbTestCase {
 	private function storeText(string $messageId, string $text, ?string $readerBody = null, ?array $meta = null): void {
 		$this->db->executeStatement(
-			'INSERT INTO *PREFIX*mail_bodies (account_id, msg_hash, headers, body, attachments, has_unsubscribe, sent_at, fetched_at, reader_body, reader_meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-			[$this->account->getId(), md5($messageId), "From: Sender\nSubject: Stored", $text, '', false, 1700000000, 1700000001, $readerBody, $meta === null ? null : json_encode($meta)],
+			'INSERT INTO *PREFIX*mail_bodies (account_id, msg_hash, headers, body, attachments, has_unsubscribe, sent_at, fetched_at, reader_body, reader_meta) VALUES (?, ?, ?, ?, ?, false, ?, ?, ?, ?)',
+			[$this->account->getId(), md5($messageId), "From: Sender\nSubject: Stored", $text, '', 1700000000, 1700000001, $readerBody, $meta === null ? null : json_encode($meta)],
 		);
 	}
 

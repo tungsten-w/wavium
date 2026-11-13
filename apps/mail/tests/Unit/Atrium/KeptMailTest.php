@@ -108,7 +108,7 @@ class KeptMailTest extends MailDbTestCase {
 		$this->serverMail($inbox, 5, '<shared@test>');
 		// Same Message-ID in another account must not make this one a "move".
 		$otherId = $this->account->getId() + 1;
-		$this->db->executeStatement('INSERT INTO *PREFIX*mail_mailboxes (name, name_hash, account_id, attributes, delimiter, messages, unseen, selectable, special_use, sync_in_background) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?)', ['INBOX', md5('INBOX'), $otherId, '[]', '/', true, '[]', false]);
+		$this->db->executeStatement('INSERT INTO *PREFIX*mail_mailboxes (name, name_hash, account_id, attributes, delimiter, messages, unseen, selectable, special_use, sync_in_background) VALUES (?, ?, ?, ?, ?, 0, 0, true, ?, false)', ['INBOX', md5('INBOX'), $otherId, '[]', '/', '[]']);
 		$otherBox = (int)$this->db->lastInsertId('*PREFIX*mail_mailboxes');
 		$this->db->executeStatement('INSERT INTO *PREFIX*mail_messages (uid, message_id, mailbox_id, subject, sent_at, flag_answered, flag_deleted, flag_draft, flag_flagged, flag_seen, flag_forwarded, flag_junk, flag_notjunk, flag_important, flag_mdnsent) VALUES (1, ?, ?, ?, 0, false, false, false, false, false, false, false, false, false, false)', ['<shared@test>', $otherBox, 'x']);
 		try {
