@@ -33,7 +33,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [ ] P2-3 Budgets and usage: daily/monthly caps, tokens and cost, pause on errors — deps: P2-1
 - [ ] P2-4 Mail triage on the provider layer (instead of tollgate), `mail-v2` kept — deps: P2-1, P2-3
 - [ ] P2-5 Model per task (small for triage, bigger for summaries/drafts) — deps: P2-1
-- [ ] P2-6 "Connect an agent" box: Claude Code, Claude Desktop, Cursor, Codex, REST
+- [~] (instance A, 2026-11-13) P2-6 "Connect an agent" box: Claude Code, Claude Desktop, Cursor, Codex, REST
 - [ ] P2-7 OAuth 2.1 for MCP (discovery, PKCE, consent screen)
 - [ ] P2-8 Several agents per user, activity page — deps: P2-6
 
