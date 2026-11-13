@@ -7,6 +7,7 @@
 // or, when the request forces a tool ({name}), calls that tool with a sample
 // input built from its schema (first enum value, 0.5, ...), like a real model must.
 import { testConnection, trackUsage } from './common'
+import { demoAnswer } from './demo'
 import { AiError, type AiErrorCode } from './errors'
 import type { AiProvider, AiRequest, AiResult, AiStreamEvent, StopReason, ToolCall, Usage } from './types'
 
@@ -72,7 +73,12 @@ export function sampleOf(schema: any): unknown {
 	}
 }
 
-function defaultReply(req: AiRequest): MockReply {
+function defaultReply(req: AiRequest, model?: string): MockReply {
+	// Model "demo" (demo stack only): keyword answers that look like a model's, see demo.ts.
+	if (model === 'demo') {
+		const d = demoAnswer(req)
+		if (d) return d
+	}
 	const forced = req.toolChoice && typeof req.toolChoice === 'object' ? req.tools?.find((t) => t.name === (req.toolChoice as { name: string }).name) : undefined
 	if (forced) return { toolCalls: [{ name: forced.name, input: sampleOf(forced.inputSchema) }] }
 	// Dev stack: "mock-tool: <name> {json}" as the last user message calls that tool (if offered),
@@ -110,7 +116,7 @@ export function createMockProvider(opts: MockOptions = {}): MockProvider {
 		requests.push(structuredClone(copy))
 		calls++
 		const next = queue.shift()
-		const script = typeof next === 'function' ? next(req) : next ?? defaultReply(req)
+		const script = typeof next === 'function' ? next(req) : next ?? defaultReply(req, req.model ?? opts.defaultModel)
 		if ('error' in script) {
 			const e = script.error
 			const status = e.status ?? DEFAULT_STATUS[e.code]
