@@ -34,8 +34,8 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [x] P2-4 Mail triage on the provider layer (instead of tollgate), `mail-v2` kept — deps: P2-1, P2-3 — branch ready: night/P2-4
 - [x] P2-5 Model per task (small for triage, bigger for summaries/drafts) — deps: P2-1 — branch ready: night/P2-5
 - [x] P2-6 "Connect an agent" box: Claude Code, Claude Desktop, Cursor, Codex, REST — branch ready: night/P2-6
-- [ ] P2-7 OAuth 2.1 for MCP (discovery, PKCE, consent screen)
-- [ ] P2-8 Several agents per user, activity page — deps: P2-6
+- [~] (sodium-93, 2026-11-13) P2-7 OAuth 2.1 for MCP (discovery, PKCE, consent screen)
+- [~] (sodium-93, 2026-11-13) P2-8 Several agents per user, activity page — deps: P2-6
 
 ## Phase 3: agent tools for every app (ADR 0009 order)
 
@@ -49,26 +49,26 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 
 ## Phase 4: finish the React apps
 
-- [ ] P4-1 Mail: threads, contact autocomplete, HTML compose, tags, snooze, unified inbox, Sieve, undo delete
-- [ ] P4-2 Calendar: appointments, attendees, subscriptions, old event URLs
-- [ ] P4-3 Tasks: recurring, drag sort, sharing
-- [ ] P4-4 Files: versions, comments, tags, file requests, templates, external storage
-- [ ] P4-5 Dashboard: JS widgets, weather
-- [ ] P4-6 Last Vue settings pages: Availability, Flow, External storage, Passkeys
+- [~] (sodium-7a, 2026-11-13) P4-1 Mail: threads, contact autocomplete, HTML compose, tags, snooze, unified inbox, Sieve, undo delete
+- [~] (sodium-93, 2026-11-13) P4-2 Calendar: appointments, attendees, subscriptions, old event URLs
+- [~] (sodium-93, 2026-11-13) P4-3 Tasks: recurring, drag sort, sharing
+- [~] (sodium-93, 2026-11-13) P4-4 Files: versions, comments, tags, file requests, templates, external storage
+- [~] (sodium-93, 2026-11-13) P4-5 Dashboard: JS widgets, weather
+- [~] (sodium-93, 2026-11-13) P4-6 Last Vue settings pages: Availability, Flow, External storage, Passkeys
 
 ## Phase 5: mail organiser (after P2-1..P2-4)
 
 - [x] P5-1 Daily digest: what needs a reply or an action today — branch ready: night/P5-1 (on top of P2-4)
-- [ ] P5-2 AI reply drafts through approval (nothing sent without a click)
-- [ ] P5-3 Filing rules in natural language (AI proposes, human validates, applied without AI)
+- [~] (sodium-7a, 2026-11-13) P5-2 AI reply drafts through approval (nothing sent without a click)
+- [~] (sodium-7a, 2026-11-13) P5-3 Filing rules in natural language (AI proposes, human validates, applied without AI)
 - [x] P5-4 Scam detection: display name vs address domain — branch ready: night/P5-4 (heuristics; AI signal waits for P2-4)
-- [ ] P5-5 Assisted newsletter unsubscribe (`List-Unsubscribe`, confirmation)
-- [ ] P5-6 Built-in assistant panel (provider + MCP tools, same permissions)
-- [ ] P5-7 Mail → tasks and calendar ("this mail has a meeting → create it?")
+- [~] (sodium-7a, 2026-11-13) P5-5 Assisted newsletter unsubscribe (`List-Unsubscribe`, confirmation)
+- [~] (sodium-93, 2026-11-13) P5-6 Built-in assistant panel (provider + MCP tools, same permissions)
+- [~] (sodium-7a, 2026-11-13) P5-7 Mail → tasks and calendar ("this mail has a meeting → create it?")
 
 ## Phase 6: installable by anyone
 
-- [ ] P6-1 Generic production compose (domain, Caddy with HTTPS, resources from .env)
-- [ ] P6-2 Images on GHCR (amd64 baseline + arm64), tagged
+- [~] (sodium-7a, 2026-11-13) P6-1 Generic production compose (domain, Caddy with HTTPS, resources from .env)
+- [~] (sodium-93, 2026-11-13) P6-2 Images on GHCR (amd64 baseline + arm64), tagged
 - [x] P6-3 `make backup` / `make restore`, tested — branch ready: night/P6-3
-- [ ] P6-4 Install guide + migration from an existing Nextcloud
+- [~] (sodium-93, 2026-11-13) P6-4 Install guide + migration from an existing Nextcloud
