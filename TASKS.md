@@ -64,7 +64,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [x] P5-4 Scam detection: display name vs address domain — branch ready: night/P5-4 (heuristics; AI signal waits for P2-4)
 - [x] P5-5 Assisted newsletter unsubscribe (`List-Unsubscribe`, confirmation) — branch ready: night/P5-5 (on top of P5-3)
 - [~] (sodium-93, 2026-11-13) P5-6 Built-in assistant panel (provider + MCP tools, same permissions)
-- [~] (sodium-7a, 2026-11-13) P5-7 Mail → tasks and calendar ("this mail has a meeting → create it?")
+- [x] P5-7 Mail → tasks and calendar ("this mail has a meeting → create it?") — branch ready: night/P5-7 (on top of P5-5)
 
 ## Phase 6: installable by anyone
 
