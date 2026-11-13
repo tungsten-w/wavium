@@ -5,7 +5,7 @@
 // stream error paths, abort, key hygiene, no request on bad config, mock.
 import { expect, test } from 'bun:test'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { AiError, createProvider, type AiProvider, type AiRequest, type ProviderConfig } from './index'
 import { collect, fakeFetch, jsonRes, sse, sseRes } from './testkit'
 
@@ -230,24 +230,32 @@ test('criterion 2: tool call/result round trip through the mock request log', as
 	expect(m.requests[1].messages[1].content).toEqual([{ type: 'tool_call', id: 'c1', name: 'f', input: { a: 1 } }])
 })
 
-test('criterion 9: nothing in server/index.ts or server/agent/ imports server/ai; no new dependency', () => {
+// Since P2-2 the agent layer reaches server/ai through one wiring point only:
+// server/agent/ai.ts (Settings > AI routes) and its test.
+const WIRING = new Set(['ai.ts', 'ai.test.ts'])
+
+test('criterion 9: server/index.ts and server/agent/ import server/ai only through agent/ai.ts; no new dependency', () => {
 	const root = join(import.meta.dir, '..')
 	const files: string[] = [join(root, 'index.ts')]
 	const walk = (d: string) => {
 		for (const n of readdirSync(d)) {
 			const p = join(d, n)
 			if (statSync(p).isDirectory()) walk(p)
-			else if (/\.(ts|tsx|js)$/.test(n)) files.push(p)
+			else if (/\.(ts|tsx|js)$/.test(n) && !(d === join(root, 'agent') && WIRING.has(n))) files.push(p)
 		}
 	}
 	if (existsSync(join(root, 'agent'))) walk(join(root, 'agent'))
 	for (const f of files) {
 		if (!existsSync(f)) continue
-		expect(readFileSync(f, 'utf8')).not.toMatch(/from\s+['"][^'"]*\/ai(\/[^'"]*)?['"]|import\(['"][^'"]*\/ai['"]/)
+		// Resolve every relative import and check it does not land in server/ai.
+		for (const m of readFileSync(f, 'utf8').matchAll(/(?:from\s+|import\()['"](\.[^'"]*)['"]/g)) {
+			const target = join(dirname(f), m[1])
+			expect([f, target === import.meta.dir || target.startsWith(import.meta.dir + '/')]).toEqual([f, false])
+		}
 	}
 	// ai/ itself only imports relative files and node: builtins
 	for (const n of readdirSync(import.meta.dir).filter((n) => n.endsWith('.ts'))) {
 		const src = readFileSync(join(import.meta.dir, n), 'utf8')
-		for (const m of src.matchAll(/from\s+'([^']+)'/g)) expect(m[1]).toMatch(/^(\.|node:|bun:)/)
+		for (const m of src.matchAll(/from\s+'([^']+)'/g)) expect(m[1]).toMatch(/^(\.|node:|bun:|bun$)/)
 	}
 })

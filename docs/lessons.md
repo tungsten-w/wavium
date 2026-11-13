@@ -122,6 +122,9 @@ not part of this repository.
 - Unit tests written against SQLite may bind PHP `false` for booleans; on
   PostgreSQL that becomes `''` and fails. Use SQL `true`/`false` literals or
   typed parameters.
+- Bun's SQLite binds `$1..$n` in the order they first appear in the query, not
+  by number: `UPDATE ... SET a = $2 ... WHERE id = $1` silently updates nothing.
+  Number placeholders in order of appearance (PostgreSQL does not care).
 - Test UI changes in a real browser too: a unit-test fixture with the wrong
   shape (the agent `restUrl`) hid a bug that a Playwright run found at once.
 

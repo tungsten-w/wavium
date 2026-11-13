@@ -2,7 +2,7 @@
 
 One TypeScript interface for the AIs Atrium calls itself (triage, summaries,
 drafts, assistant). Each provider maps Atrium's neutral types to its own wire
-format. Nothing is wired yet: P2-2 to P2-5 build on it.
+format. Configured providers live in `settings.ts` (Settings > AI, P2-2).
 
 ## Kinds
 
@@ -56,6 +56,30 @@ Notes: `model` falls back to `defaultModel`. `usage.reported` is false when the
 server sent no usage; budgets must then estimate. `inputTokens` includes cached
 tokens (`cacheReadTokens`, `cacheWriteTokens` give the parts). Tool results go
 in a user message as `tool_result` blocks.
+
+## Configured providers (Settings > AI)
+
+Users and admins add providers on the Settings > AI page (`/settings/user/ai`).
+Server code gets them from `AiSettings` (`server/ai/settings.ts`), reachable as
+`aiModule().settings()` in the agent layer:
+
+```ts
+const settings = ai.settings()! // ai = the aiModule() passed to createLayer (startAgentLayer)
+const provider = await settings.provider(uid)    // the user's default, or null
+const { providers, defaultProvider } = await settings.config(uid) // keys decrypted, server only
+```
+
+- Instance providers (owner `''`, admins) and personal ones (one user; an admin
+  can turn them off). Default: the user's choice, else the instance default,
+  else the first instance provider.
+- Keys: AES-256-GCM, key = HKDF(instance secret), provider id as associated
+  data. Never sent back to the browser (`hasKey`, `keyHint` = last 4 chars).
+  If the instance secret changes, keys must be entered again.
+- A personal provider's base URL may not reach internal addresses (same guard
+  as agent webhooks; `ATRIUM_AI_ALLOW` lifts it). Checked at save and before
+  every request. Instance providers are trusted.
+- The `mock` kind is offered only with `ATRIUM_AI_MOCK=1` (the dev stack sets it).
+- API: `/agent/v1/ai/*`, see `server/agent/ai.ts`.
 
 ## The mock
 
