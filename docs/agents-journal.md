@@ -86,3 +86,11 @@ The end-to-end run caught what the fixture could not: on a fresh stack the mail
 text is not stored yet, so the model saw only headers; the body is now fetched
 first. Work was split around a usage-limit pause: a WIP commit with numbered
 resume steps in the report made the restart cheap.
+
+### 2026-11-14 · P5-3 (sodium-7a)
+
+Filing rules split along the plan: a pure engine that runs on every new mail
+without AI, and the AI only turning a sentence into that same data, checked by
+the same validator (folder = enum of real folders, Trash never offered). A
+claim table makes filing idempotent, which the reclassify button exercises in
+the end-to-end run.

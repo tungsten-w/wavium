@@ -274,10 +274,15 @@ export async function propose(deps: RulesDeps, uid: string, input: { text?: unkn
 		throw new AgentError('unavailable', `The AI could not propose a rule: ${(e as Error).message}`)
 	}
 	const a = (res.toolCalls[0]?.input ?? {}) as Record<string, unknown>
-	const rule = validateRule({
-		when: { from_domain: a.from_domain, from: a.from, category: a.category, subject_contains: a.subject_contains },
-		then: { move_to: a.move_to, mark_read: a.mark_read, star: a.star },
-	}, accountFolders(folders, account.id))
+	let rule
+	try {
+		rule = validateRule({
+			when: { from_domain: a.from_domain, from: a.from, category: a.category, subject_contains: a.subject_contains },
+			then: { move_to: a.move_to, mark_read: a.mark_read, star: a.star },
+		}, accountFolders(folders, account.id))
+	} catch (e) {
+		throw new AgentError('invalid_input', `The AI could not turn this into a rule (${(e as Error).message}). Name a sender, a kind of mail or a subject word, and an existing folder.`)
+	}
 	const name = typeof a.name === 'string' && a.name.trim() ? a.name.trim().slice(0, 200) : text.slice(0, 60)
 	const byId = new Map(folders.map((f) => [f.id, f.name]))
 	const p = await preview(deps.db, uid, account.id, rule.when)

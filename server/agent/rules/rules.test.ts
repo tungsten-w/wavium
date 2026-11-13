@@ -147,7 +147,7 @@ group('preview, apply, propose', () => {
 
 	test('a proposal with a folder that does not exist, no AI, or a bad request is refused', async () => {
 		aiReply = { name: 'x', category: 'admin', move_to: 12 } // 12 = Trash: not offered
-		await expect(propose(deps, 'ann', { text: 'into the bin' })).rejects.toMatchObject({ code: 'invalid_input' })
+		await expect(propose(deps, 'ann', { text: 'into the bin' })).rejects.toMatchObject({ code: 'invalid_input', message: expect.stringContaining('an existing folder') })
 		await expect(propose({ ...deps, ai: async () => null }, 'ann', { text: 'x' })).rejects.toMatchObject({ code: 'unavailable' })
 		await expect(propose(deps, 'ann', { text: '' })).rejects.toMatchObject({ code: 'invalid_input' })
 		aiReply = new Error('budget')

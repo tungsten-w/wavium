@@ -238,3 +238,15 @@
 .ml-spoof { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 12px; border-radius: 12px; font-size: 13px;
 	background: var(--at-error-container, #fde7e7); color: var(--at-on-error-container, #5c1111); }
 .ml-spoof .at-icon { font-size: 16px; width: 16px; height: 16px; flex: none; }
+
+/* Mail > Rules (P5-3) */
+.ml-rules__ask { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ml-rules__ask > .at-field { flex: 1 1 320px; }
+.ml-rules__proposal { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: var(--at-radius-m); background: var(--at-surface-container-high); }
+.ml-rules__proposal p, .ml-rules__proposal ul { margin: 0; }
+.ml-rules__proposal ul { padding-left: 18px; font-size: 13px; }
+.ml-rules__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.ml-rules__list, .ml-rules__recent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ml-rules__list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ml-rules__desc { flex: 1 1 240px; min-width: 0; font-size: 13px; color: var(--at-on-surface-variant); }
+.ml-rules__recent small { color: var(--at-on-surface-variant); }

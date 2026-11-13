@@ -5,6 +5,7 @@ import { appUrl, defineApp, formatBytes, formatDate, navigate, relativeTime, use
 import { AppLayout, Avatar, Button, Dialog, EmptyState, Icon, IconButton, Menu, NavItem, NavSection, NavToggle, SearchBar, Select, Spinner, TextField, confirmDialog, toast } from '@atrium/ui'
 import { AccountSettings, AccountSetup } from './Account'
 import { ComposeDialog, blankComposer, type ComposerState } from './Compose'
+import { MailRules } from './Rules'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
 import { archiveTarget, kindBoxes, labelQuery, sortBoxes, type ViewKind } from './labels'
@@ -58,6 +59,7 @@ function Mail() {
 	const isOutbox = seg[0] === 'outbox'
 	const isSetup = seg[0] === 'setup'
 	const isStatus = seg[0] === 'status'
+	const isRules = seg[0] === 'rules'
 	const settingsId = seg[0] === 'settings' ? Number(seg[1]) : null
 	const mailbox = boxes.find((b) => b.databaseId === mailboxId) ?? null
 	const viewBoxes = useMemo(() => view ? kindBoxes(view, accounts ?? [], boxes) : [], [view, accounts, boxes])
@@ -306,12 +308,14 @@ function Mail() {
 		</NavSection>)}
 		{/* Status sits at the bottom of the sidebar; each account's settings are the gear on its header. */}
 		<div className="ml-nav-foot">
+			<NavItem icon="route" label="Rules" active={isRules} onClick={() => navigate(`${basePath}/rules`)} />
 			<NavItem icon="barChart" label="Status" active={isStatus} onClick={() => navigate(`${basePath}/status`)} />
 		</div>
 	</> : null
 
 	if (accounts === null) return <AppLayout nav={nav}><div className="ml-center"><Spinner /></div></AppLayout>
 	if (!accounts.length || isSetup) return <AccountSetup onDone={() => { void loadAccounts().then(() => navigate(basePath)) }} />
+	if (isRules) return <AppLayout nav={nav}><MailRules /></AppLayout>
 	if (isStatus) return <AppLayout nav={nav}><MailStatus onCuratedChange={() => setCuratedVer((v) => v + 1)} /></AppLayout>
 	if (settingsId && accounts.some((a) => a.id === settingsId)) return <AppLayout nav={nav}><AccountSettings key={settingsId} account={accounts.find((a) => a.id === settingsId)!} boxes={boxes} onDone={loadAccounts} onClose={() => navigate(basePath)} /></AppLayout>
 
