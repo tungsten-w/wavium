@@ -233,3 +233,8 @@
 .ml-kept--reader { display: flex; margin: 0 0 12px; font-size: 13px; padding: 8px 12px; border-radius: 12px; background: var(--at-surface-container, transparent); }
 .ml-kept--reader .at-icon { font-size: 16px; width: 16px; height: 16px; flex: none; }
 .ml-st__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Sender name / address mismatch warning (spoof.ts). */
+.ml-spoof { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 12px; border-radius: 12px; font-size: 13px;
+	background: var(--at-error-container, #fde7e7); color: var(--at-on-error-container, #5c1111); }
+.ml-spoof .at-icon { font-size: 16px; width: 16px; height: 16px; flex: none; }
