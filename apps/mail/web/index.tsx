@@ -551,7 +551,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			<Menu trigger={(open, expanded) => <IconButton icon="moreVert" label="More actions" aria-expanded={expanded} onClick={open} />} items={[
 				{ label: classifying ? 'Classifying…' : 'Reclassify', icon: 'refresh', onClick: () => void runReclassify() },
 				{ label: 'Find dates…', icon: 'calendar', onClick: () => setExtractOpen(true) },
-				...(onSnooze ? [{ label: 'Snooze…', icon: 'clock', onClick: () => setSnoozeOpen(true) }] : []),
+				!!onSnooze && { label: 'Snooze…', icon: 'schedule', onClick: () => setSnoozeOpen(true) },
 			]} />
 		</header>
 		{!body && !error && <div className="ml-center"><Spinner /></div>}
