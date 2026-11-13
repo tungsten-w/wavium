@@ -78,6 +78,26 @@ With nothing queued it answers `mock: <last user text>`.
 - Open items from review (usage on shared abort signals, JSON cap socket
   cleanup, base-URL checks) are listed in `reports/P2-1.md`.
 
+## Model per task (`routing.ts`, P2-5)
+
+```ts
+import { providerForTask, describeRouting } from './routing'
+
+// providers: the user's ProviderConfig[] (P2-2 settings)
+const routing = { routes: { triage: { provider: 'local', model: 'qwen2.5:7b' }, draft: { provider: 'claude' } }, defaultProvider: 'claude' }
+const { ai, route } = providerForTask('triage', routing, providers)
+await ai.complete({ messages })          // model already set (an explicit req.model still wins)
+describeRouting(routing, providers)     // { routes, problems } for the settings page
+```
+
+- Tiers: `triage` = small, `summary` / `draft` / `assistant` / anything else = large.
+- Model: the route's model → (large tasks) the provider's `defaultModel` → the kind's
+  suggested model for the tier (`SUGGESTED_MODELS`: Anthropic, OpenAI, Mistral) →
+  `defaultModel`. Ollama and OpenAI-compatible gateways need a model set somewhere.
+- Provider: the route's → `defaultProvider` → the first configured. A route to a provider
+  that is not configured is an `AiError('invalid')`, never a silent switch.
+- With budgets (P2-3): `budget.wrap(providerForTask(task, ...).ai, { user, task })`.
+
 ## What builds on it
 
 - P2-2: provider settings and key storage; must validate user-entered base URLs and headers.
