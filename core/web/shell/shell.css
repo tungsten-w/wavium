@@ -307,3 +307,8 @@ html, body, #atrium { height: 100%; }
 .settings-mode--allowed { background: var(--at-secondary-container); color: var(--at-on-secondary-container); border-color: transparent; }
 .settings-mode--approval { background: var(--at-tertiary-container, var(--at-secondary-container)); color: var(--at-on-tertiary-container, inherit); border-color: transparent; }
 .settings-mode--off { color: var(--at-on-surface-variant); }
+
+/* Settings > Connect an agent (P2-7) */
+.agent-connect__warn { border-left: 3px solid var(--at-error, #b3261e); padding-left: 10px; }
+.agent-connect__error { color: var(--at-error, #b3261e); }
+.agent-connect__access { margin-top: 12px; }

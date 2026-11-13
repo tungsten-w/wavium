@@ -77,3 +77,13 @@ internal routes from P3-1 and P3-2. Two catches from testing: sqlite numbers
 `$n` placeholders by first appearance (lesson added), and the end-to-end run
 showed a phishing demo mail listed as "reply": suspicious mail is now left out,
 at the Mail chip threshold.
+
+## 2026-11-13: P2-7 (sodium-93, solo)
+
+Read the MCP authorization spec (2025-11-25) first: it changed the plan (the
+plan said "reuse apps/oauth2"; that app's admin-registered clients and
+whole-account tokens do not fit self-registering MCP clients acting as one
+agent). The OAuth server lives in Bun and issues its own tokens. The browser
+run (logged out → login → consent → app callback) passed first time; the only
+surprise was a type import line already changed by P3-7 (caught by lint, not
+by vitest, which does not typecheck).

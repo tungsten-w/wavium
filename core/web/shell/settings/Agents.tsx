@@ -250,7 +250,7 @@ function AgentCard({ agent: a, areas, onChange, onConnect, onDeleted }: {
 			<h3 style={{ marginTop: 20 }}>Tokens</h3>
 			<table className="settings-table">
 				<tbody>
-					{a.tokens.length === 0 && <tr><td className="at-muted">No tokens: the agent cannot connect.</td></tr>}
+					{a.tokens.length === 0 && !a.connectedApps?.length && <tr><td className="at-muted">No tokens: the agent cannot connect.</td></tr>}
 					{a.tokens.map((t) => (
 						<tr key={t.id}>
 							<td>{t.name}</td>
@@ -263,6 +263,21 @@ function AgentCard({ agent: a, areas, onChange, onConnect, onDeleted }: {
 					))}
 				</tbody>
 			</table>
+			{!!a.connectedApps?.length && <>
+				<h3 style={{ marginTop: 20 }}>Connected apps</h3>
+				<table className="settings-table connected-apps"><tbody>
+					{a.connectedApps.map((c) => (
+						<tr key={c.grantId}>
+							<td>{c.clientName}</td>
+							<td className="at-muted">connected {relativeTime(c.createdAt * 1000)} · used {relativeTime(c.lastUsedAt * 1000)}</td>
+							<td style={{ textAlign: 'right' }}><IconButton icon="delete" label={`Disconnect ${c.clientName}`} disabled={busy} onClick={async () => {
+								if (!(await confirmDialog(`Disconnect ${c.clientName}? It stops working until you connect it again.`, { confirm: 'Disconnect', danger: true }))) return
+								await run(async () => { await api.revokeApp(a.uid, c.grantId); onChange({ ...a, connectedApps: a.connectedApps!.filter((x) => x.grantId !== c.grantId) }) }, 'Disconnected')
+							}} /></td>
+						</tr>
+					))}
+				</tbody></table>
+			</>}
 			<div style={{ marginTop: 8 }}>
 				<Button variant="tonal" icon="key" disabled={busy} onClick={() => void run(async () => {
 					const r = await api.newToken(a.uid, `token ${new Date().toISOString().slice(0, 10)}`)

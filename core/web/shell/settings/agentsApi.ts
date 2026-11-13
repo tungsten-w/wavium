@@ -3,7 +3,7 @@
 //
 // Owner API of the Bun agent layer (/agent/v1/owner): Settings > Agents and approvals.
 import { HttpError, request } from '@atrium/sdk'
-import type { Action, Agent, AgentAction, Approval, ConnectInfo, Modes, Preset } from './agentsModel'
+import type { Action, Agent, AgentAction, Approval, ConnectInfo, Modes, OAuthFlow, Preset } from './agentsModel'
 
 /** The owner API answers {error: {code, message}}; turn that into a readable Error. */
 async function owner<T>(path: string, opts: { method?: string, body?: unknown } = {}): Promise<T> {
@@ -22,6 +22,11 @@ export const api = {
 	agents: () => owner<{ agents: Agent[] }>('agents').then((r) => r.agents),
 	areas: () => owner<{ areas: Record<string, Action[]>, tools: Record<string, number> }>('areas'),
 	create: (body: { name: string, description: string, preset?: Preset }) => owner<{ agent: Agent, connect: ConnectInfo }>('agents', { method: 'POST', body }),
+	/** A new agent without a token (it is being connected through OAuth). */
+	createForOAuth: (body: { name: string, description: string, preset: Preset }) => owner<{ agent: Agent, connect: null }>('agents', { method: 'POST', body: { ...body, token: false } }),
+	oauthFlow: (id: string) => owner<OAuthFlow>(`oauth/flows/${encodeURIComponent(id)}`),
+	oauthAnswer: (id: string, answer: 'approve' | 'deny', agent?: string) => owner<{ redirect: string }>(`oauth/flows/${encodeURIComponent(id)}/${answer}`, { method: 'POST', body: agent ? { agent } : {} }),
+	revokeApp: (uid: string, grantId: string) => owner(`agents/${encodeURIComponent(uid)}/oauth/${encodeURIComponent(grantId)}`, { method: 'DELETE' }),
 	update: (uid: string, body: Partial<Pick<Agent, 'displayName' | 'description' | 'paused' | 'wakes' | 'webhookUrl' | 'notifyApprovals'>>) =>
 		owner<Agent>(`agents/${encodeURIComponent(uid)}`, { method: 'PATCH', body }),
 	remove: (uid: string) => owner(`agents/${encodeURIComponent(uid)}`, { method: 'DELETE' }),

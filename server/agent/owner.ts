@@ -10,6 +10,7 @@ import {
 } from './access'
 import type { Approvals } from './approvals'
 import type { Journal } from './journal'
+import type { OAuth } from './oauth'
 import type { Auth, Caller } from './auth'
 import type { Db } from './db'
 import type { PhpCaller } from './phpcall'
@@ -28,7 +29,7 @@ interface TokenRow { id: number, name: string, lastActivity: number, agent: bool
 export class OwnerApi {
 	private areasCache: { at: number, areas: Record<string, Action[]> } | null = null
 
-	constructor(private db: Db, private php: PhpCaller, private auth: Auth, private approvals: Approvals, private baseUrl: string, private registry?: Registry, private journal?: Journal) {}
+	constructor(private db: Db, private php: PhpCaller, private auth: Auth, private approvals: Approvals, private baseUrl: string, private registry?: Registry, private journal?: Journal, private oauth?: OAuth) {}
 
 	/** Agent tools per area (areas without tools still grant the app's own API through token scopes). */
 	toolCounts(): Record<string, number> {
@@ -72,6 +73,7 @@ export class OwnerApi {
 			doorbellErrorAt: settings.doorbellErrorAt,
 			access,
 			tokens: tokens.tokens.filter((t) => t.agent),
+			connectedApps: this.oauth ? await this.oauth.grants(agent.uid) : [],
 		}
 	}
 
@@ -148,6 +150,8 @@ export class OwnerApi {
 				for (const [area, modes] of Object.entries(access)) await setAccess(this.db, created.uid, owner.uid, area, modes)
 				if (input.access && typeof input.access === 'object') await this.setAccessMap(created.uid, owner.uid, input.access as Record<string, unknown>)
 				const settings = await updateSettings(this.db, created.uid, {})
+				// token: false = no token now (the agent is being connected through OAuth).
+				if (input.token === false) return Response.json({ agent: await this.describe(created), connect: null })
 				const token = await this.newToken(created.uid, owner.uid, String(input.tokenName ?? 'default'))
 				return Response.json({ agent: await this.describe(created), connect: this.connectInfo(created.uid, token.token, settings.webhookSecret) })
 			}
@@ -183,6 +187,7 @@ export class OwnerApi {
 				if (m === 'DELETE') {
 					await this.php.ocs('DELETE', `core/atrium/agent/internal/agents/${encodeURIComponent(agent.uid)}`)
 					await dropAgent(this.db, agent.uid)
+					await this.oauth?.forgetAgent(agent.uid)
 					this.auth.clear()
 					return Response.json({ deleted: true })
 				}
@@ -211,6 +216,10 @@ export class OwnerApi {
 					return Response.json({ id: token.id, name: token.name, connect: this.connectInfo(agent.uid, token.token, s.webhookSecret) })
 				}
 			}
+			if (c === 'oauth' && d && m === 'DELETE' && this.oauth) {
+				if (!(await this.oauth.revokeGrant(agent.uid, d))) throw new AgentError('not_found', `No connected app ${d}`)
+				return Response.json({ revoked: true })
+			}
 			if (c === 'tokens' && d && m === 'DELETE') {
 				await this.php.ocs('DELETE', `core/atrium/agent/internal/agents/${encodeURIComponent(agent.uid)}/tokens/${Number(d)}`)
 				this.auth.clear()
@@ -229,6 +238,17 @@ export class OwnerApi {
 				const note = input.note === undefined || input.note === null || input.note === '' ? null : String(input.note).slice(0, 2000)
 				return Response.json(c === 'approve' ? await this.approvals.approve(owner.uid, b, note) : await this.approvals.reject(owner.uid, b, note))
 			}
+		}
+
+		// OAuth consent (Settings > Connect an agent, oauth.ts): the flow, then yes for one agent, or no.
+		if (a === 'oauth' && b === 'flows' && c && this.oauth) {
+			if (!d && m === 'GET') return Response.json(await this.oauth.flow(owner.uid, c))
+			if (d === 'approve' && m === 'POST') {
+				const input = await body()
+				const agent = await this.ownedAgent(owner, String(input.agent ?? ''))
+				return Response.json(await this.oauth.approve(owner.uid, c, agent.uid))
+			}
+			if (d === 'deny' && m === 'POST') return Response.json(await this.oauth.deny(owner.uid, c))
 		}
 
 		// Journal of agent actions on the owner's data, and undo (journal.ts).
