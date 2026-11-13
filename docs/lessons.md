@@ -125,6 +125,13 @@ not part of this repository.
 - Bun's SQLite binds `$1..$n` in the order they first appear in the query, not
   by number: `UPDATE ... SET a = $2 ... WHERE id = $1` silently updates nothing.
   Number placeholders in order of appearance (PostgreSQL does not care).
+- PHP changes in the dev stack can take up to 60 s to show: the Nextcloud
+  image sets `opcache.revalidate_freq=60`. Restart `php` (or wait) before
+  concluding a fix did not work.
+- Internal (Bun → PHP) calls have no session user. Services that read it
+  (Notes' TagService, activity attribution) need
+  `IUserSession::setVolatileActiveUser($user)` for the call, and must be
+  resolved after it (not injected into the controller).
 - Test UI changes in a real browser too: a unit-test fixture with the wrong
   shape (the agent `restUrl`) hid a bug that a Playwright run found at once.
 

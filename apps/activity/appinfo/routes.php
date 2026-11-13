@@ -15,6 +15,9 @@ return [
 		['name' => 'APIv2#getFilter', 'url' => '/api/v2/activity/{filter}', 'verb' => 'GET'],
 	],
 	'routes' => [
+		// Atrium agent layer, internal only (server/agent/activity/).
+		['name' => 'atrium_agent#list', 'url' => '/api/atrium-agent/list', 'verb' => 'POST'],
+		['name' => 'atrium_agent#filters', 'url' => '/api/atrium-agent/filters', 'verb' => 'POST'],
 		['name' => 'Settings#personal', 'url' => '/settings', 'verb' => 'POST'],
 		['name' => 'Settings#admin', 'url' => '/settings/admin', 'verb' => 'POST'],
 		['name' => 'Settings#feed', 'url' => '/settings/feed', 'verb' => 'POST'],
