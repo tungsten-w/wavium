@@ -10,6 +10,7 @@ import type { FastCgiTarget } from './fastcgi'
 import { servePhp, type PhpTarget } from './php'
 import { isShellPage, route } from './routes'
 import { startAgentLayer, type AgentLayer } from './agent'
+import { loadLimits } from './limits'
 
 const docroot = (process.env.ATRIUM_DOCROOT ?? '/var/www/html').replace(/\/$/, '')
 const [fpmHost, fpmPort] = (process.env.ATRIUM_FPM ?? '127.0.0.1:9000').split(':')
@@ -17,6 +18,7 @@ const fpm: FastCgiTarget = { host: fpmHost, port: Number(fpmPort ?? 9000) }
 const port = Number(process.env.PORT ?? 8080)
 const quiet = process.env.ATRIUM_ACCESS_LOG === '0'
 const php: PhpTarget = { fpm, docroot, port }
+const limits = loadLimits()
 
 // The agent layer (MCP/REST for agents, ADR 0009). Off with ATRIUM_AGENT=0, or
 // when it cannot start (it logs why); the rest of the server keeps running.
@@ -118,7 +120,13 @@ function framed(res: Response): Response {
 	return new Response(rewritten.body, { status: res.status, headers })
 }
 
-async function handle(req: Request, remote: string): Promise<Response> {
+/**
+ * Called once the request body is fully received: from then on the server (PHP,
+ * the agent layer) is working, so the idle cut for slow clients no longer applies.
+ */
+type Received = () => void
+
+async function handle(req: Request, remote: string, received: Received): Promise<Response> {
 	const url = new URL(req.url)
 	let pathname: string
 	try {
@@ -135,6 +143,9 @@ async function handle(req: Request, remote: string): Promise<Response> {
 		return res
 	}
 	if (pathname === '/agent' || pathname.startsWith('/agent/')) {
+		// Agent bodies are small JSON: read them first, so a slow tool call is not cut.
+		if (agent && req.body) req = new Request(req, { body: await req.arrayBuffer() })
+		received()
 		const res = agent ? await agent.handle(req, url, pathname, remote)
 			: Response.json({ error: { code: 'unavailable', message: 'Agent layer is not running' } }, { status: 503 })
 		securityHeaders(res.headers, url.pathname)
@@ -162,7 +173,7 @@ async function handle(req: Request, remote: string): Promise<Response> {
 			res = await serveStatic(req, url, r.path)
 			break
 		case 'php':
-			res = await servePhp(php, req, url, r.script, r.pathInfo, remote)
+			res = await servePhp(php, req, url, r.script, r.pathInfo, remote, { onBodySent: received })
 			if (dest === 'iframe' && (res.headers.get('content-type') ?? '').startsWith('text/html') && res.body) res = framed(res)
 			break
 	}
@@ -173,13 +184,13 @@ async function handle(req: Request, remote: string): Promise<Response> {
 const server = Bun.serve({
 	port,
 	hostname: '0.0.0.0',
-	// Uploads are limited by PHP (PHP_UPLOAD_LIMIT), not here.
-	maxRequestBodySize: Number.MAX_SAFE_INTEGER,
-	idleTimeout: 0,
+	// See server/limits.ts. Bigger bodies get 413 before reaching PHP.
+	maxRequestBodySize: limits.maxBody,
+	idleTimeout: limits.idleTimeout,
 	async fetch(req, srv) {
 		const started = performance.now()
 		const remote = srv.requestIP(req)?.address?.replace(/^::ffff:/, '') ?? '127.0.0.1'
-		const res = await handle(req, remote)
+		const res = await handle(req, remote, () => srv.timeout(req, limits.phpTimeout))
 		if (!quiet) {
 			const u = new URL(req.url)
 			console.log(`${remote} ${req.method} ${u.pathname} ${res.status} ${Math.round(performance.now() - started)}ms`)
@@ -192,4 +203,4 @@ const server = Bun.serve({
 	},
 })
 
-console.log(`atrium web: http://0.0.0.0:${server.port} docroot=${docroot} fpm=${fpm.host}:${fpm.port}`)
+console.log(`atrium web: http://0.0.0.0:${server.port} docroot=${docroot} fpm=${fpm.host}:${fpm.port} max-body=${limits.maxBody} idle=${limits.idleTimeout}s php-idle=${limits.phpTimeout || 'off'}`)

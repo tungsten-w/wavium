@@ -14,7 +14,7 @@ export interface PhpTarget {
 /** Headers an outside client may never send; only the agent layer sets them. */
 export const INTERNAL_HEADERS = ['x-atrium-internal']
 
-export async function servePhp(t: PhpTarget, req: Request, url: URL, script: string, pathInfo: string, remote: string, opts: { internal?: Record<string, string> } = {}): Promise<Response> {
+export async function servePhp(t: PhpTarget, req: Request, url: URL, script: string, pathInfo: string, remote: string, opts: { internal?: Record<string, string>, onBodySent?: () => void } = {}): Promise<Response> {
 	const host = req.headers.get('host') ?? 'localhost'
 	const params: Record<string, string> = {
 		GATEWAY_INTERFACE: 'CGI/1.1',
@@ -66,7 +66,7 @@ export async function servePhp(t: PhpTarget, req: Request, url: URL, script: str
 
 	let res
 	try {
-		res = await fastcgi(t.fpm, params, body)
+		res = await fastcgi(t.fpm, params, body, undefined, opts.onBodySent)
 	} catch (e) {
 		console.error(`fastcgi ${t.fpm.host}:${t.fpm.port}: ${(e as Error).message}`)
 		return new Response('Bad gateway', { status: 502 })

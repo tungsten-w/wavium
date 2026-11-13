@@ -69,6 +69,7 @@ export function fastcgi(
 	params: Record<string, string>,
 	body: ReadableStream<Uint8Array> | null,
 	onStderr: (line: string) => void = (l) => console.error(`php: ${l}`),
+	onBodySent?: () => void,
 ): Promise<FastCgiResponse> {
 	return new Promise((resolve, reject) => {
 		const socket = net.createConnection(target)
@@ -165,6 +166,7 @@ export function fastcgi(
 					}
 				}
 				socket.write(record(STDIN))
+				onBodySent?.()
 			} catch (e) {
 				socket.destroy(e as Error)
 			}
