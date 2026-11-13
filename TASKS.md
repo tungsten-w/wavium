@@ -70,5 +70,5 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 
 - [ ] P6-1 Generic production compose (domain, Caddy with HTTPS, resources from .env)
 - [ ] P6-2 Images on GHCR (amd64 baseline + arm64), tagged
-- [ ] P6-3 `make backup` / `make restore`, tested
+- [~] (instance A, 2026-11-13) P6-3 `make backup` / `make restore`, tested
 - [ ] P6-4 Install guide + migration from an existing Nextcloud
