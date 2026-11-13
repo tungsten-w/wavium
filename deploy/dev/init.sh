@@ -34,7 +34,7 @@ if ! installed; then
 		mv config/config.php "config/config.php.aborted.$(date +%s)"
 	fi
 	log "waiting for PostgreSQL"
-	i=0; until php -r 'exit(@pg_connect("host=db dbname=".getenv("POSTGRES_DB")." user=".getenv("POSTGRES_USER")." password=".getenv("POSTGRES_PASSWORD")) ? 0 : 1);'; do
+	i=0; until php -r 'try { new PDO("pgsql:host=db;dbname=".getenv("POSTGRES_DB"), getenv("POSTGRES_USER"), getenv("POSTGRES_PASSWORD")); exit(0); } catch (Throwable $e) { exit(1); }'; do
 		i=$((i+1)); [ $i -lt 60 ] || { log "PostgreSQL not reachable"; exit 1; }; sleep 2
 	done
 	log "installing (first start, takes a few minutes)"

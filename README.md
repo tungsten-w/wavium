@@ -1,97 +1,101 @@
-<!--
- - SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
- - SPDX-FileCopyrightText: 2013-2016 ownCloud, Inc.
- - SPDX-License-Identifier: AGPL-3.0-or-later
--->
-# Nextcloud Server ☁
-[![REUSE status](https://api.reuse.software/badge/github.com/nextcloud/server)](https://api.reuse.software/info/github.com/nextcloud/server)
-[![codecov](https://codecov.io/gh/nextcloud/server/branch/stable34/graph/badge.svg)](https://codecov.io/gh/nextcloud/server)
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/209/badge)](https://bestpractices.coreinfrastructure.org/projects/209)
-[![Design](https://contribute.design/api/shield/nextcloud/server)](https://contribute.design/nextcloud/server)
+# Atrium
 
-**A safe home for all your data.**
+**A self-hosted personal hub built for humans *and* AI agents.**
 
-![](https://raw.githubusercontent.com/nextcloud/screenshots/stable34/nextcloud-hub-25-files.png)
+Atrium is a hard fork of [Nextcloud](https://nextcloud.com) 34.0.5. It keeps
+Nextcloud's backend (files, calendar, contacts, tasks, mail, DAV, OCS) and its
+client compatibility, and adds what an AI agent needs to work with your data
+properly:
 
-## Why is this so awesome? 🤩
+- **A new web UI in React**, served by **Bun** instead of Apache (Bun talks
+  FastCGI to PHP-FPM). Mail, Calendar, Contacts, Tasks, Files, Notes, Activity,
+  Dashboard, Daily Todo and most settings are ported; the rest is shown in a frame.
+- **An agent layer**: agents are accounts owned by a human, with permissions per
+  app and action (`off` / `allowed` / `approval`), tools over **MCP** and REST,
+  an **approval queue** (frozen, hashed payloads), and **events** pushed to the
+  agent (signed webhook doorbell + cursor), plus a pause switch.
+- **A reworked Mail app**: LLM classification (10 categories, urgency, needs
+  reply/action), Atrium keeps its **own copy of every mail** (the database is the
+  source of truth), DB-first writes with a retry queue, and a hard rule:
+  **mail is never deleted** (delete = Trash, kept at least 30 days).
 
-* 📁 **Access your Data** You can store your files, contacts, calendars, and more on a server of your choosing.
-* 🔄 **Sync your Data** You keep your files, contacts, calendars, and more synchronized amongst your devices.
-* 🙌 **Share your Data** …by giving others access to the stuff you want them to see or to collaborate with.
-* 🚀 **Expandable with hundreds of Apps** ...like [Calendar](https://github.com/nextcloud/calendar), [Contacts](https://github.com/nextcloud/contacts), [Mail](https://github.com/nextcloud/mail), [Video Chat](https://github.com/nextcloud/spreed) and all those you can discover in our [App Store](https://apps.nextcloud.com)
-* 🔒 **Security** with our encryption mechanisms, [HackerOne bounty program](https://hackerone.com/nextcloud) and two-factor authentication.
+Stock Nextcloud clients (desktop, mobile, DAVx⁵) keep working: DAV, OCS, login
+flow v1/v2, OAuth2 and public links are unchanged ([ADR 0008](docs/architecture/0008-client-compatibility.md)).
 
-Do you want to learn more about how you can use Nextcloud to access, share, and protect your files, calendars, contacts, communication & more at home and in your organization? [**Learn about all our Features**](https://nextcloud.com/athome/).
+## Run it (development)
 
-## Get your Nextcloud 🚚
+Requirements: Docker (with compose) and `make`. Nothing else is installed on
+the host. Works on x86-64 CPUs without AVX (Bun *baseline* build) and on arm64.
 
-- ☑️ [**Simply sign up**](https://nextcloud.com/signup/) at one of our providers either through our website or through the apps directly.
-- 🖥 [**Install** a server by yourself](https://nextcloud.com/install/#instructions-server) on your hardware or by using one of our ready-to-use **appliances**
-- 📦 Buy one of the [awesome **devices** coming with a preinstalled Nextcloud](https://nextcloud.com/devices/)
-- 🏢 Find a [service **provider**](https://nextcloud.com/providers/) who hosts Nextcloud for you or your company
-
-Enterprise? Public Sector or Education user? You may want to have a look into [**Nextcloud Enterprise**](https://nextcloud.com/enterprise/) provided by Nextcloud GmbH.
-
-## Get in touch 💬
-
-* [📋 Forum](https://help.nextcloud.com)
-* [🦋 Bluesky](https://bsky.app/profile/nextcloud.bsky.social)
-* [👥 Facebook](https://www.facebook.com/nextclouders)
-* [🐘 Mastodon](https://mastodon.xyz/@nextcloud)
-
-You can also [get support for Nextcloud](https://nextcloud.com/support)!
-
-
-## Join the team 👪
-
-There are many ways to contribute, of which development is only one! Find out [how to get involved](https://nextcloud.com/contribute/), including as a translator, designer, tester, helping others, and much more! 😍
-
-
-### Development setup 👩‍💻
-
-1. 🚀 [Set up your local development environment](https://docs.nextcloud.com/server/latest/developer_manual/getting_started/devenv.html)
-2. 🐛 [Pick a good first issue](https://github.com/nextcloud/server/labels/good%20first%20issue)
-3. 👩‍🔧 Create a branch and make your changes. Remember to sign off your commits using `git commit -sm "Your commit message"`
-4. ⬆ Create a [pull request](https://opensource.guide/how-to-contribute/#opening-a-pull-request) and `@mention` the people from the issue to review
-5. 👍 Fix things that come up during a review
-6. 🎉 Wait for it to get merged!
-
-Third-party components are handled as git submodules which have to be initialized first. So aside from the regular git checkout invoking `git submodule update --init` or a similar command is needed, for details see Git documentation.
-
-Several apps that are included by default in regular releases such as [First run wizard](https://github.com/nextcloud/firstrunwizard) or [Activity](https://github.com/nextcloud/activity) are missing in `stable34` and have to be installed manually by cloning them into the `apps` subfolder.
-
-Otherwise, git checkouts can be handled the same as release archives, by using the `stable*` branches. Note they should never be used on production systems.
-
-
-### Tools we use 🛠
-
-- [👀 BrowserStack](https://browserstack.com) for cross-browser testing
-- [🌊 WAVE](https://wave.webaim.org/extension/) for accessibility testing
-- [🚨 Lighthouse](https://developers.google.com/web/tools/lighthouse/) for testing performance, accessibility, and more
-
-#### Helpful bots at GitHub :robot:
-
-- Comment on a pull request with `/update-3rdparty` to update the 3rd party submodule. It will update to the last commit of the 3rd party branch named like the PR target.
-
-#### Ignore code style updates in git blame
-
-`git config blame.ignoreRevsFile .git-blame-ignore-revs`
-
-## Contribution guidelines 📜
-
-All contributions to this repository from June 16, 2016, and onward are considered to be
-licensed under the AGPLv3 or any later version.
-
-Nextcloud doesn't require a CLA (Contributor License Agreement).
-The copyright belongs to all the individual contributors. 
-Therefore we recommend that every contributor adds the following line to the [AUTHORS](AUTHORS) file if they made substantial changes to the code:
-
-```
-- <your name> <your email address>
+```sh
+make up          # first start installs everything (a few minutes)
 ```
 
-Please read the [Code of Conduct](https://nextcloud.com/community/code-of-conduct/). This document offers some guidance to ensure Nextcloud participants can cooperate effectively in a positive and inspiring atmosphere and to explain how together we can strengthen and support each other.
+Open http://localhost:8092 and sign in with a demo account:
 
-Please review the [guidelines for contributing](.github/CONTRIBUTING.md) to this repository.
+| User | Password | |
+| --- | --- | --- |
+| `alice` | `alice-demo-pass` | mail, events, tasks, contacts, files |
+| `bob` | `bob-demo-pass` | same, smaller |
+| `admin` | `admin-demo-pass` | administrator |
 
-More information on how to contribute: [https://nextcloud.com/contribute/](https://nextcloud.com/contribute/)
+Demo mail lives in a throwaway [GreenMail](https://greenmail-mail-test.github.io/greenmail/)
+server: nothing reaches a real mail server. Code is bind-mounted: PHP changes
+are live, the Bun server restarts and the React UIs rebuild on save.
+
+| Command | |
+| --- | --- |
+| `make up` / `make down` | start / stop the dev stack |
+| `make reset` | wipe the dev instance and reload the demo data |
+| `make test` | Bun server tests, web tests (vitest), Atrium PHPUnit, Daily Todo |
+| `make lint` | TypeScript typecheck, PHP and shell syntax |
+| `make build` | production build of the React UIs |
+| `make logs`, `make shell`, `make occ ARGS="…"` | |
+
+Every setting has a default; see [`.env.example`](.env.example) to change ports
+or run several checkouts side by side.
+
+## Connect an agent
+
+Settings › Agents › *New agent* creates the agent and shows its MCP URL and
+token. For example with Claude Code:
+
+```sh
+claude mcp add --transport http atrium http://localhost:8092/agent/mcp \
+  --header "Authorization: Bearer <token>"
+```
+
+REST: `POST /agent/v1/tools/<tool>`, OpenAPI at `/agent/v1/openapi.json`.
+Contract: [ADR 0009](docs/architecture/0009-agent-layer-mail-first.md).
+
+## Layout
+
+| Path | |
+| --- | --- |
+| `server/` | Bun web server and the agent layer (`server/agent/`) |
+| `core/web/` | React shell, design system (`@atrium/ui`), SDK (`@atrium/sdk`) |
+| `apps/<id>/web/` | React UI of each app |
+| `apps/mail/` | Mail app with Atrium's classification and local copy |
+| `docs/architecture/` | Architecture decisions (ADR 0001–0009) |
+| `docs/lessons.md` | Lessons learned so far |
+| `deploy/` | Production image and stack; `deploy/dev/` dev stack scripts |
+
+## Contributing
+
+- Read [`AGENTS.md`](AGENTS.md): the project rules (they apply to humans too),
+  the map of the code, how to test.
+- Work on a branch, keep it small, add tests; `make lint test` must pass.
+- New code is TypeScript (Bun) where possible.
+- The task list is [`TASKS.md`](TASKS.md), the plan [`PLAN.md`](PLAN.md).
+  AI agents work at night on `night/<ID>` branches ([`night.sh`](night.sh));
+  merging into `main` is always done by a human.
+
+## Production
+
+The production image is built by `deploy/build.sh` (see [`deploy/README.md`](deploy/README.md)).
+A generic, installable production setup is planned (TASKS.md, phase 6).
+
+## License
+
+AGPL-3.0, like Nextcloud. See [COPYING](COPYING). Atrium-specific files carry
+`SPDX-FileCopyrightText: 2026 Atrium contributors`.

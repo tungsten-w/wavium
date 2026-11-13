@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Atrium contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# make lint test on every branch and pull request, in the same Docker dev
+# stack as on a developer machine. No secrets are used: the AI is mocked and
+# mail is the local GreenMail server.
+name: ci
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  lint-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint
+        run: make lint
+      - name: Start the dev stack
+        run: make up
+      - name: Test
+        run: make test
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+      - name: Stop
+        if: always()
+        run: docker compose down -v
