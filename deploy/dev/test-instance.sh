@@ -16,6 +16,8 @@ chmod 0770 data-autotest
 if ! php occ status --output=json 2>/dev/null | grep -q '"installed":true'; then
 	echo "test-instance: installing (once, a few minutes)"
 	rm -f config-autotest/config.php
+	php -r '$p = new PDO("pgsql:host=db;dbname=postgres", getenv("POSTGRES_USER"), getenv("POSTGRES_PASSWORD"));
+		if (!$p->query("SELECT 1 FROM pg_database WHERE datname = \x27atrium_test\x27")->fetchColumn()) { $p->exec("CREATE DATABASE atrium_test"); }'
 	php occ maintenance:install --no-interaction \
 		--database pgsql --database-host db --database-name atrium_test \
 		--database-user "$POSTGRES_USER" --database-pass "$POSTGRES_PASSWORD" \
