@@ -37,6 +37,7 @@ An instance that cannot follow them stops and says so in its report.
 | Path | What |
 | --- | --- |
 | `server/` | Bun web server (replaces Apache): `index.ts`, `routes.ts` (URL rules), `php.ts` + `fastcgi.ts` (PHP-FPM) |
+| `server/ai/` | AI provider layer (Anthropic, OpenAI-compatible, Ollama, mock): `createProvider()`, see its README |
 | `server/agent/` | Agent layer in TypeScript: MCP/REST, access modes, approvals, events, owner API; `mail/` = mail tools |
 | `core/web/` | React shell (`shell/`), design system `@atrium/ui` (`ui/`), client SDK `@atrium/sdk` (`sdk/`) |
 | `apps/<id>/web/` | React UI of an app (Mail, Calendar, Files, ...), built into `web/dist` |
