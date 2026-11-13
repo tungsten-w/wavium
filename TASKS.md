@@ -42,7 +42,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [x] P3-1 Daily Todo tools + `todo.*` events — branch ready: night/P3-1
 - [x] P3-2 Calendar + Tasks tools, discoverable delegated calendars, `calendar.*` / `task.*` events — branch ready: night/P3-2
 - [x] P3-3 Contacts tools (simple fields, no raw vCard) — branch ready: night/P3-3
-- [~] P3-4 Files tools (share = approval) (instance A, 2026-11-13)
+- [x] P3-4 Files tools (share = approval) — branch ready: night/P3-4
 - [x] P3-5 Notes, then Activity (read only) — branch ready: night/P3-5
 - [ ] P3-6 Cross-app `search` tool — deps: P3-1..P3-5
 - [ ] P3-7 Undo an agent action from the activity log
