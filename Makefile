@@ -8,6 +8,7 @@
 #   make down     stop it (data kept)
 #   make reset    wipe the dev DB, data and config, start over with the demo data
 #   make test     every test suite (Bun server, web vitest, Atrium PHPUnit, Daily Todo)
+#   make test-e2e browser smoke test (Playwright) on the running dev stack
 #   make lint     typecheck + PHP syntax + shell syntax
 #   make build    production build of every React UI
 #   make image    production image (deploy/build.sh)
@@ -28,7 +29,7 @@ PHP_LINT_DIRS = lib/private/Agent lib/public/Agent lib/private/Authentication/Sc
 	core/Command/Agent apps/mail/lib apps/daily_todo/lib deploy/dev tests/lib/Agent \
 	tests/lib/Authentication/Scope apps/mail/tests/Unit/Atrium
 
-.PHONY: up down reset logs shell occ test test-server test-web test-php test-daily-todo \
+.PHONY: up down reset logs shell occ test test-server test-web test-php test-daily-todo test-e2e \
 	lint build image phpunit-nextcloud check-env
 
 up:
@@ -75,6 +76,19 @@ test-php: vendor-bin/phpunit/vendor
 test-daily-todo:
 	$(COMPOSE) up -d --wait php
 	$(TESTI) sh -c 'for t in apps/daily_todo/tests/run-*.php; do php "$$t" || exit 1; done'
+
+# Browser smoke test (tests/e2e, P1-7): log in, Mail, Calendar, Files show the
+# demo data. Starts the stack if needed. Playwright runs in its own image (same
+# version as tests/e2e/package.json) on the host network, against
+# http://localhost:$ATRIUM_PORT (or ATRIUM_URL). Not part of `make test`: it
+# needs the seeded stack and a browser image (~2 GB).
+PLAYWRIGHT_IMAGE = mcr.microsoft.com/playwright:v1.49.1-noble
+test-e2e:
+	$(COMPOSE) up -d --wait web
+	docker run --rm --network host --user $(ATRIUM_UID):$(ATRIUM_GID) -e HOME=/tmp \
+		-e ATRIUM_PORT=$${ATRIUM_PORT:-8092} -e ATRIUM_URL -e ATRIUM_E2E_USER -e ATRIUM_E2E_PASSWORD \
+		-v $(CURDIR)/tests/e2e:/e2e -w /e2e $(PLAYWRIGHT_IMAGE) \
+		sh -c 'npm ci --no-audit --no-fund --loglevel=error && npx playwright test'
 
 vendor-bin/phpunit/vendor:
 	$(COMPOSE) run --rm -T composer composer install --no-interaction --no-progress -d vendor-bin/phpunit

@@ -1,0 +1,9 @@
+{
+  "name": "atrium-e2e",
+  "private": true,
+  "description": "Atrium end-to-end smoke tests (P1-7). Run with `make test-e2e`, in the Playwright image matching this version.",
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "1.49.1"
+  }
+}
