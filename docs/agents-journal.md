@@ -101,3 +101,27 @@ own: everything goes through callTool. The dev mock could not drive a tool
 loop on the real stack, so it learned one dev-only convention (`mock-tool:`);
 the browser screenshots then found two UI bugs the DOM tests could not see
 (z-index under the app's mobile drawer, text of two turns glued together).
+### 2026-11-14 · P5-2 (sodium-7a)
+
+AI reply drafts reuse what was there: `ai.forTask` (P5-1) for the model and
+budget, the Mail bridge for drafts, `mail_send` with its approval for sending.
+The end-to-end run caught what the fixture could not: on a fresh stack the mail
+text is not stored yet, so the model saw only headers; the body is now fetched
+first. Work was split around a usage-limit pause: a WIP commit with numbered
+resume steps in the report made the restart cheap.
+
+### 2026-11-14 · P5-3 (sodium-7a)
+
+Filing rules split along the plan: a pure engine that runs on every new mail
+without AI, and the AI only turning a sentence into that same data, checked by
+the same validator (folder = enum of real folders, Trash never offered). A
+claim table makes filing idempotent, which the reclassify button exercises in
+the end-to-end run.
+
+### 2026-11-14 · P5-5 (sodium-7a)
+
+Nextcloud Mail already had one-click unsubscribe in PHP but no React UI and
+nothing for agents. Kept its route for the UI, added two internal ops for the
+agent tool (link frozen in the approval, re-checked before executing), and
+never executed against the demo list: its domain is real (rule A1), so the
+POST is covered by fakes only.

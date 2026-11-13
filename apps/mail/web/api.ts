@@ -104,6 +104,10 @@ export interface MessageBody {
 	databaseId: number
 	isSenderTrusted: boolean
 	signature?: string | null
+	/** List-Unsubscribe (P5-5): https link, RFC 8058 one-click, mailto. */
+	unsubscribeUrl?: string | null
+	isOneClickUnsubscribe?: boolean
+	unsubscribeMailto?: string | null
 	/** Where the reader body came from: Atrium's copy or the mail server (fetched once, then kept). */
 	atriumCopy?: { source: 'atrium' | 'server', goneFromServer: boolean, text: boolean, full: boolean, storedAt?: number | null }
 }
@@ -407,3 +411,54 @@ export async function listMerged(mailboxIds: number[], opts: { cursor?: number, 
 	const pages = await Promise.all(mailboxIds.map((id) => listMessages(id, { ...opts, limit })))
 	return pages.flat().sort((a, b) => b.dateInt - a.dateInt).slice(0, limit)
 }
+
+/** P5-2: a reply written by the user's AI (Settings > AI), as text for the composer. Nothing is sent or saved. */
+export async function suggestReply(dbId: number, instruction?: string): Promise<{ subject: string, body: string, model: string }> {
+	try {
+		return await request(`/agent/v1/reply/suggest`, { method: 'POST', body: { db_id: dbId, save: false, ...(instruction ? { instruction } : {}) }, headers: { 'OCS-APIRequest': 'true' } })
+	} catch (e) {
+		if (e instanceof HttpError) throw new Error((e.body as { error?: { message?: string } } | null)?.error?.message ?? `HTTP ${e.status}`)
+		throw e
+	}
+}
+
+/** P5-5: one-click unsubscribe (RFC 8058), through Mail's own route. */
+export const unsubscribeList = (id: number) => mail<unknown>(`/list/unsubscribe/${id}`, { method: 'POST' })
+
+/** mailto:list@x?subject=..&body=.. -> composer fields; null when it is not a mailto. */
+export function parseMailto(href: string | null | undefined): { to: string, subject: string, body: string } | null {
+	if (!href || !/^mailto:/i.test(href)) return null
+	const [addr, query = ''] = href.slice(7).split('?')
+	const q = new URLSearchParams(query)
+	const to = decodeURIComponent(addr).trim()
+	if (!/^[^@\s,]+@[^@\s,]+$/.test(to)) return null
+	return { to, subject: q.get('subject') ?? 'unsubscribe', body: q.get('body') ?? '' }
+}
+
+/** P4-1: put a deleted mail back from Trash (found by Message-ID; Trash is synced first). */
+export async function undoDelete(accountId: number, trashId: number, messageId: string, to: number): Promise<{ restored: boolean }> {
+	await syncMailbox(trashId).catch(() => {})
+	try {
+		return await request(`/agent/v1/mail/undo-delete`, { method: 'POST', body: { account: accountId, message_id: messageId, to }, headers: { 'OCS-APIRequest': 'true' } })
+	} catch (e) {
+		if (e instanceof HttpError) throw new Error((e.body as { error?: { message?: string } } | null)?.error?.message ?? `HTTP ${e.status}`)
+		throw e
+	}
+}
+
+/** P4-1: contacts and past correspondents matching `term` (Mail's own autocomplete). */
+export interface Suggestion { id?: string | number, label: string, email: string }
+export const autoComplete = (term: string) => mail<Suggestion[]>(`/autoComplete?term=${encodeURIComponent(term)}`)
+
+/** P4-1: the other messages of a mail's thread (404 = no thread: empty). */
+export async function getThread(id: number): Promise<Message[]> {
+	try {
+		return await mail<Message[]>(`/messages/${id}/thread`)
+	} catch (e) {
+		if (e instanceof HttpError && e.status === 404) return []
+		throw e
+	}
+}
+
+/** P4-1: snooze into the account's snooze folder until `at` (unix s); Mail's WakeJob brings it back. */
+export const snoozeMessage = (id: number, at: number, snoozeMailboxId: number) => mail(`/messages/${id}/snooze`, { method: 'POST', body: { unixTimestamp: at, destMailboxId: snoozeMailboxId } })

@@ -18,6 +18,8 @@ return [
 		['name' => 'atrium_agent#attachment', 'url' => '/api/atrium-agent/attachment', 'verb' => 'POST'],
 		['name' => 'atrium_agent#draft', 'url' => '/api/atrium-agent/draft', 'verb' => 'POST'],
 		['name' => 'atrium_agent#send', 'url' => '/api/atrium-agent/send', 'verb' => 'POST'],
+		['name' => 'atrium_agent#listinfo', 'url' => '/api/atrium-agent/listinfo', 'verb' => 'POST'],
+		['name' => 'atrium_agent#unsubscribe', 'url' => '/api/atrium-agent/unsubscribe', 'verb' => 'POST'],
 		[
 			'name' => 'deep_link#open',
 			'url' => '/open/{messageId}',

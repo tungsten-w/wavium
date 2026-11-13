@@ -5,10 +5,15 @@ import { appUrl, defineApp, formatBytes, formatDate, navigate, relativeTime, use
 import { AppLayout, Avatar, Button, Dialog, EmptyState, Icon, IconButton, Menu, NavItem, NavSection, NavToggle, SearchBar, Select, Spinner, TextField, confirmDialog, toast } from '@atrium/ui'
 import { AccountSettings, AccountSetup } from './Account'
 import { ComposeDialog, blankComposer, type ComposerState } from './Compose'
+import { MailRules } from './Rules'
+import { ExtractDialog } from './Extract'
+import { ThreadList } from './Thread'
+import { SnoozeDialog } from './Snooze'
+import { UnsubscribeBanner } from './Unsubscribe'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
 import { archiveTarget, kindBoxes, labelQuery, sortBoxes, type ViewKind } from './labels'
-import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
+import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, suggestReply, undoDelete, snoozeMessage, patchAccount, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
 import './style.css'
 
 const errorText = (e: unknown) => e instanceof Error ? e.message : String(e)
@@ -58,6 +63,7 @@ function Mail() {
 	const isOutbox = seg[0] === 'outbox'
 	const isSetup = seg[0] === 'setup'
 	const isStatus = seg[0] === 'status'
+	const isRules = seg[0] === 'rules'
 	const settingsId = seg[0] === 'settings' ? Number(seg[1]) : null
 	const mailbox = boxes.find((b) => b.databaseId === mailboxId) ?? null
 	const viewBoxes = useMemo(() => view ? kindBoxes(view, accounts ?? [], boxes) : [], [view, accounts, boxes])
@@ -237,7 +243,37 @@ function Mail() {
 			await deleteMessage(message.databaseId)
 			setMessages((ms) => (ms ?? []).filter((m) => m.databaseId !== message.databaseId))
 			if (messageId === message.databaseId) navigate(boxPath)
-			toast('Message deleted')
+			const acc = accounts?.find((a) => a.id === boxes.find((b) => b.databaseId === message.mailboxId)?.accountId)
+			const trashId = acc?.trashMailboxId ?? null
+			// Undo: only for mail moved to Trash (not for a delete inside Trash) with a Message-ID to find it again.
+			if (acc && trashId !== null && trashId !== message.mailboxId && message.messageId) {
+				toast('Moved to Trash', { action: { label: 'Undo', onClick: () => {
+					undoDelete(acc.id, trashId, message.messageId, message.mailboxId)
+						.then(() => { toast('Message restored'); setCuratedVer((v) => v + 1) })
+						.catch((e) => toast.error(errorText(e)))
+				} } })
+			} else {
+				toast('Message deleted')
+			}
+		} catch (e) { toast.error(errorText(e)) }
+	}
+	/** P4-1: snooze; the first time, an account without a snooze folder gets "Snoozed". */
+	const snooze = async (message: Message, at: number) => {
+		const acc = accounts?.find((a) => a.id === boxes.find((b) => b.databaseId === message.mailboxId)?.accountId)
+		if (!acc) return
+		try {
+			let sid = acc.snoozeMailboxId
+			if (sid === null) {
+				const existing = boxes.find((b) => b.accountId === acc.id && b.displayName === 'Snoozed')
+				const box = existing ?? await createMailbox(acc.id, 'Snoozed')
+				await patchAccount(acc.id, { snoozeMailboxId: box.databaseId })
+				sid = box.databaseId
+				void loadAccounts()
+			}
+			await snoozeMessage(message.databaseId, at, sid)
+			setMessages((ms) => (ms ?? []).filter((m) => m.databaseId !== message.databaseId))
+			if (messageId === message.databaseId) navigate(boxPath)
+			toast(`Snoozed until ${new Date(at * 1000).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`)
 		} catch (e) { toast.error(errorText(e)) }
 	}
 	const saveFolder = async () => {
@@ -259,6 +295,24 @@ function Mail() {
 		body: `\n\nOn ${messageDate(body.dateInt)}, ${displayAddress(body.from[0])} wrote:\n${quote(bodyText(body))}`,
 		inReplyToMessageId: body.messageId,
 	})
+	const [suggesting, setSuggesting] = useState(false)
+	/** P5-2: the user's AI writes the reply into the composer; the human edits and sends. */
+	const suggest = async (body: MessageBody) => {
+		setSuggesting(true)
+		try {
+			const s = await suggestReply(body.databaseId)
+			startCompose({
+				to: addressText(body.replyTo.length ? body.replyTo : body.from),
+				subject: s.subject,
+				body: `${s.body}${account?.signature ? `\n\n${account.signature}` : ''}\n\nOn ${messageDate(body.dateInt)}, ${displayAddress(body.from[0])} wrote:\n${quote(bodyText(body))}`,
+				inReplyToMessageId: body.messageId,
+			})
+		} catch (e) {
+			toast.error(errorText(e))
+		} finally {
+			setSuggesting(false)
+		}
+	}
 	const forward = (body: MessageBody) => startCompose({
 		subject: /^fwd:/i.test(body.subject) ? body.subject : `Fwd: ${body.subject}`,
 		body: `\n\n---------- Forwarded message ----------\nFrom: ${addressText(body.from)}\nDate: ${messageDate(body.dateInt)}\nSubject: ${body.subject}\nTo: ${addressText(body.to)}\n\n${bodyText(body)}`,
@@ -288,12 +342,14 @@ function Mail() {
 		</NavSection>)}
 		{/* Status sits at the bottom of the sidebar; each account's settings are the gear on its header. */}
 		<div className="ml-nav-foot">
+			<NavItem icon="route" label="Rules" active={isRules} onClick={() => navigate(`${basePath}/rules`)} />
 			<NavItem icon="barChart" label="Status" active={isStatus} onClick={() => navigate(`${basePath}/status`)} />
 		</div>
 	</> : null
 
 	if (accounts === null) return <AppLayout nav={nav}><div className="ml-center"><Spinner /></div></AppLayout>
 	if (!accounts.length || isSetup) return <AccountSetup onDone={() => { void loadAccounts().then(() => navigate(basePath)) }} />
+	if (isRules) return <AppLayout nav={nav}><MailRules /></AppLayout>
 	if (isStatus) return <AppLayout nav={nav}><MailStatus onCuratedChange={() => setCuratedVer((v) => v + 1)} /></AppLayout>
 	if (settingsId && accounts.some((a) => a.id === settingsId)) return <AppLayout nav={nav}><AccountSettings key={settingsId} account={accounts.find((a) => a.id === settingsId)!} boxes={boxes} onDone={loadAccounts} onClose={() => navigate(basePath)} /></AppLayout>
 
@@ -319,7 +375,7 @@ function Mail() {
 			<section className="ml-reader" aria-label="Message">
 				{messageId ? <Reader id={messageId} message={selected} triage={triage[messageId]} onTriage={(t) => setTriage((m) => ({ ...m, [messageId]: t }))} boxes={accountBoxes} moveTarget={moveTarget} setMoveTarget={setMoveTarget}
 					onClose={() => navigate(boxPath)} onFlags={(flags) => { if (selected) void patchMessage(selected, flags) }} onMove={(id) => { if (selected) void move(selected, id) }} onDelete={() => { if (selected) void remove(selected) }}
-					onReply={reply} onForward={forward} onEdit={(body) => startCompose({ to: addressText(body.to), cc: addressText(body.cc), bcc: addressText(body.bcc), subject: body.subject, body: bodyText(body), draftId: body.databaseId, inReplyToMessageId: body.messageId })} />
+					onReply={reply} onSuggest={suggest} suggesting={suggesting} onMailto={(m) => startCompose({ to: m.to, subject: m.subject, body: m.body })} onOpenOther={(id) => navigate(`${boxPath}/thread/${id}`)} onSnooze={(at) => { if (selected) void snooze(selected, at) }} onForward={forward} onEdit={(body) => startCompose({ to: addressText(body.to), cc: addressText(body.cc), bcc: addressText(body.bcc), subject: body.subject, body: bodyText(body), draftId: body.databaseId, inReplyToMessageId: body.messageId })} />
 					: <EmptyState icon="mail" title="Choose a message to read" />}
 			</section>
 		</div>
@@ -439,10 +495,14 @@ function MessageRow({ message, triage, selected, outgoing, onOpen, onFlag, onArc
 	</li>
 }
 
-function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarget, onClose, onFlags, onMove, onDelete, onReply, onForward, onEdit }: {
+function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarget, onClose, onFlags, onMove, onDelete, onReply, onSuggest, suggesting, onMailto, onOpenOther, onSnooze, onForward, onEdit }: {
 	id: number, message: Message | null, triage?: Triage | null, onTriage: (t: Triage | null) => void, boxes: Mailbox[], moveTarget: string, setMoveTarget: (v: string) => void,
 	onClose: () => void, onFlags: (f: { seen?: boolean, flagged?: boolean }) => void, onMove: (id: number) => void, onDelete: () => void,
 	onReply: (b: MessageBody, all?: boolean) => void, onForward: (b: MessageBody) => void, onEdit: (b: MessageBody) => void,
+	onSuggest?: (b: MessageBody) => void, suggesting?: boolean,
+	onMailto?: (m: { to: string, subject: string, body: string }) => void,
+	onOpenOther?: (id: number) => void,
+	onSnooze?: (at: number) => void,
 }) {
 	const [body, setBody] = useState<MessageBody | null>(null)
 	const [error, setError] = useState('')
@@ -470,6 +530,9 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 	}
 	const [showImages, setShowImages] = useState(false)
 	useEffect(() => setShowImages(false), [id])
+	const [extractOpen, setExtractOpen] = useState(false)
+	const [snoozeOpen, setSnoozeOpen] = useState(false)
+	useEffect(() => setExtractOpen(false), [id])
 	// Mail's sanitizer swaps remote images for a placeholder and keeps the proxied URL in data-original-src.
 	const blocked = !!body?.body.includes('data-original-src')
 	const html = useMemo(() => {
@@ -487,6 +550,8 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			<IconButton icon="delete" label="Delete message" onClick={onDelete} />
 			<Menu trigger={(open, expanded) => <IconButton icon="moreVert" label="More actions" aria-expanded={expanded} onClick={open} />} items={[
 				{ label: classifying ? 'Classifying…' : 'Reclassify', icon: 'refresh', onClick: () => void runReclassify() },
+				{ label: 'Find dates…', icon: 'calendar', onClick: () => setExtractOpen(true) },
+				...(onSnooze ? [{ label: 'Snooze…', icon: 'clock', onClick: () => setSnoozeOpen(true) }] : []),
 			]} />
 		</header>
 		{!body && !error && <div className="ml-center"><Spinner /></div>}
@@ -496,14 +561,18 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			<div className="ml-sender"><Avatar name={displayAddress(body.from[0])} size={44} /><div><strong>{displayAddress(body.from[0])}</strong>{body.from[0]?.email && <span className="ml-from" title="The address this mail really came from">{body.from[0].email}</span>}<span>to {body.to.map((a) => a.label || a.email).join(', ') || 'me'}</span></div><time>{messageDate(body.dateInt)}</time></div>
 			<TriageLine t={triage} busy={classifying} />
 			<SpoofBanner from={body.from[0]} />
+			<ExtractDialog dbId={body.databaseId} open={extractOpen} onClose={() => setExtractOpen(false)} />
+			{onSnooze && <SnoozeDialog open={snoozeOpen} onClose={() => setSnoozeOpen(false)} onPick={(at) => { setSnoozeOpen(false); onSnooze(at) }} />}
+			{onMailto && <UnsubscribeBanner body={body} onMailto={onMailto} />}
 			{(body.atriumCopy?.goneFromServer || message?.goneFromServer) && <p className="ml-kept ml-kept--reader"><Icon name="archive" /> Only in Atrium: no longer on the mail server.{' '}{body.atriumCopy?.text === false ? 'Its text was never copied before it left the server, so only the sender, subject and date are kept.' : body.atriumCopy?.full === false ? 'Shown from the text Atrium kept (formatting and attachments are not kept).' : 'Attachments are not kept.'}</p>}
 			{!body.atriumCopy?.goneFromServer && !message?.goneFromServer && body.atriumCopy?.source === 'atrium' && body.atriumCopy.full === false && <p className="ml-kept ml-kept--reader"><Icon name="archive" /> The mail server could not be reached: shown from the text Atrium kept.</p>}
 			{blocked && !showImages && <div className="ml-images"><Icon name="image" /><span>Remote images are hidden to protect your privacy.</span><Button variant="text" size="s" onClick={() => setShowImages(true)}>Show images</Button></div>}
 			<MailBody html={html} plain={!body.hasHtmlBody} />
+			{onOpenOther && <ThreadList id={body.databaseId} onOpen={onOpenOther} />}
 			{body.signature && <details className="ml-signature"><summary>Signature</summary><div className="ml-body ml-body--plain">{body.signature}</div></details>}
 			{body.attachments.length > 0 && (body.atriumCopy?.goneFromServer || message?.goneFromServer) && <section className="ml-files"><h2>Attachments</h2><p className="ml-kept">Not kept in Atrium: {body.attachments.map((a) => a.fileName).join(', ')}</p></section>}
 			{body.attachments.length > 0 && <section className="ml-files"><h2>Attachments</h2><div className="ml-attachments">{body.attachments.map((a) => <a className="ml-attachment" key={a.id} href={a.downloadUrl ?? appUrl('mail', `/api/messages/${body.databaseId}/attachment/${encodeURIComponent(a.id)}`)}><Icon name="attachment" /><span>{a.fileName}<small>{a.size ? formatBytes(a.size) : a.mimeType ?? a.mime}</small></span><Icon name="download" /></a>)}</div><a className="at-btn at-btn--text" href={appUrl('mail', `/api/messages/${body.databaseId}/attachments`)}><Icon name="download" />Download all</a></section>}
-			<footer className="ml-reader__actions"><Button variant="tonal" icon="arrowBack" onClick={() => onReply(body)}>Reply</Button><Button variant="outlined" onClick={() => onReply(body, true)}>Reply all</Button><Button variant="text" icon="send" onClick={() => onForward(body)}>Forward</Button>{message?.flags.draft && <Button icon="edit" onClick={() => onEdit(body)}>Edit draft</Button>}</footer>
+			<footer className="ml-reader__actions"><Button variant="tonal" icon="arrowBack" onClick={() => onReply(body)}>Reply</Button><Button variant="outlined" onClick={() => onReply(body, true)}>Reply all</Button>{onSuggest && !message?.flags.draft && <Button variant="text" icon="robot" busy={suggesting} onClick={() => onSuggest(body)}>Suggest a reply</Button>}<Button variant="text" icon="send" onClick={() => onForward(body)}>Forward</Button>{message?.flags.draft && <Button icon="edit" onClick={() => onEdit(body)}>Edit draft</Button>}</footer>
 		</div>}
 	</article>
 }

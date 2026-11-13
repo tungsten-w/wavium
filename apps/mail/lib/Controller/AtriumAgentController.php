@@ -28,6 +28,7 @@ use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Http\Client\IClientService;
 use OCP\IRequest;
 use Psr\Log\LoggerInterface;
 
@@ -50,6 +51,7 @@ class AtriumAgentController extends Controller {
 		private AttachmentService $attachments,
 		private ITimeFactory $time,
 		private LoggerInterface $logger,
+		private ?IClientService $http = null,
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -107,6 +109,66 @@ class AtriumAgentController extends Controller {
 			$this->triage->storeBody($account, $mailbox, $imap, TriageService::hash($message->getMessageId(), $id), $json);
 			return new JSONResponse(['stored' => true]);
 		});
+	}
+
+	/**
+	 * List-Unsubscribe of a mail (P5-5), read from the mail server: the https
+	 * link, whether it is RFC 8058 one-click, and the mailto address.
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function listinfo(string $uid, int $id): Response {
+		return $this->guard(function () use ($uid, $id) {
+			$imap = $this->imapMessage($uid, $id);
+			return new JSONResponse([
+				'url' => $imap->getUnsubscribeUrl(),
+				'one_click' => $imap->getUnsubscribeUrl() !== null && $imap->isOneClickUnsubscribe(),
+				'mailto' => $imap->jsonSerialize()['unsubscribeMailto'] ?? null,
+			]);
+		});
+	}
+
+	/**
+	 * One-click unsubscribe (RFC 8058 POST), as the Mail UI's ListController
+	 * does. `url` must still be the mail's one-click link (an approval made
+	 * earlier is void if it changed). Nextcloud's HTTP client refuses local
+	 * and private addresses.
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function unsubscribe(string $uid, int $id, string $url): Response {
+		return $this->guard(function () use ($uid, $id, $url) {
+			$imap = $this->imapMessage($uid, $id);
+			if ($imap->getUnsubscribeUrl() === null || !$imap->isOneClickUnsubscribe()) {
+				return self::error(Http::STATUS_CONFLICT, 'This mail has no one-click unsubscribe link', 'no_one_click');
+			}
+			if ($imap->getUnsubscribeUrl() !== $url) {
+				return self::error(Http::STATUS_CONFLICT, 'The unsubscribe link is not the one that was approved', 'changed');
+			}
+			if (!str_starts_with(strtolower($url), 'https://')) {
+				return self::error(Http::STATUS_BAD_REQUEST, 'Only https unsubscribe links are followed', 'not_https');
+			}
+			$client = ($this->http ?? \OCP\Server::get(IClientService::class))->newClient();
+			$res = $client->post($url, ['body' => ['List-Unsubscribe' => 'One-Click'], 'timeout' => 20, 'http_errors' => false]);
+			$status = $res->getStatusCode();
+			if ($status >= 400) {
+				return self::error(Http::STATUS_BAD_GATEWAY, "The list answered HTTP $status", 'list_error');
+			}
+			return new JSONResponse(['ok' => true, 'status' => $status]);
+		});
+	}
+
+	private function imapMessage(string $uid, int $id): \OCA\Mail\Model\IMAPMessage {
+		[$account, $mailbox, $message] = $this->load($uid, $id);
+		if ($message->isGoneFromServer()) {
+			throw new DoesNotExistException('The mail is no longer on the mail server');
+		}
+		$client = $this->clientFactory->getClient($account);
+		try {
+			return $this->mailManager->getImapMessage($client, $account, $mailbox, $message->getUid(), true);
+		} finally {
+			$client->logout();
+		}
 	}
 
 	/** @param array<string, bool> $flags seen, flagged */
