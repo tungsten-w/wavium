@@ -109,6 +109,22 @@ not part of this repository.
   hand; one unscoped full-access password; no per-item "done by agent X";
   shell wrappers instead of one MCP server.
 
+## Dev stack and tests (2026-11-13)
+
+- **Never run Nextcloud PHPUnit tests on an instance whose data you want.**
+  `tests/lib/TestCase::tearDownAfterClass` deletes everything in the data
+  directory and empties `filecache`, `storages` and `shares`. `make test-php`
+  runs on its own instance (`deploy/dev/test-instance.sh`: `config-autotest/`,
+  `data-autotest/`, DB `atrium_test`). Found when an e2e test saw an empty Files.
+- `docker compose down -v` deletes the DB volume but leaves `config/config.php`
+  ("installed") and `data/` in the checkout: `init.sh` now detects it and
+  reinstalls (old files kept in `data.stale.<time>/`). Prefer `make reset`.
+- Unit tests written against SQLite may bind PHP `false` for booleans; on
+  PostgreSQL that becomes `''` and fails. Use SQL `true`/`false` literals or
+  typed parameters.
+- Test UI changes in a real browser too: a unit-test fixture with the wrong
+  shape (the agent `restUrl`) hid a bug that a Playwright run found at once.
+
 ## Working method
 
 - Check that a new test really tests: break the code it covers and watch it fail.
