@@ -206,3 +206,6 @@ cypress/videos
 /logs/
 /config/config.php.aborted.*
 /data.stale.*/
+# PHPUnit's own instance (deploy/dev/test-instance.sh)
+/config-autotest/
+/data-autotest/

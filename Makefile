@@ -40,7 +40,7 @@ down:
 
 reset:
 	$(COMPOSE) down -v --remove-orphans
-	$(COMPOSE) run --rm --no-deps --entrypoint sh php -c 'rm -rf data/* data/.[!.]* config/config.php'
+	$(COMPOSE) run --rm --no-deps --entrypoint sh php -c 'rm -rf data/* data/.[!.]* config/config.php data-autotest config-autotest'
 	$(MAKE) up
 
 logs:
@@ -63,21 +63,25 @@ test-web:
 	$(BUN) sh -c 'sh deploy/dev/deps.sh && cd core/web && bun --bun node_modules/.bin/vitest run'
 
 # Needs the installed instance (DB): starts the stack if it is not running.
+# PHP tests run on a separate test instance (config-autotest/, data-autotest/,
+# DB atrium_test): Nextcloud's TestCase wipes the data directory it runs on.
+TESTI = $(PHP) sh deploy/dev/test-instance.sh
+
 test-php: vendor-bin/phpunit/vendor
 	$(COMPOSE) up -d --wait php
-	$(PHP) $(PHPUNIT) -c tests/phpunit-atrium.xml
-	$(PHP) $(PHPUNIT) -c apps/mail/tests/phpunit.xml
+	$(TESTI) $(PHPUNIT) -c tests/phpunit-atrium.xml
+	$(TESTI) $(PHPUNIT) -c apps/mail/tests/phpunit.xml
 
 test-daily-todo:
 	$(COMPOSE) up -d --wait php
-	$(PHP) sh -c 'for t in apps/daily_todo/tests/run-*.php; do php "$$t" || exit 1; done'
+	$(TESTI) sh -c 'for t in apps/daily_todo/tests/run-*.php; do php "$$t" || exit 1; done'
 
 vendor-bin/phpunit/vendor:
 	$(COMPOSE) run --rm -T composer composer install --no-interaction --no-progress -d vendor-bin/phpunit
 
 phpunit-nextcloud: vendor-bin/phpunit/vendor
 	$(COMPOSE) up -d --wait php
-	$(PHP) $(PHPUNIT) -c tests/phpunit-autotest.xml
+	$(TESTI) $(PHPUNIT) -c tests/phpunit-autotest.xml
 
 # --------------------------------------------------------------------- lint
 
