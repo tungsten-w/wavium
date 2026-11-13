@@ -7,6 +7,12 @@
  */
 
 return ['routes' => [
+	// Atrium agent layer, internal only (server/agent/notes/).
+	['name' => 'atrium_agent#list', 'url' => '/api/atrium-agent/list', 'verb' => 'POST'],
+	['name' => 'atrium_agent#get', 'url' => '/api/atrium-agent/get', 'verb' => 'POST'],
+	['name' => 'atrium_agent#create', 'url' => '/api/atrium-agent/create', 'verb' => 'POST'],
+	['name' => 'atrium_agent#update', 'url' => '/api/atrium-agent/update', 'verb' => 'POST'],
+	['name' => 'atrium_agent#delete', 'url' => '/api/atrium-agent/delete', 'verb' => 'POST'],
 	//////////  P A G E  //////////
 	[
 		'name' => 'page#index',
