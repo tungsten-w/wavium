@@ -90,7 +90,10 @@ ai.failNext('rate_limit', { retryAfter: 5 })
 ai.requests // every request received
 ```
 
-With nothing queued it answers `mock: <last user text>`.
+With nothing queued it answers `mock: <last user text>`, or, when the request
+forces a tool (`toolChoice: { name }`), calls that tool with a sample input
+built from its schema (first enum value, 0.5, ...). So mail triage works on the
+dev stack with the mock and no script.
 
 ## Rules
 
@@ -150,9 +153,36 @@ describeRouting(routing, providers)     // { routes, problems } for the settings
   that is not configured is an `AiError('invalid')`, never a silent switch.
 - With budgets (P2-3): `budget.wrap(providerForTask(task, ...).ai, { user, task })`.
 
+## Mail triage (`triage.ts`, `triage-route.ts`, P2-4)
+
+Mail's `TriageService` (PHP) keeps the queue, the IMAP fetch, its € caps and
+the `mail-v2` tables. For each mail it calls the Bun server:
+
+```
+POST /agent/v1/internal/ai/triage     X-Atrium-Internal: <HMAC of the secret>
+{ "uid": "<account owner>", "input": "<headers + text>", "questions": [... questions.json ...] }
+```
+
+- The owner's AI settings choose the provider (their default, else the
+  instance one); the task is `triage`, so the small model (P2-5); the call goes
+  through the budget (P2-3) as `task: "triage"`.
+- The questions become one forced tool call `classify` (schema built from
+  `questions.json`: enums for choices and levels, 0..1 numbers for predicates).
+  The answer is checked; one retry on a bad answer.
+- The answer has the decisions shape TriageService already read from tollgate
+  (`answers[]` with choice / predicate / score), so `summarize()`, the `raw`
+  column and every reader of `mail_triage` are unchanged.
+- Status codes TriageService acts on: 200; 409 no AI configured; 402 budget
+  (with `until`); 401 key refused; 429 / 503 (with `until` when known);
+  422 the model kept answering badly (one attempt counted on that mail).
+- Mail app config `triage_backend` = `ai` | `tollgate`. Unset: `tollgate` when a
+  tollgate token exists (existing installs keep working), else `ai`.
+  PHP finds the Bun server at `ATRIUM_SERVER_URL` (dev: `http://web:8080`),
+  or system config `atrium.server_url`.
+
 ## What builds on it
 
 - P2-2: provider settings and key storage; must validate user-entered base URLs and headers.
 - P2-3: budgets and pauses, driven by `AiError` codes and `usage`.
-- P2-4: mail triage with a forced tool call.
+- P2-4: mail triage with a forced tool call (done, see above).
 - P2-5: the other AI features (summaries, drafts, assistant).

@@ -12,19 +12,42 @@
 //   PUT    default                        {provider: id | null, scope?: 'user' | 'instance'}
 //   PUT    admin                          {personalProviders: boolean} (admins)
 //
+// Plus POST /agent/v1/internal/ai/triage for Mail's TriageService (P2-4,
+// internal only, see ./triage.ts).
+//
 // Keys go in, never out. The settings store lives in server/ai/settings.ts.
+import { timingSafeEqual } from 'node:crypto'
+import { Budget } from '../ai/budget'
 import { AiSettings, AiSettingsError, type AiCaller } from '../ai/settings'
+import { handleTriage, TRIAGE_PATH } from '../ai/triage-route'
+import { SqlUsageStore } from '../ai/usage-store'
 import type { AgentModule, LayerCore } from './index'
+import { internalHeaderValue } from './phpcall'
 import { AgentError } from './util'
+
+/** X-Atrium-Internal check for calls from PHP (same HMAC as Bun -> PHP calls). */
+export function internalCheck(secret: string): (req: Request) => boolean {
+	const want = Buffer.from(internalHeaderValue(secret))
+	return (req) => {
+		const given = Buffer.from(req.headers.get('x-atrium-internal') ?? '')
+		return secret !== '' && given.length === want.length && timingSafeEqual(given, want)
+	}
+}
 
 export interface AiModule extends AgentModule {
 	/** The settings store, once the layer started (for features: triage, summaries...). */
 	settings(): AiSettings | null
+	/** Usage and caps of every AI call made by Atrium itself (P2-3). */
+	budget(): Budget | null
 }
 
-export function aiModule(make?: (core: LayerCore) => AiSettings): AiModule {
+export function aiModule(make?: (core: LayerCore) => AiSettings, makeBudget?: (core: LayerCore) => Budget): AiModule {
 	let store: AiSettings | null = null
+	let budget: Budget | null = null
 	const get = (core: LayerCore) => (store ??= make ? make(core) : new AiSettings(core.db, core.cfg.secret))
+	// No caps or prices are configured yet (the budget page is still to come):
+	// usage is recorded and error pauses apply; Mail keeps its own € caps.
+	const getBudget = (core: LayerCore) => (budget ??= makeBudget ? makeBudget(core) : new Budget(new SqlUsageStore(core.db), () => ({})))
 
 	async function caller(core: LayerCore, req: Request): Promise<AiCaller> {
 		const c = await core.auth.owner(req)
@@ -72,10 +95,12 @@ export function aiModule(make?: (core: LayerCore) => AiSettings): AiModule {
 	return {
 		tools: () => [],
 		settings: () => store,
+		budget: () => budget,
 		start(core) {
 			void get(core).migrate().catch((e) => console.error(`ai settings: ${(e as Error).message}`))
 		},
 		async route(core, req, _url, pathname) {
+			if (pathname === TRIAGE_PATH) return handleTriage({ settings: get(core), budget: getBudget(core), internal: internalCheck(core.cfg.secret) }, req)
 			if (!pathname.startsWith('/agent/v1/ai/')) return null
 			try {
 				return await route(core, req, pathname.slice('/agent/v1/ai/'.length))

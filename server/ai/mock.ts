@@ -3,7 +3,9 @@
 //
 // Mock provider for tests and the dev stack (rule A2: no real key anywhere).
 // Deterministic, no network. Script it with queued replies or errors; it
-// records every request. With nothing queued it answers "mock: <last user text>".
+// records every request. With nothing queued it answers "mock: <last user text>",
+// or, when the request forces a tool ({name}), calls that tool with a sample
+// input built from its schema (first enum value, 0.5, ...), like a real model must.
 import { testConnection, trackUsage } from './common'
 import { AiError, type AiErrorCode } from './errors'
 import type { AiProvider, AiRequest, AiResult, AiStreamEvent, StopReason, ToolCall, Usage } from './types'
@@ -50,6 +52,32 @@ function lastUserText(req: AiRequest): string {
 	return ''
 }
 
+/** A value that fits a JSON schema: first enum value, 0.5 within bounds, required properties filled. */
+export function sampleOf(schema: any): unknown {
+	if (!schema || typeof schema !== 'object') return null
+	if (Array.isArray(schema.enum) && schema.enum.length) return schema.enum[0]
+	switch (schema.type) {
+	case 'object': {
+		const out: Record<string, unknown> = {}
+		const props = schema.properties ?? {}
+		for (const k of Array.isArray(schema.required) ? schema.required : Object.keys(props)) out[k] = sampleOf(props[k])
+		return out
+	}
+	case 'array': return []
+	case 'number': return Math.min(Math.max(0.5, schema.minimum ?? -Infinity), schema.maximum ?? Infinity)
+	case 'integer': return Math.max(0, schema.minimum ?? 0)
+	case 'boolean': return false
+	case 'string': return 'mock'
+	default: return null
+	}
+}
+
+function defaultReply(req: AiRequest): MockReply {
+	const forced = req.toolChoice && typeof req.toolChoice === 'object' ? req.tools?.find((t) => t.name === (req.toolChoice as { name: string }).name) : undefined
+	if (forced) return { toolCalls: [{ name: forced.name, input: sampleOf(forced.inputSchema) }] }
+	return { text: `mock: ${lastUserText(req)}` }
+}
+
 // About 4 characters per token: rough but deterministic, enough to test budgets.
 const tokens = (s: string): number => Math.ceil(s.length / 4)
 
@@ -73,7 +101,7 @@ export function createMockProvider(opts: MockOptions = {}): MockProvider {
 		requests.push(structuredClone(copy))
 		calls++
 		const next = queue.shift()
-		const script = typeof next === 'function' ? next(req) : next ?? { text: `mock: ${lastUserText(req)}` }
+		const script = typeof next === 'function' ? next(req) : next ?? defaultReply(req)
 		if ('error' in script) {
 			const e = script.error
 			const status = e.status ?? DEFAULT_STATUS[e.code]

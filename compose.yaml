@@ -33,6 +33,8 @@ x-env: &env
   ATRIUM_PHP_TIMEOUT: ${ATRIUM_PHP_TIMEOUT:-}
   ATRIUM_UPLOAD_TMP: ${ATRIUM_UPLOAD_TMP:-}
   ATRIUM_AI_PROVIDERS: ${ATRIUM_AI_PROVIDERS:-mock}
+  # Where PHP reaches the Bun server (Mail triage -> AI layer, P2-4).
+  ATRIUM_SERVER_URL: ${ATRIUM_SERVER_URL:-http://web:8080}
   HOME: /tmp
 
 x-user: &user "${ATRIUM_UID:-1000}:${ATRIUM_GID:-1000}"
