@@ -60,10 +60,10 @@ pick() {
 		ok=1
 		for d in $deps; do echo "$done_ids" | grep -qx "$d" || ok=0; done
 		# P3-6 style ranges ("P3-1..P3-5") are checked by the chef itself.
-		[ $ok = 1 ] && echo "$id"
+		if [ $ok = 1 ]; then echo "$id"; fi
 	done
 }
-if [ -n "$only" ]; then tasks=$only; else tasks=$(pick | head -n "$n"); fi
+if [ -n "$only" ]; then tasks=$only; else tasks=$(pick | head -n "$n" || true); fi
 [ -n "$tasks" ] || die "no free task in TASKS.md"
 
 # ---------------------------------------------------------------- auth
@@ -114,7 +114,8 @@ for id in $tasks; do
 		-v "$name-docker:/var/lib/docker" \
 		-v "$repo/deploy/night/dind-entry.sh:/night-entry.sh:ro" \
 		-v "$wt:/work" \
-		--entrypoint sh docker:29.0.2-dind /night-entry.sh --host=tcp://127.0.0.1:2375 >/dev/null
+		--entrypoint sh docker:29.0.2-dind /night-entry.sh \
+		dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --tls=false >/dev/null
 
 	home_mount=()
 	if [ "${auth[0]:-}" = copy ]; then
@@ -139,4 +140,4 @@ for id in $tasks; do
 	  echo "night: $id exited $($docker inspect -f '{{.State.ExitCode}}' "$name")" >>"$repo/logs/$id.log"; \
 	  $docker rm -f "$name-dind" >/dev/null 2>&1 ) &
 done
-echo "night: started. Logs in logs/<ID>.log, stop with ./night.sh --stop"
+[ $dry = 1 ] || echo "night: started. Logs in logs/<ID>.log, stop with ./night.sh --stop"
