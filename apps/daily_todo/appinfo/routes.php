@@ -30,4 +30,6 @@ return ['routes' => [
     ['name' => 'api#shared','url' => '/api/shared','verb' => 'GET'],
     ['name' => 'api#addShare','url' => '/api/shares','verb' => 'POST'],
     ['name' => 'api#deleteShare','url' => '/api/shares/{id}','verb' => 'DELETE'],
+    // Atrium agent layer only (X-Atrium-Internal): server/agent/todo.
+    ['name' => 'atrium_agent#call','url' => '/api/atrium-agent','verb' => 'POST'],
 ]];
