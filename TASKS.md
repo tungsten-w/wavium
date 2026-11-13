@@ -31,7 +31,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [x] P2-1 Provider layer `server/ai/`: Anthropic, OpenAI, Mistral, OpenAI-compatible, Ollama, mock — branch ready: night/P2-1 (review items all fixed; usage via AiRequest.onUsage)
 - [x] P2-2 Settings > AI: providers, encrypted keys, test connection — deps: P2-1 — branch ready: night/P2-2
 - [x] P2-3 Budgets and usage: daily/monthly caps, tokens and cost, pause on errors — deps: P2-1 — branch ready: night/P2-3
-- [ ] P2-4 Mail triage on the provider layer (instead of tollgate), `mail-v2` kept — deps: P2-1, P2-3
+- [~] (sodium-7a, 2026-11-13) P2-4 Mail triage on the provider layer (instead of tollgate), `mail-v2` kept — deps: P2-1, P2-3
 - [x] P2-5 Model per task (small for triage, bigger for summaries/drafts) — deps: P2-1 — branch ready: night/P2-5
 - [x] P2-6 "Connect an agent" box: Claude Code, Claude Desktop, Cursor, Codex, REST — branch ready: night/P2-6
 - [ ] P2-7 OAuth 2.1 for MCP (discovery, PKCE, consent screen)
@@ -44,8 +44,8 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [x] P3-3 Contacts tools (simple fields, no raw vCard) — branch ready: night/P3-3
 - [x] P3-4 Files tools (share = approval) — branch ready: night/P3-4
 - [x] P3-5 Notes, then Activity (read only) — branch ready: night/P3-5
-- [ ] P3-6 Cross-app `search` tool — deps: P3-1..P3-5
-- [ ] P3-7 Undo an agent action from the activity log
+- [~] (main session, 2026-11-13) P3-6 Cross-app `search` tool — deps: P3-1..P3-5
+- [~] (main session, 2026-11-13, after P3-6) P3-7 Undo an agent action from the activity log
 
 ## Phase 4: finish the React apps
 
