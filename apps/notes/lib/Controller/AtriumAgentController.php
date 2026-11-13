@@ -22,6 +22,7 @@ use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserManager;
+use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -33,12 +34,14 @@ use Psr\Log\LoggerInterface;
  */
 class AtriumAgentController extends Controller {
 	private const MAX_CONTENT = 1048576;
+	/** Resolved per call, once the user is set (its TagService loads the session user's tags). */
+	private NotesService $notes;
 
 	public function __construct(
 		string $appName,
 		IRequest $request,
-		private NotesService $notes,
 		private IUserManager $users,
+		private IUserSession $session,
 		private LoggerInterface $logger,
 	) {
 		parent::__construct($appName, $request);
@@ -52,10 +55,15 @@ class AtriumAgentController extends Controller {
 		if (!\OCP\Server::get(InternalAuth::class)->isInternal($this->request)) {
 			return self::error(Http::STATUS_FORBIDDEN, 'internal only');
 		}
-		if ($uid === '' || $this->users->get($uid) === null) {
+		$user = $uid === '' ? null : $this->users->get($uid);
+		if ($user === null) {
 			return self::error(Http::STATUS_NOT_FOUND, 'No such user');
 		}
+		// Act as the user for this request only: the Notes services (favorites
+		// = file tags, activity) read the session user.
+		$this->session->setVolatileActiveUser($user);
 		try {
+			$this->notes = \OCP\Server::get(NotesService::class);
 			return Util::retryIfLocked($fn);
 		} catch (NoteDoesNotExistException) {
 			return self::error(Http::STATUS_NOT_FOUND, 'No such note');
@@ -68,6 +76,8 @@ class AtriumAgentController extends Controller {
 		} catch (\Throwable $e) {
 			$this->logger->warning('Atrium agent notes call failed: ' . $e->getMessage(), ['exception' => $e]);
 			return self::error(Http::STATUS_SERVICE_UNAVAILABLE, 'Notes are unavailable');
+		} finally {
+			$this->session->setVolatileActiveUser(null);
 		}
 	}
 

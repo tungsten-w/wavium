@@ -122,6 +122,13 @@ not part of this repository.
 - Unit tests written against SQLite may bind PHP `false` for booleans; on
   PostgreSQL that becomes `''` and fails. Use SQL `true`/`false` literals or
   typed parameters.
+- PHP changes in the dev stack can take up to 60 s to show: the Nextcloud
+  image sets `opcache.revalidate_freq=60`. Restart `php` (or wait) before
+  concluding a fix did not work.
+- Internal (Bun → PHP) calls have no session user. Services that read it
+  (Notes' TagService, activity attribution) need
+  `IUserSession::setVolatileActiveUser($user)` for the call, and must be
+  resolved after it (not injected into the controller).
 - Test UI changes in a real browser too: a unit-test fixture with the wrong
   shape (the agent `restUrl`) hid a bug that a Playwright run found at once.
 
