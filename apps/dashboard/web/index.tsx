@@ -56,6 +56,8 @@ function Dashboard() {
 	const [layout, setLayout] = useState<string[]>([])
 	const [error, setError] = useState<string | null>(null)
 	const [customize, setCustomize] = useState(false)
+	// The tour link shows until the tutorial was opened once (Settings > Tutorial remembers its step).
+	const [newHere] = useState(() => { try { return localStorage.getItem('wavium.tour') === null } catch { return false } })
 	const [now, setNow] = useState(() => new Date())
 
 	useEffect(() => { setTitle('Dashboard') }, [setTitle])
@@ -98,6 +100,7 @@ function Dashboard() {
 				<h1>{greeting(session.user.displayName)}</h1>
 				<p>{now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
 				<Button variant="tonal" icon="edit" className="dash-customize" onClick={() => setCustomize(true)}>Customize</Button>
+				{newHere && <a className="dash-tour" href="/settings/user/tutorial" onClick={linkHandler}>New here? Take the two-minute tour</a>}
 			</header>
 			{error && <div className="dash-card dash-note">Could not load the dashboard: {error}</div>}
 			{!widgets && !error && <div className="dash-loading"><Spinner /></div>}

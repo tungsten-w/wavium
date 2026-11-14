@@ -70,3 +70,6 @@
 .dash-today__tag--reply { background: var(--at-primary-container, var(--at-surface-container-high)); color: var(--at-on-primary-container, inherit); }
 .dash-today__urgent { flex: none; font-size: 12px; font-weight: 600; color: var(--at-error, #b3261e); }
 .dash-today__settings { display: flex; flex-direction: column; gap: 14px; min-width: min(380px, 75vw); }
+
+.dash-tour { grid-column: 1; justify-self: start; margin-top: 10px; padding: 6px 14px; border-radius: var(--at-radius-full); background: rgb(255 255 255 / 0.2); color: inherit; font-size: 14px; font-weight: 500; text-decoration: none; backdrop-filter: blur(6px); }
+.dash-tour:hover { background: rgb(255 255 255 / 0.3); }
