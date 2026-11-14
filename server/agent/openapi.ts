@@ -56,7 +56,7 @@ export function openapi(tools: Tool[], baseUrl: string) {
 	}
 	return {
 		openapi: '3.1.0',
-		info: { title: 'Atrium agent API', version: '1', description: 'Every tool is also available over MCP at /agent/mcp. Dotted names (mail.message.list) are accepted as aliases.' },
+		info: { title: 'Wavium agent API', version: '1', description: 'Every tool is also available over MCP at /agent/mcp. Dotted names (mail.message.list) are accepted as aliases.' },
 		servers: [{ url: baseUrl }],
 		components: {
 			securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } },

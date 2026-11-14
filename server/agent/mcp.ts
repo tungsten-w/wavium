@@ -42,7 +42,7 @@ async function one(msg: RpcRequest, backend: McpBackend): Promise<unknown | null
 					protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
 					capabilities: { tools: { listChanged: false } },
 					serverInfo: { name: 'atrium', version: '1' },
-					instructions: 'Atrium agent tools. Every call acts on one grantor\'s data (default: your owner). Gated actions return {status:"pending_approval", request_id}; the answer arrives as an approval.* event. Poll events_since with your last next_cursor.',
+					instructions: 'Wavium agent tools. Every call acts on one grantor\'s data (default: your owner). Gated actions return {status:"pending_approval", request_id}; the answer arrives as an approval.* event. Poll events_since with your last next_cursor.',
 				},
 			}
 		}

@@ -162,7 +162,7 @@ export class OAuth {
 			resource: this.resource,
 			authorization_servers: [this.baseUrl],
 			bearer_methods_supported: ['header'],
-			resource_name: 'Atrium agents (MCP)',
+			resource_name: 'Wavium agents (MCP)',
 			resource_documentation: `${this.baseUrl}/settings/user/agents`,
 		}
 	}

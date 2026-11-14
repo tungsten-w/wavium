@@ -170,7 +170,7 @@ export function connectGuides(info: Pick<ConnectInfo, 'mcpUrl' | 'restUrl' | 'op
 		{
 			id: 'claude-code',
 			label: 'Claude Code',
-			intro: 'Run this once in a terminal. Add --scope user to use Atrium in every project, or put the JSON in a project\'s .mcp.json instead.',
+			intro: 'Run this once in a terminal. Add --scope user to use Wavium in every project, or put the JSON in a project\'s .mcp.json instead.',
 			steps: [
 				{ label: 'Command', value: `claude mcp add --transport http atrium ${shq(mcpUrl)} --header ${shq(`Authorization: ${bearer}`)}` },
 				{ label: '.mcp.json (alternative)', value: json({ mcpServers: { atrium: { type: 'http', url: mcpUrl, headers: { Authorization: bearer } } } }), multiline: true },
@@ -188,7 +188,7 @@ export function connectGuides(info: Pick<ConnectInfo, 'mcpUrl' | 'restUrl' | 'op
 					multiline: true,
 				},
 			],
-			note: 'Adding Atrium as a custom connector on claude.ai needs OAuth, which comes later (TASKS.md P2-7).',
+			note: `On claude.ai (or Claude Desktop): Settings > Connectors > Add custom connector, paste ${mcpUrl}; Wavium then asks you to approve it, no token to copy.`,
 		},
 		{
 			id: 'cursor',

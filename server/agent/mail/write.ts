@@ -377,7 +377,7 @@ export function mailWrites(bridge: MailBridge): Tool[] {
 		},
 		{
 			name: 'mail_draft_delete',
-			description: 'Discard a draft this agent wrote and never sent (kept by Atrium, never hard-deleted). Other drafts are mails in the Drafts folder: use mail_message_delete.',
+			description: 'Discard a draft this agent wrote and never sent (kept by Wavium, never hard-deleted). Other drafts are mails in the Drafts folder: use mail_message_delete.',
 			area: 'mail',
 			action: 'write',
 			input: obj({ draft_key: str() }, ['draft_key']),
