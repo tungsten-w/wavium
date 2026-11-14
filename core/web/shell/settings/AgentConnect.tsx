@@ -9,7 +9,7 @@
 // approvals as an agent token from Settings > Agents.
 import { useEffect, useState } from 'react'
 import { type Session, useLocation } from '@atrium/sdk'
-import { Button, Card, Select, Spinner, TextField } from '@atrium/ui'
+import { Button, Card, Select, Spinner, TextField, WaviumMark } from '@atrium/ui'
 import { api } from './agentsApi'
 import { type Agent, areaLabel, describeModes, type OAuthFlow, type Preset } from './agentsModel'
 
@@ -65,6 +65,7 @@ export function AgentConnect(_: { session: Session }) {
 	const selected = agents?.find((a) => a.uid === choice)
 	return (
 		<section className="settings-section">
+			<div className="agent-connect__brand"><WaviumMark size={26} /></div>
 			<h2 className="at-headline">Connect an agent</h2>
 			{done ? <Card className="settings-block"><p>{done === 'approved' ? `Done. You can go back to ${flow?.client_name}.` : 'Connection refused.'}</p></Card>
 				: error && !flow ? <Card className="settings-block"><p>{error}</p></Card>

@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { request, requestToken } from '@atrium/sdk'
 import { applyTheme, readTheming } from './theme'
 import { Button, Checkbox, Icon, TextField } from '@atrium/ui'
+import { BrandLogo } from './Brand'
 import { loginBody } from './loginBody'
 
 interface Theming { name: string, slogan: string, logo: string, color: string, background?: string, 'background-plain'?: boolean }
@@ -82,7 +83,7 @@ export function Login() {
 		<div className="login">
 			<div className="login-card">
 				<div className="login-brand">
-					<div className="mark">{theming?.logo ? <img src={theming.logo} alt="" /> : <Icon name="home" size="l" />}</div>
+					<div className="mark"><BrandLogo logo={theming?.logo} size={34} /></div>
 					<div>
 						<h1 className="at-headline" style={{ margin: 0 }}>{theming?.name ?? 'Wavium'}</h1>
 						{theming?.slogan && <p className="at-muted" style={{ margin: '4px 0 0' }}>{theming.slogan}</p>}

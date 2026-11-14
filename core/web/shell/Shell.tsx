@@ -8,6 +8,7 @@
 import { Component, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AppCtx, avatarUrl, linkHandler, navigate, setPasswordPrompt, useLocation, type AppContext, type AtriumAppModule, type NavEntry, type Session } from '@atrium/sdk'
 import { Avatar, Badge, Button, Dialog, Icon, IconButton, Menu, Spinner, TextField } from '@atrium/ui'
+import { BrandLogo } from './Brand'
 import { findApp, importApp, navApps, type AppIndex, type AppManifest } from './apps'
 import { Assistant } from './Assistant'
 import { LegacyFrame } from './LegacyFrame'
@@ -67,7 +68,7 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 				<div className="shell-left">
 				<IconButton className="shell-picker-btn" icon="apps" label="Apps" onClick={() => setPicker(true)} />
 				<a className="shell-logo" href={home} onClick={linkHandler} title={session.capabilities.theming?.name}>
-					{session.capabilities.theming?.logo ? <img src={session.capabilities.theming.logo} alt="" /> : <Icon name="home" />}
+					<BrandLogo logo={session.capabilities.theming?.logo} size={18} />
 					<span className="shell-logo__name">{session.capabilities.theming?.name ?? 'Wavium'}</span>
 				</a>
 				<Search />

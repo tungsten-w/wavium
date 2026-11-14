@@ -17,6 +17,16 @@ export { icons, sectionIcon, type IconName }
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 export { cx }
 
+/** Wavium's wave W, inline (never a broken image), in currentColor. */
+export const WAVIUM_W_PATH = 'M42 176 C68 137 91 104 119 76 C135 60 151 54 165 64 C179 74 183 96 191 119 C204 157 218 187 242 187 C264 187 280 160 294 132 C308 105 322 78 341 68 C354 61 368 68 380 82 C393 98 402 119 415 133 L475 39 L454 145 C447 181 428 218 402 218 C379 218 361 191 345 165 C333 146 322 127 311 128 C299 129 287 158 272 185 C252 222 232 247 205 247 C172 247 151 210 136 171 C126 145 117 119 107 117 C97 115 79 143 63 166 Z'
+export function WaviumMark({ size = 32, className, title }: { size?: number, className?: string, title?: string }) {
+	return (
+		<svg className={cx('at-wavium', className)} viewBox="30 30 456 226" width={size * 2} height={size} role={title ? 'img' : undefined} aria-hidden={title ? undefined : true} aria-label={title} fill="currentColor">
+			<path d={WAVIUM_W_PATH} />
+		</svg>
+	)
+}
+
 export function Icon({ name, size, className, title }: { name: IconName | string, size?: 's' | 'l', className?: string, title?: string }) {
 	const known = iconPaths(name)
 	// An unknown name is taken as raw filled path data (app glyphs such as Daily Todo's sunset).
