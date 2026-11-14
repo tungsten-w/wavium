@@ -29,6 +29,8 @@ export interface WebhookPolicy {
 	suffixes: string[]
 	ranges: Range[]
 	resolve: Resolver
+	/** Set in the public demo (ATRIUM_PUBLIC_DEMO=1): every URL is refused with this message. */
+	off?: string
 }
 
 // Internal, reserved or special-purpose ranges (IANA special registries).
@@ -106,8 +108,9 @@ export function isInternalIp(ip: string): boolean {
 	return BLOCKED.some((r) => inRange(b, r))
 }
 
-export function webhookPolicy(allow: string | undefined = process.env.ATRIUM_WEBHOOK_ALLOW, resolve: Resolver = systemResolver): WebhookPolicy {
+export function webhookPolicy(allow: string | undefined = process.env.ATRIUM_WEBHOOK_ALLOW, resolve: Resolver = systemResolver, publicDemo = process.env.ATRIUM_PUBLIC_DEMO === '1'): WebhookPolicy {
 	const p: WebhookPolicy = { hosts: new Set(), suffixes: [], ranges: [], resolve }
+	if (publicDemo) p.off = 'The public demo does not call other servers (webhooks and personal AI providers are off)'
 	for (const raw of (allow ?? '').split(/[\s,]+/)) {
 		const e = raw.trim().toLowerCase()
 		if (!e) continue
@@ -134,6 +137,7 @@ export class BlockedWebhook extends Error {}
  * again at send time); otherwise the DNS error is thrown as is.
  */
 export async function assertPublicWebhook(url: string, p: WebhookPolicy = webhookPolicy(), opts: { unresolvedOk?: boolean } = {}): Promise<void> {
+	if (p.off) throw new BlockedWebhook(p.off)
 	let u: URL
 	try {
 		u = new URL(url)

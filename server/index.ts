@@ -11,6 +11,7 @@ import { servePhp, type PhpTarget } from './php'
 import { isShellPage, route } from './routes'
 import { startAgentLayer, type AgentLayer } from './agent'
 import { loadLimits } from './limits'
+import { demoInfo, demoRefusal, loadPublicDemo, refusalResponse } from './publicdemo'
 
 const docroot = (process.env.ATRIUM_DOCROOT ?? '/var/www/html').replace(/\/$/, '')
 const [fpmHost, fpmPort] = (process.env.ATRIUM_FPM ?? '127.0.0.1:9000').split(':')
@@ -19,6 +20,7 @@ const port = Number(process.env.PORT ?? 8080)
 const quiet = process.env.ATRIUM_ACCESS_LOG === '0'
 const limits = loadLimits()
 const php: PhpTarget = { fpm, docroot, port, maxBody: limits.maxBody }
+const publicDemo = loadPublicDemo()
 
 // The agent layer (MCP/REST for agents, ADR 0009). Off with ATRIUM_AGENT=0, or
 // when it cannot start (it logs why); the rest of the server keeps running.
@@ -142,6 +144,17 @@ async function handle(req: Request, remote: string, received: Received): Promise
 		securityHeaders(res.headers, url.pathname)
 		return res
 	}
+	if (pathname === '/core/web/dist/demo.json' && (req.method === 'GET' || req.method === 'HEAD')) {
+		const res = new Response(req.method === 'HEAD' ? null : JSON.stringify(demoInfo(publicDemo)), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' } })
+		securityHeaders(res.headers, url.pathname)
+		return res
+	}
+	const refused = demoRefusal(publicDemo, req.method, pathname)
+	if (refused) {
+		const res = refusalResponse(pathname, refused)
+		securityHeaders(res.headers, url.pathname)
+		return res
+	}
 	// OAuth discovery for MCP clients (server/agent/oauth.ts) is served by the agent layer.
 	if (pathname === '/agent' || pathname.startsWith('/agent/') || /^\/\.well-known\/oauth-(?:protected-resource|authorization-server)(?:\/|$)/.test(pathname)) {
 		// Agent bodies are small JSON: read them first, so a slow tool call is not cut.
@@ -204,4 +217,4 @@ const server = Bun.serve({
 	},
 })
 
-console.log(`atrium web: http://0.0.0.0:${server.port} docroot=${docroot} fpm=${fpm.host}:${fpm.port} max-body=${limits.maxBody} idle=${limits.idleTimeout}s php-idle=${limits.phpTimeout || 'off'}`)
+console.log(`atrium web: http://0.0.0.0:${server.port} docroot=${docroot} fpm=${fpm.host}:${fpm.port} max-body=${limits.maxBody} idle=${limits.idleTimeout}s php-idle=${limits.phpTimeout || 'off'}${publicDemo.enabled ? ' PUBLIC DEMO' : ''}`)

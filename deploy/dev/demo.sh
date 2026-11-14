@@ -15,6 +15,8 @@
 set -eu
 port=${ATRIUM_PORT:-8092}
 base="http://127.0.0.1:$port"
+[ "${ATRIUM_BIND:-127.0.0.1}" = 0.0.0.0 ] || base="http://${ATRIUM_BIND:-127.0.0.1}:$port"
+admin="${ATRIUM_ADMIN_USER:-admin}:${ATRIUM_ADMIN_PASSWORD:-admin-demo-pass}"
 dc() { docker compose "$@"; }
 say() { printf '\n== %s\n' "$*"; }
 
@@ -24,10 +26,10 @@ dc up -d --wait
 json() { curl -fsS -H 'OCS-APIRequest: true' -H 'Content-Type: application/json' "$@"; }
 
 say "AI provider for the demo"
-if json -u admin:admin-demo-pass "$base/agent/v1/ai/settings" | grep -q '"label":"IA de démo"'; then
+if json -u "$admin" "$base/agent/v1/ai/settings" | grep -q '"label":"IA de démo"'; then
 	echo "already there"
 else
-	json -u admin:admin-demo-pass -X POST "$base/agent/v1/ai/providers" \
+	json -u "$admin" -X POST "$base/agent/v1/ai/providers" \
 		-d '{"scope":"instance","label":"IA de démo","kind":"mock","defaultModel":"demo"}' >/dev/null
 	echo "added"
 fi
@@ -63,4 +65,4 @@ else
 	}' >/dev/null && echo "added (its token is shown in Settings > Agents)"
 fi
 
-say "Ready: $base  (alice / alice-demo-pass, bob / bob-demo-pass, admin / admin-demo-pass)"
+say "Ready: $base  (alice / alice-demo-pass, bob / bob-demo-pass, admin / ${ATRIUM_ADMIN_PASSWORD:-admin-demo-pass})"

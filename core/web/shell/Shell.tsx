@@ -9,6 +9,7 @@ import { Component, Suspense, useEffect, useMemo, useState, type ReactNode } fro
 import { AppCtx, avatarUrl, linkHandler, navigate, setPasswordPrompt, useLocation, type AppContext, type AtriumAppModule, type NavEntry, type Session } from '@atrium/sdk'
 import { Avatar, Badge, Button, Dialog, Icon, IconButton, Menu, Spinner, TextField } from '@atrium/ui'
 import { BrandLogo } from './Brand'
+import { bannerHidden, hideBanner, useDemo, type DemoInfo } from './demo'
 import { findApp, importApp, navApps, type AppIndex, type AppManifest } from './apps'
 import { Assistant } from './Assistant'
 import { LegacyFrame } from './LegacyFrame'
@@ -50,6 +51,7 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 
 	const active = apps.find((a) => pathname.startsWith(new URL(a.href, location.origin).pathname.replace(/\/$/, '') + '/') || pathname === new URL(a.href, location.origin).pathname.replace(/\/$/, ''))
 	const logout = session.settings.find((s) => s.id === 'logout')
+	const demo = useDemo()
 
 	let body: ReactNode
 	if (pathname.startsWith('/settings')) {
@@ -64,6 +66,7 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 	return (
 		<div className="shell">
 			<PasswordPrompt />
+			{demo.enabled && <DemoBanner demo={demo} />}
 			<header className="shell-header">
 				<div className="shell-left">
 				<IconButton className="shell-picker-btn" icon="apps" label="Apps" onClick={() => setPicker(true)} />
@@ -89,6 +92,7 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 							{ label: 'Settings', icon: 'settings', onClick: () => navigate('/settings/user') },
 							session.user.isAdmin && { label: 'Apps', icon: 'extension', onClick: () => navigate('/settings/apps') },
 							session.user.isAdmin && { label: 'Accounts', icon: 'group', onClick: () => navigate('/settings/users') },
+							demo.enabled && { label: 'Give feedback', icon: 'send', onClick: () => window.open(demo.feedbackUrl, '_blank', 'noopener') },
 							!!logout && { label: 'Log out', icon: 'logout', href: logout!.href },
 						]}
 					/>
@@ -106,6 +110,20 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 					))}
 				</div>
 			</Dialog>
+		</div>
+	)
+}
+
+/** Public demo: what this is, when it resets, where to say what blocks. */
+function DemoBanner({ demo }: { demo: DemoInfo }) {
+	const [hidden, setHidden] = useState(bannerHidden)
+	if (hidden) return null
+	return (
+		<div className="shell-demo" role="note">
+			<Icon name="info" />
+			<span className="shell-demo__text"><b>Public demo.</b> Fake data, shared with other visitors, reset every night at {demo.resetAt ?? '04:00'}.<span className="shell-demo__more"> Something blocks or could be better? Tell us.</span></span>
+			<a className="shell-demo__link" href={demo.feedbackUrl} target="_blank" rel="noreferrer"><Icon name="send" />Give feedback</a>
+			<IconButton icon="close" label="Hide this message" onClick={() => { hideBanner(); setHidden(true) }} />
 		</div>
 	)
 }

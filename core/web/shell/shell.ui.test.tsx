@@ -12,6 +12,7 @@ import { cleanup, click, getButton, getByText, getField, render, type, waitFor }
 import type { AppIndex } from './apps'
 import { Login } from './Login'
 import { Shell } from './Shell'
+import { resetDemoCache } from './demo'
 
 const nav = (id: string, name: string, order: number, extra: Partial<NavEntry> = {}): NavEntry =>
 	({ id, name, href: `/apps/${id}/`, icon: `/apps/${id}/img/app.svg`, order, unread: 0, type: 'link', app: id, ...extra })
@@ -36,6 +37,8 @@ let server: FakeServer
 
 beforeEach(() => {
 	server = fakeServer()
+	resetDemoCache()
+	try { sessionStorage.clear() } catch { /* none */ }
 	try { localStorage.clear() } catch { /* none */ }
 })
 
@@ -100,4 +103,45 @@ test('login: posts the form, wrong password stays on the page with an error', as
 	expect(sent.get('requesttoken')).toBe('test-token')
 	expect(sent.get('redirect_url')).toBe('/apps/mail/')
 	expect(sent.get('rememberme')).toBe('1')
+})
+
+const demoJson = { enabled: true, feedbackUrl: 'https://github.com/tungsten-w/wavium/issues/new/choose', resetAt: '04:00', accounts: [{ user: 'alice', password: 'alice-demo-pass', label: 'Alice' }, { user: 'bob', password: 'bob-demo-pass', label: 'Bob' }] }
+
+test('public demo: the banner says what this is and links to feedback; it can be hidden', async () => {
+	server.on('GET', '/core/web/dist/demo.json', () => demoJson)
+	navigate('/apps/mail/')
+	const { container } = await render(<Shell session={session} index={{}} />)
+	await waitFor(() => getByText(container, 'Public demo.'))
+	expect(container.querySelector('.shell-demo')!.textContent).toContain('reset every night at 04:00')
+	const link = container.querySelector('.shell-demo__link') as HTMLAnchorElement
+	expect(link.href).toBe(demoJson.feedbackUrl)
+	expect(link.target).toBe('_blank')
+	await click(getButton(container, 'Hide this message'))
+	expect(container.querySelector('.shell-demo')).toBeNull()
+})
+
+test('not a demo: no banner, and the login page has no demo accounts', async () => {
+	server.on('GET', '/core/web/dist/demo.json', () => ({ enabled: false }))
+	navigate('/apps/mail/')
+	const { container } = await render(<Shell session={session} index={{}} />)
+	await new Promise((r) => setTimeout(r, 20))
+	expect(container.querySelector('.shell-demo')).toBeNull()
+})
+
+test('public demo login: one click logs in as a shared account; no password reset', async () => {
+	server
+		.on('GET', '/core/web/dist/demo.json', () => demoJson)
+		.on('GET', '/status.php', () => ({ maintenance: false }))
+		.on('GET', '/ocs/v2.php/cloud/capabilities', () => ({ ocs: { meta: { status: 'ok', statuscode: 200, message: 'OK' }, data: { capabilities: {} } } }))
+		.on('POST', '/login', () => redirectedTo('/login?user=bob'))
+	navigate('/login')
+	const { container } = await render(<Login />)
+	await waitFor(() => getButton(container, 'Log in as Bob'))
+	expect(container.textContent).toContain('alice / alice-demo-pass')
+	expect(container.textContent).not.toContain('Forgot password?')
+	await click(getButton(container, 'Log in as Bob'))
+	await waitFor(() => server.calls('POST', '/login').length === 1 || undefined)
+	const sent = server.calls('POST', '/login')[0].body as URLSearchParams
+	expect(sent.get('user')).toBe('bob')
+	expect(sent.get('password')).toBe('bob-demo-pass')
 })

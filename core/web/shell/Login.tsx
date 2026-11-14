@@ -9,6 +9,7 @@ import { applyTheme, readTheming } from './theme'
 import { Button, Checkbox, Icon, TextField } from '@atrium/ui'
 import { BrandLogo } from './Brand'
 import { loginBody } from './loginBody'
+import { useDemo } from './demo'
 
 interface Theming { name: string, slogan: string, logo: string, color: string, background?: string, 'background-plain'?: boolean }
 
@@ -22,6 +23,7 @@ export function Login() {
 	const [mode, setMode] = useState<'login' | 'lost'>('login')
 	const [info, setInfo] = useState<string | null>(null)
 	const [theming, setTheming] = useState<Theming | null>(null)
+	const demo = useDemo()
 
 	useEffect(() => {
 		fetch('/status.php').then((r) => r.json()).then((s) => { if (s.maintenance) setError('The server is in maintenance mode.') }).catch(() => {})
@@ -37,14 +39,16 @@ export function Login() {
 			}).catch(() => {})
 	}, [])
 
-	async function login(e: React.FormEvent) {
-		e.preventDefault()
+	async function login(e: React.FormEvent | null, as?: { user: string, password: string }) {
+		e?.preventDefault()
+		const user_ = as?.user ?? user, password_ = as?.password ?? password
+		if (as) { setUser(as.user); setPassword(as.password) }
 		setBusy(true)
 		setError(null)
 		try {
 			const redirect = params.get('redirect_url')
 			const body = loginBody({
-				user, password, remember, redirect,
+				user: user_, password: password_, remember, redirect,
 				timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				timezoneOffset: -new Date().getTimezoneOffset() / 60,
 				requesttoken: await requestToken(),
@@ -90,13 +94,24 @@ export function Login() {
 					</div>
 				</div>
 				{error && <div className="login-error" role="alert" style={{ marginBottom: 16 }}>{error}</div>}
+				{demo.enabled && mode === 'login' && !!demo.accounts?.length && (
+					<section className="login-demo" aria-label="Try the demo">
+						<p><b>Public demo.</b> Fake data, shared with other visitors, reset every night. Pick an account:</p>
+						<div className="login-demo__accounts">
+							{demo.accounts.map((a) => (
+								<Button key={a.user} variant="tonal" icon="person" disabled={busy} onClick={() => login(null, a)}>Log in as {a.label}</Button>
+							))}
+						</div>
+						<p className="at-muted login-demo__hint">or type it: {demo.accounts.map((a) => `${a.user} / ${a.password}`).join(', ')}</p>
+					</section>
+				)}
 				{mode === 'login' ? (
 					<form onSubmit={login}>
 						<TextField label="Account name or email" name="user" autoComplete="username" autoCapitalize="none" spellCheck={false} value={user} onChange={(e) => setUser(e.target.value)} required autoFocus={!user} icon="person" />
 						<TextField label="Password" name="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus={!!user} icon="lock" />
 						<Checkbox label="Stay signed in" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
 						<Button type="submit" block busy={busy} size="l">Log in</Button>
-						<Button variant="text" onClick={() => { setMode('lost'); setError(null) }}>Forgot password?</Button>
+						{!demo.enabled && <Button variant="text" onClick={() => { setMode('lost'); setError(null) }}>Forgot password?</Button>}
 					</form>
 				) : (
 					<form onSubmit={lost}>

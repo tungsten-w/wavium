@@ -63,3 +63,9 @@ test('ATRIUM_WEBHOOK_ALLOW: host names, wildcards, IPs and ranges', async () => 
 	}
 	expect(() => webhookPolicy('10.0.0.0/33')).toThrow()
 })
+
+test('public demo: every webhook URL is refused, even a public one', async () => {
+	const p = webhookPolicy('', async () => ['93.184.216.34'], true)
+	await expect(assertPublicWebhook('https://hooks.example.com/x', p)).rejects.toThrow('public demo')
+	await expect(assertPublicWebhook('https://hooks.example.com/x', webhookPolicy('', async () => ['93.184.216.34'], false))).resolves.toBeUndefined()
+})

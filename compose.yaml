@@ -33,6 +33,11 @@ x-env: &env
   ATRIUM_PHP_TIMEOUT: ${ATRIUM_PHP_TIMEOUT:-}
   ATRIUM_UPLOAD_TMP: ${ATRIUM_UPLOAD_TMP:-}
   ATRIUM_AI_PROVIDERS: ${ATRIUM_AI_PROVIDERS:-mock}
+  # Public demo mode (v3, deploy/demo/): banner, demo logins, refusals.
+  ATRIUM_PUBLIC_DEMO: ${ATRIUM_PUBLIC_DEMO:-0}
+  ATRIUM_DEMO_RESET_AT: ${ATRIUM_DEMO_RESET_AT:-}
+  ATRIUM_FEEDBACK_URL: ${ATRIUM_FEEDBACK_URL:-}
+  ATRIUM_DEMO_ACCOUNTS: ${ATRIUM_DEMO_ACCOUNTS:-}
   # Where PHP reaches the Bun server (Mail triage -> AI layer, P2-4).
   ATRIUM_SERVER_URL: ${ATRIUM_SERVER_URL:-http://web:8080}
   HOME: /tmp
@@ -126,7 +131,8 @@ services:
       ATRIUM_AI_MOCK: "1"
       PORT: "8080"
     ports:
-      - "127.0.0.1:${ATRIUM_PORT:-8092}:8080"
+      # ATRIUM_BIND: 127.0.0.1 (this machine only) unless a demo is published (deploy/demo/).
+      - "${ATRIUM_BIND:-127.0.0.1}:${ATRIUM_PORT:-8092}:8080"
     depends_on:
       php: { condition: service_healthy }
     healthcheck:
