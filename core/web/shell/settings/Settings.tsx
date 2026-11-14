@@ -21,6 +21,7 @@ import { AdminSharing, AdminTheming, Overview, PersonalSharing, Server } from '.
 import { AdminSecurity, Delegation, Groupware, Notifications, Presets } from './Extra'
 import { AdminGoogle, MoveFromGoogle } from './Google'
 import { Tutorial } from './Tutorial'
+import { YourData } from './YourData'
 
 interface ReactSection { path: string, label: string, icon: string, admin?: boolean, hidden?: boolean, replaces?: string, Component: ComponentType<{ session: Session }> }
 
@@ -30,6 +31,7 @@ const SECTIONS: ReactSection[] = [
 	{ path: '/settings/user', label: 'Profile', icon: 'user-circle', replaces: 'personal-info', Component: Profile },
 	{ path: '/settings/user/security', label: 'Security', icon: 'shield-lock', replaces: 'security', Component: Security },
 	{ path: '/settings/user/theming', label: 'Appearance', icon: 'palette', replaces: 'theming', Component: Appearance },
+	{ path: '/settings/user/data', label: 'Your data', icon: 'database', Component: YourData },
 	{ path: '/settings/user/sharing', label: 'Sharing', icon: 'share', replaces: 'sharing', Component: PersonalSharing },
 	{ path: '/settings/user/notifications', label: 'Notifications', icon: 'bell', replaces: 'notifications', Component: Notifications },
 	{ path: '/settings/user/agents', label: 'Agents', icon: 'agent', Component: Agents },
@@ -67,7 +69,7 @@ export function Settings({ session }: { session: Session, index: AppIndex }) {
 	const admin = session.settingsSections.admin.filter((s) => !replaced(true).has(s.id))
 
 	let content
-	if (own) content = <div className="settings-page"><own.Component session={session} /></div>
+	if (own) content = <div className="settings-page" key={own.path}><own.Component session={session} /></div>
 	else if (path === '/settings' || path === '/settings/personal') content = <div className="settings-page"><Profile session={session} /></div>
 	else if (path === '/settings/admin' && session.user.isAdmin) content = <div className="settings-page"><Overview session={session} /></div>
 	else content = <LegacyFrame key={path.split('/').slice(0, 4).join('/')} src={pathname + search} css={FRAME_CSS} />

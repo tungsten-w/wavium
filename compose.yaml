@@ -38,6 +38,10 @@ x-env: &env
   ATRIUM_DEMO_RESET_AT: ${ATRIUM_DEMO_RESET_AT:-}
   ATRIUM_FEEDBACK_URL: ${ATRIUM_FEEDBACK_URL:-}
   ATRIUM_DEMO_ACCOUNTS: ${ATRIUM_DEMO_ACCOUNTS:-}
+  # Settings > Your data (v4): where the data lives on the host. A path, or
+  # volume:<docker volume>[/<folder>] for a named volume.
+  ATRIUM_HOST_DATA: ${ATRIUM_HOST_DATA:-${PWD:-.}/data}
+  ATRIUM_HOST_DB: ${ATRIUM_HOST_DB:-volume:${COMPOSE_PROJECT_NAME:-atrium-dev}_db}
   # Where PHP reaches the Bun server (Mail triage -> AI layer, P2-4).
   ATRIUM_SERVER_URL: ${ATRIUM_SERVER_URL:-http://web:8080}
   HOME: /tmp

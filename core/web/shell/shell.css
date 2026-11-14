@@ -391,3 +391,57 @@ html, body, #atrium { height: 100%; }
 .login-demo__accounts { display: flex; gap: 8px; flex-wrap: wrap; }
 .login-demo__accounts > * { flex: 1; }
 .login-demo__hint { margin: 10px 0 0 !important; font-size: 12px; }
+
+/* Settings > Your data (v4) */
+.at-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.data-intro { margin: 0 0 14px; }
+.data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.data-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; animation: at-rise var(--at-medium) var(--at-spring) both; transition: transform var(--at-fast) var(--at-ease), box-shadow var(--at-fast) var(--at-ease); }
+.data-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px var(--at-shadow); }
+.data-card p { margin: 0; font-size: 14px; color: var(--at-on-surface-variant); }
+.data-card__head { display: flex; align-items: center; gap: 10px; }
+.data-card__size { margin-left: auto; font-size: 13px; color: var(--at-on-surface-variant); font-variant-numeric: tabular-nums; }
+.data-card__icon { display: inline-grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: var(--at-radius-m); background: var(--at-secondary-container); color: var(--at-on-secondary-container); transition: transform var(--at-medium) var(--at-spring); }
+.data-card:hover .data-card__icon { transform: rotate(-6deg) scale(1.08); }
+.data-card__icon--s { width: 28px; height: 28px; border-radius: var(--at-radius-s); }
+.data-card__icon--s .at-icon { width: 16px; height: 16px; }
+.data-path { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
+.data-path__label { flex: none; width: 112px; color: var(--at-on-surface-variant); }
+.data-path code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; padding: 4px 8px; border-radius: var(--at-radius-s); background: var(--at-surface-container); font-size: 12.5px; }
+.data-small { font-size: 13px !important; }
+.data-tables { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px 20px; }
+.data-tables li { display: flex; gap: 10px; align-items: flex-start; }
+.data-tables strong { font-size: 14px; }
+.data-tables small code { font-size: 11.5px; }
+.data-notes { margin: 14px 0 0; padding-left: 20px; color: var(--at-on-surface-variant); font-size: 14px; display: grid; gap: 4px; }
+@media (max-width: 600px) { .data-path { flex-wrap: wrap; } .data-path__label { width: 100%; } }
+
+/* "Is Wavium safe?" chart: yes / partly / no carry an icon and a word, never colour alone. */
+.safety { --yes: var(--at-success); --partly: var(--at-warning); --no: var(--at-error); }
+.safety__legend { display: flex; gap: 16px; list-style: none; margin: 0 0 10px; padding: 0; font-size: 13px; color: var(--at-on-surface-variant); }
+.safety__legend li { display: flex; align-items: center; gap: 6px; }
+.safety__scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
+.safety__table { width: 100%; min-width: 640px; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.safety__table thead th { vertical-align: bottom; padding: 8px 6px 10px; text-align: center; font-weight: 600; }
+.safety__table thead small { display: block; font-weight: 400; font-size: 11.5px; color: var(--at-on-surface-variant); }
+.safety__tool { display: block; }
+.safety__bar { display: flex; gap: 2px; height: 6px; margin: 8px auto 0; width: 72px; }
+.safety__seg { border-radius: 3px; min-width: 0; transform-origin: left; animation: safety-grow 700ms var(--at-ease) both; }
+.safety__seg--yes { background: var(--yes); } .safety__seg--partly { background: var(--partly); animation-delay: 120ms; } .safety__seg--no { background: var(--no); animation-delay: 240ms; }
+.safety__table tbody tr { animation: at-rise var(--at-medium) var(--at-ease) both; }
+.safety__table tbody th { text-align: left; font-weight: 500; padding: 10px 12px 10px 0; border-top: 1px solid var(--at-outline-variant); max-width: 300px; }
+.safety__table tbody th small { display: block; font-weight: 400; font-size: 12.5px; color: var(--at-on-surface-variant); margin-top: 2px; }
+.safety__table td { position: relative; text-align: center; padding: 8px 6px; border-top: 1px solid var(--at-outline-variant); }
+.safety__us { background: color-mix(in srgb, var(--at-primary) 7%, transparent); }
+thead .safety__us { border-radius: var(--at-radius-m) var(--at-radius-m) 0 0; color: var(--at-primary); }
+.safety__mark { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; color: #fff; transition: transform var(--at-fast) var(--at-spring), box-shadow var(--at-fast); }
+.safety__legend .safety__mark { width: 22px; height: 22px; cursor: default; }
+.safety__mark .at-icon { width: 16px; height: 16px; }
+.safety__legend .safety__mark .at-icon { width: 13px; height: 13px; }
+.safety__mark--yes { background: var(--yes); } .safety__mark--partly { background: var(--partly); } .safety__mark--no { background: var(--no); }
+button.safety__mark:hover, button.safety__mark:focus-visible { transform: scale(1.18); box-shadow: 0 0 0 4px var(--at-secondary-container); }
+.safety__note { position: absolute; z-index: 5; left: 50%; top: calc(100% - 4px); width: max-content; max-width: 200px; padding: 6px 10px; border-radius: var(--at-radius-s); background: var(--at-on-surface); color: var(--at-surface); font-size: 12.5px; line-height: 1.35; text-align: left; pointer-events: none; opacity: 0; transform: translate(-50%, -4px); transition: opacity var(--at-fast), transform var(--at-fast) var(--at-ease); }
+.safety__note--open { opacity: 1; transform: translate(-50%, 0); }
+.safety__verdict { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.safety__verdict ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+@keyframes safety-grow { from { transform: scaleX(0); } }
