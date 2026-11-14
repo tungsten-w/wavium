@@ -3,6 +3,20 @@
 Wavium (formerly Atrium) is a hard fork of Nextcloud 34.0.5. Versions are
 tagged in git (`v1`, `v2`, ...).
 
+## v3
+
+- **Public demo mode** (`ATRIUM_PUBLIC_DEMO=1`, `deploy/demo/`): anyone can
+  try Wavium with shared accounts and fake data.
+  - Login page: "Log in as Alice / Bob" in one click.
+  - A banner says it is a demo, when it resets, and links to **Give
+    feedback** (GitHub issue forms); also in the account menu.
+  - Locked for strangers: passwords, accounts, mail servers, 2FA, share
+    links, federation, external storage, personal AI providers, webhooks,
+    local network access; quotas.
+  - `deploy/demo/setup.sh`: one command to start, reset, or install the
+    nightly reset.
+- `ATRIUM_BIND`: publish the dev stack on a VPN address for a reverse proxy.
+
 ## v2.1
 
 - **Logo everywhere**, drawn inline so it can never be a broken image (login,
