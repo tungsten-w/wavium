@@ -4,6 +4,22 @@ A fresh Wavium server with HTTPS in a few commands. You need a Linux machine
 with Docker (Compose v2), a domain name pointing to it, and ports 80 and 443
 open.
 
+## Quick install (one command)
+
+```
+git clone <this repository> wavium && cd wavium
+bash deploy/wavium/install.sh
+```
+
+It checks Docker, asks the domain name, writes `deploy/wavium/.env` with
+random passwords, builds the image, starts everything and prints the address
+and the admin login. Update later with
+`git pull && bash deploy/wavium/install.sh --update`.
+
+Without questions: `WAVIUM_DOMAIN=cloud.example.org bash deploy/wavium/install.sh --yes`.
+
+The steps below do the same by hand.
+
 ## 1. Build the image
 
 From the repository root:

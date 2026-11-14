@@ -1,0 +1,4 @@
+# Local install state: passwords, build log, backups. Never commit.
+.env
+build.log
+backups/

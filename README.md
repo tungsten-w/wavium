@@ -27,6 +27,19 @@ properly:
 Stock Nextcloud clients (desktop, mobile, DAVx⁵) keep working: DAV, OCS, login
 flow v1/v2, OAuth2 and public links are unchanged ([ADR 0008](docs/architecture/0008-client-compatibility.md)).
 
+## Install it on your server
+
+```sh
+git clone <this repository> wavium && cd wavium
+bash deploy/wavium/install.sh
+```
+
+One command: it checks Docker, asks your domain name, sets up HTTPS (Caddy and
+Let's Encrypt), creates the admin account and prints the address. Details,
+backups and updates: [`deploy/wavium/README.md`](deploy/wavium/README.md).
+Inside Wavium, **Settings > Tutorial** gives a two-minute tour and **Settings >
+Move from Google** brings Gmail, Google Calendar, Contacts and Drive over.
+
 ## Run it (development)
 
 Requirements: Docker (with compose) and `make`. Nothing else is installed on
@@ -97,8 +110,9 @@ Contract: [ADR 0009](docs/architecture/0009-agent-layer-mail-first.md).
 
 ## Production
 
-The production image is built by `deploy/build.sh` (see [`deploy/README.md`](deploy/README.md)).
-A generic, installable production setup is planned (TASKS.md, phase 6).
+Fresh installs: [`deploy/wavium/`](deploy/wavium/README.md) (above). The image is
+built by `deploy/build.sh`; [`deploy/README.md`](deploy/README.md) also covers taking
+over an existing Nextcloud install.
 
 ## License
 
