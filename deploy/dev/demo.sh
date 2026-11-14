@@ -25,6 +25,11 @@ dc up -d --wait
 
 json() { curl -fsS -H 'OCS-APIRequest: true' -H 'Content-Type: application/json' "$@"; }
 
+# The agent layer starts a few seconds after the web server is healthy (503 until then).
+i=0; until [ "$(curl -s -o /dev/null -w '%{http_code}' -u "$admin" "$base/agent/v1/ai/settings")" = 200 ]; do
+	i=$((i+1)); [ $i -lt 60 ] || { echo "the agent layer does not answer: docker compose logs web"; exit 1; }; sleep 2
+done
+
 say "AI provider for the demo"
 if json -u "$admin" "$base/agent/v1/ai/settings" | grep -q '"label":"IA de démo"'; then
 	echo "already there"
