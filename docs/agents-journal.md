@@ -144,3 +144,10 @@ namespaces (no CalDAV multistatus in DOM tests) and `vi.mock` did not take
 under the Bun runner, so components got their calendars as props and the
 full route was checked in a real browser with two users (alice invites, bob
 accepts).
+## 2026-11-13: P4-3 (sodium-93, solo)
+
+The browser run found a real bug the DOM tests could not: two quick edits of
+one task overwrote each other. Fixed with a per-task queue and proved by
+removing the queue and watching the browser test fail. Also: /tmp (tmpfs)
+filled up during the night; large scratch copies were moved, not deleted, to
+~/Documents/mailorganiser/scratch-from-tmp.

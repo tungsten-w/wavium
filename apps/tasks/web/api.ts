@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Tasks (VTODO) over CalDAV: task lists are calendars that support VTODO.
+import { nextDue, repeatOf, type Repeat } from './recur'
 import { DAV_ROOT, dav, escapeText, getProp, icsUtc, parseComponent, parseIcsTime, serializeComponent, timeProp, unescapeText, uuid, localZone, ensureTimezone, type IcsTime, type VComponent, type VProp } from '@atrium/sdk'
 
 export interface TaskList { url: string, id: string, name: string, color: string, readOnly: boolean, shared: boolean, ctag: string }
@@ -24,6 +25,8 @@ export interface Task {
 	parent: string | null
 	created: Date | null
 	sortOrder: number | null
+	/** RRULE as a simple frequency (P4-3), "custom" when it is more. */
+	repeat: Repeat
 }
 
 const CALDAV = 'urn:ietf:params:xml:ns:caldav'
@@ -87,6 +90,7 @@ export function toTask(list: TaskList, url: string, etag: string | null, text: s
 			parent: rel?.value ?? null,
 			created: parseIcsTime(getProp(t, 'CREATED'))?.date ?? null,
 			sortOrder: getProp(t, 'X-APPLE-SORT-ORDER') ? Number(getProp(t, 'X-APPLE-SORT-ORDER')!.value) : null,
+			repeat: repeatOf(getProp(t, 'RRULE')?.value),
 		}
 	} catch {
 		return null
@@ -130,6 +134,10 @@ export interface Patch {
 	priority?: number
 	tags?: string[]
 	parent?: string | null
+	/** Simple repeat (custom RRULEs are kept unless replaced). */
+	repeat?: Exclude<Repeat, 'custom'>
+	/** Manual order (X-APPLE-SORT-ORDER); null clears it. */
+	sortOrder?: number | null
 }
 
 /** Apply a patch to a copy of the task's object and save it (If-Match). */
@@ -147,7 +155,26 @@ export async function updateTask(task: Task, patch: Patch): Promise<Task> {
 		t.props = t.props.filter((p) => !(p.name === 'RELATED-TO' && (!p.params.RELTYPE || p.params.RELTYPE.toUpperCase() === 'PARENT')))
 		if (patch.parent) t.props.push({ name: 'RELATED-TO', params: {}, value: patch.parent })
 	}
-	if (patch.done !== undefined) {
+	if (patch.repeat !== undefined) set(t, 'RRULE', patch.repeat === 'none' ? null : { params: {}, value: `FREQ=${patch.repeat}` })
+	if (patch.sortOrder !== undefined) set(t, 'X-APPLE-SORT-ORDER', patch.sortOrder === null ? null : { params: {}, value: String(Math.round(patch.sortOrder)) })
+	// Ticking a repeating task with a date moves it to its next occurrence instead of closing it.
+	const repeat = repeatOf(getProp(t, 'RRULE')?.value)
+	const anchor = parseIcsTime(getProp(t, 'DUE')) ?? parseIcsTime(getProp(t, 'DTSTART'))
+	if (patch.done === true && repeat !== 'none' && repeat !== 'custom' && anchor) {
+		const next = nextDue(anchor.date, repeat)
+		// Whole days (not milliseconds), so a daylight-saving change keeps the time of day.
+		const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+		const days = Math.round((day(next) - day(anchor.date)) / 86400000)
+		for (const name of ['DUE', 'DTSTART']) {
+			const cur = parseIcsTime(getProp(t, name))
+			if (!cur) continue
+			const d = cur.date
+			set(t, name, timeProp(name, { date: new Date(d.getFullYear(), d.getMonth(), d.getDate() + days, d.getHours(), d.getMinutes(), d.getSeconds()), allDay: cur.allDay }, tz))
+		}
+		set(t, 'STATUS', { params: {}, value: 'NEEDS-ACTION' })
+		set(t, 'COMPLETED', null)
+		set(t, 'PERCENT-COMPLETE', null)
+	} else if (patch.done !== undefined) {
 		set(t, 'STATUS', { params: {}, value: patch.done ? 'COMPLETED' : 'NEEDS-ACTION' })
 		set(t, 'COMPLETED', patch.done ? { params: {}, value: icsUtc(new Date()) } : null)
 		set(t, 'PERCENT-COMPLETE', patch.done ? { params: {}, value: '100' } : null)

@@ -146,3 +146,20 @@ not part of this repository.
 
 - Check that a new test really tests: break the code it covers and watch it fail.
 - In zsh, unquoted `$VAR` is not word-split: run curl scripts with `bash -c`.
+
+## DOM tests cannot read CalDAV listings (happy-dom) — 2026-11-13 (P4-2, P4-3)
+
+happy-dom's `DOMParser` ignores XML namespaces: `parseMultistatus` returns
+nothing, so a component that lists calendars or task lists over PROPFIND
+shows nothing in a DOM test, and `vi.mock` of the module did not take under
+the Bun runner. What works: give components their lists as props in tests,
+parse fixed DAV structures as text where it is simple (`oc:invite`), and
+check the full route in a real browser (Playwright on the task's stack).
+
+## Two quick edits of one CalDAV object overwrite each other — 2026-11-13 (P4-3)
+
+Each edit PUTs the whole object with If-Match. Two edits sent before the
+first answer (a due date, then the repeat) both start from the same old copy:
+the second wins and drops the first. Queue the edits per object and apply
+each to the version the previous one saved (`apps/tasks/web/index.tsx`).
+A browser test that fills two fields in a row catches it; the DOM test did not.

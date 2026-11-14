@@ -107,3 +107,16 @@
 	.tk-nav-menu { position: static; transform: none; opacity: 1; margin-right: -12px; }
 	.at-app-nav__item:has(.tk-nav-menu):hover .at-label, .at-app-nav__item:has(.tk-nav-menu):focus-within .at-label { visibility: visible; }
 }
+
+/* P4-3: manual order, repeat, sharing */
+.tk-grip { display: inline-flex; color: var(--at-on-surface-variant); cursor: grab; opacity: .5; margin-left: calc(var(--depth, 0) * 0px); }
+.tk-row:hover .tk-grip { opacity: 1; }
+.tk-row--over { box-shadow: inset 0 2px 0 var(--at-primary, #0082c9); }
+.tk-hint { margin: 0; font-size: 12px; }
+.tk-share { display: flex; flex-direction: column; gap: 12px; min-width: min(420px, 80vw); }
+.tk-share__list, .tk-share__found { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tk-share__list li { display: flex; align-items: center; gap: 8px; }
+.tk-share__who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-share__list .at-field { width: 140px; }
+.tk-share__found button { width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: inherit; font: inherit; }
+.tk-share__found button:hover { background: var(--at-surface-container, rgba(127,127,127,.12)); }
