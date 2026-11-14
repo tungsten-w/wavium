@@ -54,6 +54,8 @@ function sources(over: Partial<DigestSources> = {}): DigestSources & { calls: Re
 			{ item_id: 2, title: 'Milk', kind: 'item', done: false, parent_id: 1 },
 			{ item_id: 3, title: 'Done thing', kind: 'item', done: true, parent_id: null },
 			{ item_id: 4, title: 'Dentist', kind: 'event', done: false, parent_id: null },
+			{ item_id: 5, title: '---', kind: 'item', done: false, parent_id: null },
+			{ item_id: 6, title: '<br>', kind: 'item', done: false, parent_id: null },
 		],
 		mailLink: async (_uid, key) => (key === 'a' ? '/apps/mail/box/1/thread/7' : Promise.reject(new Error('gone'))),
 		...over,
