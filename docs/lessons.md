@@ -136,6 +136,11 @@ not part of this repository.
   Composer classmap (`apps/<app>/composer/composer/autoload_{classmap,static}.php`):
   a new class must be added there by hand. A route to a missing controller
   makes **every** request 500, not just that route.
+- One dev stack per checkout: `config/` and `data/` are bind-mounted from the
+  working tree, so a second stack (another COMPOSE_PROJECT_NAME) started from
+  the same directory installs over the first one's `config.php`, and the
+  first then answers 500. For a second stack (e2e, backup test), use another
+  worktree.
 - Agent layer SQL: on sqlite, `$1`, `$2` are *named* parameters numbered by
   first appearance, so `SET x = $2 WHERE uid = $1` with `[uid, x]` swaps them
   (Postgres is fine). Write placeholders in order of the params array.
