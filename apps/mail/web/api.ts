@@ -69,6 +69,8 @@ export interface Message {
 	inReplyTo: string | null
 	threadRootId: string | null
 	previewText: string | null
+	/** Tags by IMAP label (P4-1). */
+	tags?: Record<string, Tag>
 	summary: string | null
 	encrypted: boolean
 	attachments: Attachment[]
@@ -462,3 +464,10 @@ export async function getThread(id: number): Promise<Message[]> {
 
 /** P4-1: snooze into the account's snooze folder until `at` (unix s); Mail's WakeJob brings it back. */
 export const snoozeMessage = (id: number, at: number, snoozeMailboxId: number) => mail(`/messages/${id}/snooze`, { method: 'POST', body: { unixTimestamp: at, destMailboxId: snoozeMailboxId } })
+
+/** P4-1: tags (Mail's own; stored as IMAP keywords, so other clients see them). */
+export interface Tag { id: number, displayName: string, imapLabel: string, color: string, isDefaultTag?: boolean }
+export const listTags = () => mail<Tag[]>('/tags')
+export const createTag = (displayName: string, color: string) => mail<Tag>('/tags', { method: 'POST', body: { displayName, color } })
+export const setTag = (id: number, imapLabel: string) => mail<Tag>(`/messages/${id}/tags/${encodeURIComponent(imapLabel)}`, { method: 'PUT' })
+export const removeTag = (id: number, imapLabel: string) => mail<Tag>(`/messages/${id}/tags/${encodeURIComponent(imapLabel)}`, { method: 'DELETE' })

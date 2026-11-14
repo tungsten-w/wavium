@@ -237,3 +237,29 @@ test('snooze: the first time creates the Snoozed folder, then snoozes the mail',
 	expect(new Date(s.unixTimestamp * 1000).getHours()).toBe(8)
 	await waitFor(() => !getByText(container, 'Your invoice') || !queryByText(container, 'Dinner on Friday?') ? true : null)
 })
+
+test('tags: chips in the list; Tags… adds one, creates a new one', async () => {
+	const work = { id: 2, displayName: 'Work', imapLabel: '$label2', color: '#2e7d32' }
+	inbox[1] = { ...inbox[1], tags: { $label2: work } }
+	server
+		.on('GET', '/apps/mail/api/tags', () => [work, { id: 4, displayName: 'To Do', imapLabel: '$label4', color: '#c62828' }])
+		.on('PUT', '/apps/mail/api/messages/11/tags/%24label4', () => ({}))
+		.on('PUT', /^\/apps\/mail\/api\/messages\/11\/tags\/.+$/, () => ({}))
+		.on('POST', '/apps/mail/api/tags', (req) => ({ id: 9, displayName: (req.body as { displayName: string }).displayName, imapLabel: 'urgent_1', color: '#0b6aa8' }))
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(container, 'Your invoice'))
+	expect(container.querySelector('.ml-tag')?.textContent).toBe('Work')
+	await click(getByText(container, 'Dinner on Friday?').closest('button')!)
+	const reader = await waitFor(() => container.querySelector('[aria-label="Message"]'))
+	await click(getButton(reader, 'More actions'))
+	await click(await waitFor(() => getByText(document.body, 'Tags…')))
+	const todo = await waitFor(() => getByText(document.body, 'To Do').closest('label')!.querySelector('input')!)
+	await click(todo)
+	await waitFor(() => server.calls('PUT').some((c) => c.path.includes('/messages/11/tags/')))
+	await type(getField(document.body, 'New tag'), 'Urgent')
+	await click(getButton(document.body, 'Add'))
+	await waitFor(() => server.calls('POST', '/apps/mail/api/tags').length === 1)
+	expect(server.calls('POST', '/apps/mail/api/tags')[0].body).toMatchObject({ displayName: 'Urgent' })
+	await waitFor(() => server.calls('PUT').filter((c) => c.path.includes('/messages/11/tags/')).length === 2)
+	delete (inbox[1] as { tags?: unknown }).tags
+})

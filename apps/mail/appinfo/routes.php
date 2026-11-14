@@ -131,6 +131,11 @@ return [
 			'verb' => 'GET',
 		],
 		[
+			'name' => 'tags#index',
+			'url' => '/api/tags',
+			'verb' => 'GET'
+		],
+		[
 			'name' => 'tags#create',
 			'url' => '/api/tags',
 			'verb' => 'POST'

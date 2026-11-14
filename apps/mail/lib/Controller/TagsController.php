@@ -11,6 +11,7 @@ namespace OCA\Mail\Controller;
 
 use OCA\Mail\AppInfo\Application;
 use OCA\Mail\Contracts\IMailManager;
+use OCA\Mail\Db\TagMapper;
 use OCA\Mail\Exception\ClientException;
 use OCA\Mail\Http\TrapError;
 use OCA\Mail\Service\AccountService;
@@ -29,8 +30,16 @@ class TagsController extends Controller {
 		private string $userId,
 		private IMailManager $mailManager,
 		private AccountService $accountService,
+		private ?TagMapper $tags = null,
 	) {
 		parent::__construct(Application::APP_ID, $request);
+	}
+
+	/** Atrium (P4-1): the user's tags, for the React Mail UI (the old UI got them with the page). */
+	#[NoAdminRequired]
+	#[TrapError]
+	public function index(): JSONResponse {
+		return new JSONResponse(($this->tags ?? \OCP\Server::get(TagMapper::class))->getAllTagsForUser($this->userId));
 	}
 
 	/**

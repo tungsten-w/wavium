@@ -9,6 +9,7 @@ import { MailRules } from './Rules'
 import { ExtractDialog } from './Extract'
 import { ThreadList } from './Thread'
 import { SnoozeDialog } from './Snooze'
+import { TagChips, TagsDialog } from './Tags'
 import { UnsubscribeBanner } from './Unsubscribe'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
@@ -375,7 +376,7 @@ function Mail() {
 			<section className="ml-reader" aria-label="Message">
 				{messageId ? <Reader id={messageId} message={selected} triage={triage[messageId]} onTriage={(t) => setTriage((m) => ({ ...m, [messageId]: t }))} boxes={accountBoxes} moveTarget={moveTarget} setMoveTarget={setMoveTarget}
 					onClose={() => navigate(boxPath)} onFlags={(flags) => { if (selected) void patchMessage(selected, flags) }} onMove={(id) => { if (selected) void move(selected, id) }} onDelete={() => { if (selected) void remove(selected) }}
-					onReply={reply} onSuggest={suggest} suggesting={suggesting} onMailto={(m) => startCompose({ to: m.to, subject: m.subject, body: m.body })} onOpenOther={(id) => navigate(`${boxPath}/thread/${id}`)} onSnooze={(at) => { if (selected) void snooze(selected, at) }} onForward={forward} onEdit={(body) => startCompose({ to: addressText(body.to), cc: addressText(body.cc), bcc: addressText(body.bcc), subject: body.subject, body: bodyText(body), draftId: body.databaseId, inReplyToMessageId: body.messageId })} />
+					onReply={reply} onSuggest={suggest} suggesting={suggesting} onMailto={(m) => startCompose({ to: m.to, subject: m.subject, body: m.body })} onOpenOther={(id) => navigate(`${boxPath}/thread/${id}`)} onSnooze={(at) => { if (selected) void snooze(selected, at) }} onTags={(tags) => { if (selected) setMessages((ms) => (ms ?? []).map((m) => m.databaseId === selected.databaseId ? { ...m, tags } : m)) }} onForward={forward} onEdit={(body) => startCompose({ to: addressText(body.to), cc: addressText(body.cc), bcc: addressText(body.bcc), subject: body.subject, body: bodyText(body), draftId: body.databaseId, inReplyToMessageId: body.messageId })} />
 					: <EmptyState icon="mail" title="Choose a message to read" />}
 			</section>
 		</div>
@@ -486,7 +487,7 @@ function MessageRow({ message, triage, selected, outgoing, onOpen, onFlag, onArc
 	return <li className={`ml-message ${selected ? 'ml-message--selected' : ''} ${message.flags.seen ? '' : 'ml-message--unread'}`}>
 		<button className="ml-message__main" onClick={onOpen}>
 			<Avatar name={avatar} size={40} />
-			<span className="ml-message__text"><span className="ml-message__top"><strong>{who}</strong><time>{relativeTime(message.dateInt * 1000)}</time></span>{!outgoing && message.from[0]?.email && <span className="ml-message__from">{message.from[0].email}</span>}<span className="ml-message__subject">{message.subject || '(no subject)'}</span><span className="ml-message__preview">{message.previewText || addressText(message.to)}</span>{message.goneFromServer && <span className="ml-kept" title="No longer on the mail server: Wavium keeps its own copy"><Icon name="archive" /> Only in Wavium</span>}<SpoofChip from={outgoing ? null : message.from[0]} /><TriageChips t={triage} /></span>
+			<span className="ml-message__text"><span className="ml-message__top"><strong>{who}</strong><time>{relativeTime(message.dateInt * 1000)}</time></span>{!outgoing && message.from[0]?.email && <span className="ml-message__from">{message.from[0].email}</span>}<span className="ml-message__subject">{message.subject || '(no subject)'}</span><span className="ml-message__preview">{message.previewText || addressText(message.to)}</span>{message.goneFromServer && <span className="ml-kept" title="No longer on the mail server: Wavium keeps its own copy"><Icon name="archive" /> Only in Wavium</span>}<SpoofChip from={outgoing ? null : message.from[0]} /><TriageChips t={triage} /><TagChips message={message} /></span>
 		</button>
 		<div className="ml-message__actions">
 			<IconButton className={`ml-star ${message.flags.flagged ? 'ml-star--on' : ''}`} icon={message.flags.flagged ? 'star' : 'starBorder'} label={message.flags.flagged ? 'Unstar message' : 'Star message'} onClick={onFlag} />
@@ -495,7 +496,7 @@ function MessageRow({ message, triage, selected, outgoing, onOpen, onFlag, onArc
 	</li>
 }
 
-function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarget, onClose, onFlags, onMove, onDelete, onReply, onSuggest, suggesting, onMailto, onOpenOther, onSnooze, onForward, onEdit }: {
+function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarget, onClose, onFlags, onMove, onDelete, onReply, onSuggest, suggesting, onMailto, onOpenOther, onSnooze, onTags, onForward, onEdit }: {
 	id: number, message: Message | null, triage?: Triage | null, onTriage: (t: Triage | null) => void, boxes: Mailbox[], moveTarget: string, setMoveTarget: (v: string) => void,
 	onClose: () => void, onFlags: (f: { seen?: boolean, flagged?: boolean }) => void, onMove: (id: number) => void, onDelete: () => void,
 	onReply: (b: MessageBody, all?: boolean) => void, onForward: (b: MessageBody) => void, onEdit: (b: MessageBody) => void,
@@ -503,6 +504,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 	onMailto?: (m: { to: string, subject: string, body: string }) => void,
 	onOpenOther?: (id: number) => void,
 	onSnooze?: (at: number) => void,
+	onTags?: (tags: NonNullable<Message['tags']>) => void,
 }) {
 	const [body, setBody] = useState<MessageBody | null>(null)
 	const [error, setError] = useState('')
@@ -532,6 +534,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 	useEffect(() => setShowImages(false), [id])
 	const [extractOpen, setExtractOpen] = useState(false)
 	const [snoozeOpen, setSnoozeOpen] = useState(false)
+	const [tagsOpen, setTagsOpen] = useState(false)
 	useEffect(() => setExtractOpen(false), [id])
 	// Mail's sanitizer swaps remote images for a placeholder and keeps the proxied URL in data-original-src.
 	const blocked = !!body?.body.includes('data-original-src')
@@ -552,6 +555,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 				{ label: classifying ? 'Classifying…' : 'Reclassify', icon: 'refresh', onClick: () => void runReclassify() },
 				{ label: 'Find dates…', icon: 'calendar', onClick: () => setExtractOpen(true) },
 				!!onSnooze && { label: 'Snooze…', icon: 'schedule', onClick: () => setSnoozeOpen(true) },
+				!!onTags && !!message && { label: 'Tags…', icon: 'tag', onClick: () => setTagsOpen(true) },
 			]} />
 		</header>
 		{!body && !error && <div className="ml-center"><Spinner /></div>}
@@ -562,6 +566,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 			<TriageLine t={triage} busy={classifying} />
 			<SpoofBanner from={body.from[0]} />
 			<ExtractDialog dbId={body.databaseId} open={extractOpen} onClose={() => setExtractOpen(false)} />
+			{onTags && message && <TagsDialog message={message} open={tagsOpen} onClose={() => setTagsOpen(false)} onChange={onTags} />}
 			{onSnooze && <SnoozeDialog open={snoozeOpen} onClose={() => setSnoozeOpen(false)} onPick={(at) => { setSnoozeOpen(false); onSnooze(at) }} />}
 			{onMailto && <UnsubscribeBanner body={body} onMailto={onMailto} />}
 			{(body.atriumCopy?.goneFromServer || message?.goneFromServer) && <p className="ml-kept ml-kept--reader"><Icon name="archive" /> Only in Wavium: no longer on the mail server.{' '}{body.atriumCopy?.text === false ? 'Its text was never copied before it left the server, so only the sender, subject and date are kept.' : body.atriumCopy?.full === false ? 'Shown from the text Wavium kept (formatting and attachments are not kept).' : 'Attachments are not kept.'}</p>}

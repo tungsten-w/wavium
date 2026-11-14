@@ -283,3 +283,9 @@
 .ml-thread time { flex: none; font-size: 12px; color: var(--at-on-surface-variant); }
 
 .ml-snooze { display: flex; flex-direction: column; gap: 8px; min-width: min(320px, 75vw); }
+
+/* Tags (P4-1) */
+.ml-tag { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: var(--at-radius-full); font-size: 11.5px; font-weight: 600; line-height: 18px; color: var(--tag); background: color-mix(in srgb, var(--tag) 14%, transparent); margin-left: 4px; }
+.ml-tags { display: flex; flex-direction: column; gap: 6px; min-width: min(320px, 75vw); }
+.ml-tags__new { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.ml-tags__new > .at-field { flex: 1; }
