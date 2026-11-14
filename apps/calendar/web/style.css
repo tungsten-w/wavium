@@ -165,3 +165,20 @@
 
 /* Header rows are chrome, not content. */
 .cal-toolbar, .cal-mini__head, .cal-month__head, .cal-tg__head { -webkit-user-select: none; user-select: none; }
+
+/* P4-2: guests, appointment pages */
+.cal-dlg__people { display: flex; flex-direction: column; gap: 8px; margin: 4px 0; }
+.cal-guests { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.cal-guests li { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+.cal-guests__who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-guests__state { font-size: 12px; color: var(--at-on-surface-variant); }
+.cal-guests__state--accepted { color: #386a20; }
+.cal-guests__state--declined { color: var(--at-error, #b3261e); }
+.cal-guests__add { display: flex; gap: 8px; align-items: center; }
+.cal-guests__add .at-field { flex: 1; }
+.cal-guests__hint { margin: 0; font-size: 12px; }
+.cal-appt { display: flex; align-items: center; gap: 4px; padding: 0 4px 0 12px; min-height: 40px; }
+.cal-appt__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-appt__len { font-size: 12px; }
+.cal-appt-days { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.cal-appt-form__err { color: var(--at-error, #b3261e); margin: 0; font-size: 13px; }

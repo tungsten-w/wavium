@@ -3,11 +3,14 @@
 //
 // Calendar for the Atrium shell, straight over CalDAV. Routes keep upstream's shape:
 //   /apps/calendar/<view>/<date|now>     view = dayGridMonth | timeGridWeek | timeGridDay | listMonth
+//   /apps/calendar/edit/<base64>[/<rid>] and /<view>/<date>/edit/<mode>/<base64>/<rid>: classic event links (extras.ts)
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { defineApp, navigate, useApp, useAppPath } from '@atrium/sdk'
 import { AppLayout, Button, Checkbox, Dialog, EmptyState, Icon, IconButton, Menu, NavSection, NavToggle, Spinner, TextField, confirmDialog, toast } from '@atrium/ui'
 import { createCalendar, deleteCalendar, exportUrl, listCalendars, listInstances, updateCalendar, type Cal, type Instance } from './api'
 import { EventDialog, type Draft } from './EventDialog'
+import { Appointments } from './Appointments'
+import { feedUrl, instanceAt, parseEditPath, subscribe } from './extras'
 import { addDays, addMonths, dateKey, fmtTime, parseKey, sameDay, startOfDay, startOfWeek } from '@atrium/sdk'
 import { MiniMonth, MonthView, TimeGrid } from './views'
 import './style.css'
@@ -44,6 +47,7 @@ function Calendar() {
 	const [hidden, setHidden] = useState<Set<string>>(readHidden)
 	const [draft, setDraft] = useState<Draft | null>(null)
 	const [calDialog, setCalDialog] = useState<{ cal: Cal | null, name: string, color: string } | null>(null)
+	const [subDialog, setSubDialog] = useState<{ url: string, name: string, color: string } | null>(null)
 	const [from, to] = range(view, date)
 
 	const go = useCallback((v: View, d: Date | 'now', replace = false) => navigate(`${basePath}/${v}/${d === 'now' || sameDay(d, new Date()) ? 'now' : dateKey(d)}`, { replace }), [basePath])
@@ -61,6 +65,19 @@ function Calendar() {
 		} catch (e) { toast.error(`Could not load calendars: ${e instanceof Error ? e.message : e}`); setCals([]) }
 	}, [user])
 	useEffect(() => { loadCals() }, [loadCals])
+
+	// A classic event link (search result, old bookmark): open that event, then show the normal view.
+	const editLink = useMemo(() => parseEditPath(seg), [path]) // eslint-disable-line react-hooks/exhaustive-deps
+	useEffect(() => {
+		if (!editLink || !cals) return
+		let gone = false
+		instanceAt(editLink, cals).then((inst) => {
+			if (gone) return
+			if (inst) { setDraft({ inst }); go(view, inst.start, true) }
+			else { toast.error('This event is not in your calendars'); go(view, 'now', true) }
+		}, () => { if (!gone) { toast.error('Could not open this event'); go(view, 'now', true) } })
+		return () => { gone = true }
+	}, [editLink, cals]) // eslint-disable-line react-hooks/exhaustive-deps
 
 	const visibleCals = useMemo(() => (cals ?? []).filter((c) => !hidden.has(c.url)), [cals, hidden])
 	const reqId = useRef(0)
@@ -131,6 +148,16 @@ function Calendar() {
 			loadCals()
 		} catch (e) { toast.error(String(e instanceof Error ? e.message : e)) }
 	}
+	async function submitSub() {
+		const url = subDialog && feedUrl(subDialog.url)
+		if (!subDialog || !url) return toast.error('Give an https:// or webcal:// address')
+		try {
+			await subscribe(user, url, subDialog.name.trim() || new URL(url).hostname, subDialog.color)
+			setSubDialog(null)
+			toast('Subscribed. Events appear after the first refresh (a few minutes).')
+			loadCals()
+		} catch (e) { toast.error(`Could not subscribe: ${e instanceof Error ? e.message : e}`) }
+	}
 	async function removeCal(c: Cal) {
 		if (!await confirmDialog(`Delete the calendar "${c.name}" and all its events?`, { title: 'Delete calendar', confirm: 'Delete', danger: true })) return
 		try { await deleteCalendar(c); loadCals() } catch (e) { toast.error(String(e instanceof Error ? e.message : e)) }
@@ -146,7 +173,7 @@ function Calendar() {
 						<Checkbox className="cal-calrow__check" checked={!hidden.has(c.url)} onChange={() => toggle(c)} label={c.name} />
 						{c.readOnly && <span className="cal-calrow__ro" title="Read-only">read-only</span>}
 						<Menu trigger={(o, x) => <IconButton icon="moreVert" label={`${c.name} actions`} aria-expanded={x} onClick={o} />} items={[
-							!c.shared && !c.readOnly && { label: 'Edit', icon: 'edit', onClick: () => setCalDialog({ cal: c, name: c.name, color: c.color }) },
+							!c.shared && (!c.readOnly || !!c.sub) && { label: 'Edit', icon: 'edit', onClick: () => setCalDialog({ cal: c, name: c.name, color: c.color }) },
 							{ label: 'Download', icon: 'download', href: exportUrl(c) },
 							!c.shared && c.id !== 'contact_birthdays' && { label: 'Delete', icon: 'delete', danger: true, onClick: () => removeCal(c) },
 						]} />
@@ -155,7 +182,11 @@ function Calendar() {
 				<button type="button" className="at-app-nav__item" onClick={() => setCalDialog({ cal: null, name: '', color: COLORS[(cals?.length ?? 0) % COLORS.length] })}>
 					<Icon name="add" /><span>New calendar</span>
 				</button>
+				<button type="button" className="at-app-nav__item" onClick={() => setSubDialog({ url: '', name: '', color: COLORS[((cals?.length ?? 0) + 3) % COLORS.length] })}>
+					<Icon name="link" /><span>Subscribe to a calendar</span>
+				</button>
 			</NavSection>
+			<Appointments calendars={writable} />
 		</>
 	)
 
@@ -192,6 +223,14 @@ function Calendar() {
 							<input type="color" value={calDialog?.color ?? '#0082c9'} onChange={(e) => setCalDialog((d) => d && { ...d, color: e.target.value })} />
 						</label>
 					</div>
+				</form>
+			</Dialog>
+			<Dialog open={!!subDialog} title="Subscribe to a calendar" onClose={() => setSubDialog(null)}
+				actions={<><Button variant="text" onClick={() => setSubDialog(null)}>Cancel</Button><Button disabled={!subDialog?.url.trim()} onClick={submitSub}>Subscribe</Button></>}>
+				<form className="cal-caldlg" onSubmit={(e) => { e.preventDefault(); submitSub() }}>
+					<TextField label="Calendar address (https:// or webcal://)" autoFocus value={subDialog?.url ?? ''} onChange={(e) => setSubDialog((d) => d && { ...d, url: e.target.value })} />
+					<TextField label="Name (optional)" value={subDialog?.name ?? ''} onChange={(e) => setSubDialog((d) => d && { ...d, name: e.target.value })} />
+					<p className="at-muted" style={{ margin: 0 }}>Read-only; Atrium refreshes it regularly.</p>
 				</form>
 			</Dialog>
 		</AppLayout>

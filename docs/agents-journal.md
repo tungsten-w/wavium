@@ -136,3 +136,11 @@ fresh installs; each run found something a config check could not:
   stop it.
 
 The post-install hook now handles the last two.
+## 2026-11-13: P4-2 (sodium-93, solo)
+
+Done outside the v1 the other session assembled (agreed by message). Two
+test-environment limits shaped the tests: happy-dom's DOMParser ignores XML
+namespaces (no CalDAV multistatus in DOM tests) and `vi.mock` did not take
+under the Bun runner, so components got their calendars as props and the
+full route was checked in a real browser with two users (alice invites, bob
+accepts).

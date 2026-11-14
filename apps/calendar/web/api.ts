@@ -6,6 +6,7 @@
 // arrives with UTC times. Editing works on the stored object (master + overrides).
 import { DAV_ROOT, dav, request, escapeText, getProp, parseComponent, serializeComponent, unescapeText, uuid, type VComponent, type VProp } from '@atrium/sdk'
 import { ensureTimezone, icsUtc, localZone, parseIcsTime, timeProp, type IcsTime } from '@atrium/sdk'
+import { applyPeople, peopleOf, type People } from './extras'
 
 export interface Cal {
 	url: string
@@ -125,6 +126,10 @@ export interface EventForm {
 	description: string
 	repeat: Repeat
 	reminder: Reminder
+	/** Guests (P4-2). Undefined = leave ATTENDEE/ORGANIZER as they are. */
+	people?: People
+	/** Who saves: becomes the organizer when guests are added. */
+	me?: { email: string | null, name: string }
 }
 
 export interface StoredObject { url: string, etag: string | null, root: VComponent, cal: Cal }
@@ -162,6 +167,7 @@ export function formFrom(ev: VComponent | undefined, inst: Instance | null, defa
 		description: ev ? unescapeText(getProp(ev, 'DESCRIPTION')?.value ?? '') : '',
 		repeat: !rrule ? 'none' : simple && freq ? freq as Repeat : 'custom',
 		reminder: ev ? reminder : defaults.reminder ?? 'none',
+		people: peopleOf(ev),
 	}
 }
 
@@ -187,6 +193,7 @@ function applyForm(ev: VComponent, f: EventForm, opts: { start: IcsTime, end: Ic
 		ev.props = ev.props.filter((p) => p.name !== 'RRULE' && (f.repeat !== 'none' || (p.name !== 'EXDATE' && p.name !== 'RDATE')))
 		if (f.repeat !== 'none') ev.props.push({ name: 'RRULE', params: {}, value: `FREQ=${f.repeat}` })
 	}
+	if (f.people) applyPeople(ev, f.people, f.me ?? { email: null, name: '' })
 	if (f.reminder !== 'custom') {
 		ev.children = ev.children.filter((c) => c.name !== 'VALARM')
 		if (f.reminder !== 'none') {
