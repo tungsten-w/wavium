@@ -37,3 +37,21 @@ test('digest summary uses the headline', async () => {
 	const r = await ai.complete({ system: 'You write the opening of a person\'s morning digest', messages: [{ role: 'user', content: '<digest>\n2 mails need a reply · 1 event\n\nMail:\n- x\n</digest>' }] })
 	expect(r.text).toBe('Aujourd\'hui : 2 mails need a reply · 1 event. Commence par les mails qui attendent une réponse.')
 })
+
+test('assistant: French intents call offered tools, results become short French lines', async () => {
+	const ai = createMockProvider({ defaultModel: 'demo' })
+	const tools = ['mail_message_list', 'notes_note_create', 'calendar_event_list', 'search'].map((name) => ({ name, description: '', inputSchema: { type: 'object' } }))
+	const sys = 'You are the assistant built into Wavium, working for Alice.'
+	const ask = (content: any) => ai.complete({ system: sys, tools, toolChoice: 'auto', messages: [{ role: 'user', content }] })
+	expect((await ask('Montre mes derniers mails')).toolCalls).toMatchObject([{ name: 'mail_message_list', input: { limit: 5 } }])
+	expect((await ask('note : acheter du pain')).toolCalls).toMatchObject([{ name: 'notes_note_create', input: { content: 'acheter du pain' } }])
+	expect((await ask('cherche facture')).toolCalls).toMatchObject([{ name: 'search', input: { query: 'facture' } }])
+	// Not offered (no grant): no call, the help text instead.
+	expect((await ask('mes tâches')).text).toContain("IA de démo")
+	const r = await ask([{ type: 'tool_result', toolCallId: 'c1', content: JSON.stringify({ messages: [{ from: { name: 'Bob' }, subject: 'Dîner ?' }] }) }])
+	expect(r.text).toBe('Tes derniers mails :\n- Bob : Dîner ?')
+	const p = await ask([{ type: 'tool_result', toolCallId: 'c2', content: JSON.stringify({ status: 'pending_approval', request_id: 'apr_1' }) }])
+	expect(p.text).toContain('accord')
+	// The dev convention still works.
+	expect((await ask('mock-tool: notes_note_create {"content":"x"}')).toolCalls).toMatchObject([{ name: 'notes_note_create', input: { content: 'x' } }])
+})

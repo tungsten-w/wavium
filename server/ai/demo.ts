@@ -119,6 +119,45 @@ export function demoReply(prompt: string) {
 		: `Bonjour ${first},\n\nMerci pour ton message. C'est d'accord pour moi, je te redis les détails rapidement.${extra}\n\nBonne journée`
 }
 
+/** Short French lines for what the assistant's tools return. */
+function describeResult(raw: string): string {
+	let v: any
+	try { v = JSON.parse(raw) } catch { return raw.slice(0, 300) }
+	if (v?.status === 'pending_approval') return "C'est en attente de ton accord : valide-le ici, dans le panneau."
+	const list = (items: any[], line: (x: any) => string) => items.length ? items.slice(0, 6).map((x) => `- ${line(x)}`).join('\n') : '(rien)'
+	if (Array.isArray(v?.messages)) return `Tes derniers mails :\n${list(v.messages, (m) => `${m.from?.name || m.from?.address || '?'} : ${m.subject || '(sans objet)'}`)}`
+	if (Array.isArray(v?.events)) return `Ton agenda :\n${list(v.events, (e) => `${String(e.start ?? '').replace('T', ' ').slice(0, 16)} ${e.title}`)}`
+	if (Array.isArray(v?.tasks)) return `Tes tâches :\n${list(v.tasks, (t) => `${t.title}${t.due ? ` (pour le ${String(t.due).slice(0, 10)})` : ''}`)}`
+	if (Array.isArray(v?.items)) return `Ta liste du jour :\n${list(v.items.filter((i: any) => !/^\s*-{3,}\s*$/.test(i.title ?? '')), (i) => `${i.done ? '✓ ' : ''}${i.title}`)}`
+	if (Array.isArray(v?.results)) return `Ce que j'ai trouvé :\n${list(v.results, (r) => `${r.app ?? r.type ?? ''} ${r.title ?? r.subject ?? r.name ?? ''}`.trim())}`
+	if (v?.note_id !== undefined || v?.id !== undefined) return 'C\'est fait : la note est créée.'
+	return 'C\'est fait.'
+}
+
+/** The built-in assistant (P5-6) with the demo model: a few French intents mapped to real tools. */
+export function demoAssistant(req: AiRequest): DemoReply | null {
+	const last = req.messages[req.messages.length - 1]
+	if (!last || last.role !== 'user') return null
+	if (Array.isArray(last.content)) {
+		const results = last.content.filter((b) => b.type === 'tool_result').map((b) => (b as { content: string }).content)
+		if (results.length) return { text: results.map(describeResult).join('\n\n') }
+	}
+	const text = (typeof last.content === 'string' ? last.content : last.content.map((b) => (b.type === 'text' ? b.text : '')).join(' ')).trim()
+	if (!text || /^mock-tool:/.test(text)) return null
+	const t = text.toLowerCase()
+	const offered = new Set((req.tools ?? []).map((x) => x.name))
+	const call = (name: string, input: unknown) => (offered.has(name) ? { text: '', toolCalls: [{ name, input }] } : null)
+	const note = /(?:note|noter)\s*:?\s*(.+)$/i.exec(text)
+	const find = /(?:cherche|trouve|search)\s+(.+)$/i.exec(text)
+	const answer = (find && call('search', { query: find[1].trim() }))
+		?? (note && /note|noter/.test(t) && call('notes_note_create', { content: note[1].trim() }))
+		?? (has(t, 'mail', 'courrier', 'message') && call('mail_message_list', { limit: 5 }))
+		?? (has(t, 'agenda', 'rendez', 'événement', 'evenement', 'calendrier', 'semaine') && call('calendar_event_list', {}))
+		?? (has(t, 'liste du jour', 'daily', 'todo', "aujourd'hui") && call('todo_day_get', {}))
+		?? (has(t, 'tâche', 'tache', 'task') && call('task_list', {}))
+	return answer || { text: "Je suis l'IA de démo de Wavium (pas une vraie IA). Essaie : « mes derniers mails », « mon agenda », « mes tâches », « ma liste du jour », « note : acheter du pain », « cherche facture »." }
+}
+
 /** The answer of the "demo" model to one of Atrium's requests, or null (use the plain mock). */
 export function demoAnswer(req: AiRequest): DemoReply | null {
 	const forced = req.toolChoice && typeof req.toolChoice === 'object' ? req.tools?.find((t) => t.name === (req.toolChoice as { name: string }).name) : undefined
@@ -127,6 +166,7 @@ export function demoAnswer(req: AiRequest): DemoReply | null {
 	if (forced?.name === 'make_rule') return { toolCalls: [{ name: 'make_rule', input: demoRule(between(prompt, '<request>', '</request>').trim(), forced.inputSchema) }] }
 	if (forced?.name === 'extract') return { toolCalls: [{ name: 'extract', input: demoExtract(prompt) }] }
 	if (!forced && req.system?.includes('draft email replies')) return { text: demoReply(prompt) }
+	if (!forced && req.system?.includes('assistant built into')) return demoAssistant(req)
 	if (!forced && req.system?.includes('morning digest')) {
 		const head = between(prompt, '<digest>\n', '\n').trim()
 		return { text: head && !head.startsWith('Nothing') ? `Aujourd'hui : ${head.charAt(0).toLowerCase()}${head.slice(1)}. Commence par les mails qui attendent une réponse.` : 'Rien d\'urgent aujourd\'hui.' }
