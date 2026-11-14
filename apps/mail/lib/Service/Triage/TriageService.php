@@ -1026,6 +1026,7 @@ class TriageService {
 		}
 
 		$categories = [];
+		$flowRows = [];
 		$urgency = [];
 		$recent = [];
 		$parked = [];
@@ -1037,6 +1038,17 @@ class TriageService {
 				->where($qb->expr()->in('account_id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
 				->groupBy('category')->executeQuery()->fetchAll() as $r) {
 				$categories[] = ['category' => $r['category'] ?? 'unknown', 'count' => (int)$r['n']];
+			}
+			// Mail flow per address (v4): category x important, for the status page's flow chart.
+			// Important = needs a reply or an action (same 0.5 bar as the digest) or due today/now.
+			$qb = $this->db->getQueryBuilder();
+			foreach ($qb->select('account_id', 'category', 'urgency', 'needs_reply', 'needs_action')->selectAlias($qb->func()->count('*'), 'n')->from('mail_triage')
+				->where($qb->expr()->in('account_id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
+				->groupBy('account_id', 'category', 'urgency', 'needs_reply', 'needs_action')->executeQuery()->fetchAll() as $r) {
+				$important = (float)($r['needs_reply'] ?? 0) >= 0.5 || (float)($r['needs_action'] ?? 0) >= 0.5 || in_array($r['urgency'], ['now', 'today'], true);
+				$key = $r['account_id'] . '|' . ($r['category'] ?? 'unknown') . '|' . ($important ? 1 : 0);
+				$flowRows[$key] ??= ['accountId' => (int)$r['account_id'], 'category' => $r['category'] ?? 'unknown', 'important' => $important, 'count' => 0];
+				$flowRows[$key]['count'] += (int)$r['n'];
 			}
 			$qb = $this->db->getQueryBuilder();
 			foreach ($qb->select('urgency')->selectAlias($qb->func()->count('*'), 'n')->from('mail_triage')
@@ -1210,6 +1222,7 @@ class TriageService {
 				'pendingNew' => $perAccount[$a->getId()]['pendingNew'] ?? 0, 'pendingBacklog' => $perAccount[$a->getId()]['pendingBacklog'] ?? 0,
 				'done' => $perAccount[$a->getId()]['done'] ?? 0, 'parked' => $perAccount[$a->getId()]['parked'] ?? 0], $accounts),
 			'categories' => $categories,
+			'flows' => array_values($flowRows),
 			'urgency' => $urgency,
 			'daily' => array_values($daily),
 			'recent' => $recent,

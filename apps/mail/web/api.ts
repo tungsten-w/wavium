@@ -329,6 +329,8 @@ export interface TriageStatus {
 	sync?: { pendingWrites: number, failedWrites: number, readerTodo: number, readerUnavailable: number, attachments: number, attachmentBytes: number }
 	accounts: { id: number, email: string, name: string, pendingNew: number, pendingBacklog: number, done: number, parked: number }[]
 	categories: { category: string, count: number }[]
+	/** v4: per address, category x important (needs a reply/action or due today). Older servers: absent. */
+	flows?: { accountId: number, category: string, important: boolean, count: number }[]
 	urgency: { urgency: string, count: number }[]
 	daily: { day: string, count: number, eur: number }[]
 	recent: { subject: string | null, messageId: number | null, category: string | null, urgency: string | null, needsReply: number | null, needsAction: number | null, suspicious: number | null, classifiedAt: number, costEur: number, tokens: number }[]

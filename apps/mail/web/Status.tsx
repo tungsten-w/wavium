@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { relativeTime } from '@atrium/sdk'
 import { Card, NavToggle, Progress, Spinner, Switch, toast } from '@atrium/ui'
+import { MailFlow } from './MailFlow'
 import { categoryLabels, DEFAULT_CURATED_HIDES, filterCategories, loadCuratedHides, saveCuratedHides, setTriageEnabled, triageStatus, urgencyLabels, type TriageStatus } from './api'
 
 const stateText: Record<string, [string, string]> = {
@@ -35,8 +36,10 @@ function Bars({ rows }: { rows: { label: string, count: number }[] }) {
 	))}</ul>
 }
 
-export function MailStatus({ onCuratedChange }: { onCuratedChange?: () => void } = {}) {
+export function MailStatus({ onCuratedChange, onShowCategory }: { onCuratedChange?: () => void, onShowCategory?: (category: string) => void } = {}) {
 	const [s, setS] = useState<TriageStatus | null>(null)
+	const [hides, setHides] = useState<string[]>([...DEFAULT_CURATED_HIDES])
+	useEffect(() => { loadCuratedHides().then(setHides).catch(() => {}) }, [])
 	const [busy, setBusy] = useState(false)
 	const load = useCallback(() => triageStatus().then(setS).catch((e) => toast.error(e instanceof Error ? e.message : String(e))), [])
 	useEffect(() => {
@@ -80,7 +83,14 @@ export function MailStatus({ onCuratedChange }: { onCuratedChange?: () => void }
 			{s.state.lastError && <p className="ml-st__error">Last error {when(s.state.lastErrorAt)}: {s.state.lastError}</p>}
 		</Card>
 
-		<CuratedCard onChange={onCuratedChange} />
+		<Card className="ml-st__card ml-st__wide">
+			<h2>Where your mail goes</h2>
+			<p className="ml-st__muted">Every mail of an address, split by what the classifier found. Hover a thread for the numbers; click a category to open those mails.</p>
+			<MailFlow rows={s.flows ?? []} hides={hides} onShowCategory={onShowCategory}
+				accounts={s.accounts.map((a) => ({ id: a.id, email: a.email, pending: a.pendingNew + a.pendingBacklog + a.parked }))} />
+		</Card>
+
+		<CuratedCard onChange={(h) => { setHides(h); onCuratedChange?.() }} />
 
 		<div className="ml-st__tiles ml-st__wide">
 			<Card className="ml-st__tile"><span>Classified</span><strong>{s.queue.done}</strong><small>of {total} mails</small></Card>
@@ -178,7 +188,7 @@ export function MailStatus({ onCuratedChange }: { onCuratedChange?: () => void }
 }
 
 /** Which categories the Curated view shows. Agents with wakes on are woken only by these. */
-function CuratedCard({ onChange }: { onChange?: () => void }) {
+function CuratedCard({ onChange }: { onChange?: (hides: string[]) => void }) {
 	const [hides, setHides] = useState<string[] | null>(null)
 	const [busy, setBusy] = useState(false)
 	useEffect(() => { loadCuratedHides().then(setHides).catch(() => setHides([...DEFAULT_CURATED_HIDES])) }, [])
@@ -186,7 +196,7 @@ function CuratedCard({ onChange }: { onChange?: () => void }) {
 		if (!hides) return
 		const next = hides.includes(c) ? hides.filter((x) => x !== c) : [...hides, c]
 		setBusy(true)
-		try { await saveCuratedHides(next); setHides(next); onChange?.() } catch (e) { toast.error(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+		try { await saveCuratedHides(next); setHides(next); onChange?.(next) } catch (e) { toast.error(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
 	}
 	return <Card className="ml-st__card ml-st__wide">
 		<h2>Curated</h2>

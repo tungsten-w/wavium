@@ -303,3 +303,40 @@
 .ml-provider p { margin: 0; font-size: 14px; }
 .ml-provider__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ml-provider__or { font-size: 13px; opacity: 0.85; }
+
+/* Mail flow (v4): where the mail of an address goes. Colours checked for
+ * colour-blind readers (validated palette, light and dark); every branch is
+ * also labelled, so colour is never the only key. */
+.ml-flow { --flow-important: #eb6834; --flow-everyday: #2a78d6; --flow-hidden: #eda100; --flow-spam: #6250d6; --flow-pending: #8a8f98; display: flex; flex-direction: column; gap: 10px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .ml-flow { --flow-important: #d95926; --flow-everyday: #3987e5; --flow-hidden: #c98500; --flow-spam: #9085e9; --flow-pending: #8a8f98; } }
+:root[data-theme='dark'] .ml-flow { --flow-important: #d95926; --flow-everyday: #3987e5; --flow-hidden: #c98500; --flow-spam: #9085e9; --flow-pending: #8a8f98; }
+.ml-flow--important { --c: var(--flow-important); }
+.ml-flow--everyday { --c: var(--flow-everyday); }
+.ml-flow--hidden { --c: var(--flow-hidden); }
+.ml-flow--spam { --c: var(--flow-spam); }
+.ml-flow--pending { --c: var(--flow-pending); }
+.ml-flow--source { --c: var(--at-on-surface-variant); }
+.ml-flow__pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.ml-flow__legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--at-on-surface-variant); }
+.ml-flow__legend li { display: flex; align-items: center; gap: 6px; }
+.ml-flow__key { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.ml-flow__chart { position: relative; overflow-x: auto; }
+.ml-flow__chart svg { display: block; width: 100%; min-width: 560px; height: auto; overflow: visible; }
+.ml-flow__band { fill: var(--c); opacity: 0.28; transition: opacity var(--at-fast); }
+.ml-flow__link:hover .ml-flow__band { opacity: 0.5; }
+.ml-flow__link--dim .ml-flow__band { opacity: 0.08; }
+.ml-flow__link--dim .ml-flow__thread { opacity: 0.15; }
+.ml-flow__link { animation: ml-flow-draw 900ms var(--at-ease) both; }
+.ml-flow__thread { fill: none; stroke: var(--c); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 2 14; opacity: 0.9; animation: ml-flow-run 2.8s linear infinite; pointer-events: none; }
+.ml-flow__node { animation: at-fade 500ms var(--at-ease) both; }
+.ml-flow__bar { fill: var(--c); transition: transform var(--at-fast) var(--at-spring); transform-box: fill-box; transform-origin: center; }
+.ml-flow__node:hover .ml-flow__bar { transform: scaleX(1.4); }
+.ml-flow__node--link { cursor: pointer; }
+.ml-flow__node--link:hover .ml-flow__label, .ml-flow__node--link:focus-visible .ml-flow__label { text-decoration: underline; }
+.ml-flow__label { font-size: 12.5px; fill: var(--at-on-surface); }
+.ml-flow__count { fill: var(--at-on-surface-variant); }
+.ml-flow__tip { position: absolute; top: 0; right: 0; max-width: 60%; padding: 6px 10px; border-radius: var(--at-radius-s); background: var(--at-on-surface); color: var(--at-surface); font-size: 12.5px; pointer-events: none; animation: at-pop var(--at-fast) var(--at-ease); }
+.ml-flow__table-toggle { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--at-primary); font: inherit; font-size: 13px; cursor: pointer; }
+@keyframes ml-flow-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ml-flow-run { to { stroke-dashoffset: -64; } }
+@media (prefers-reduced-motion: reduce) { .ml-flow__thread { animation: none; } }

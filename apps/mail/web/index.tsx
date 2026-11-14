@@ -351,7 +351,7 @@ function Mail() {
 	if (accounts === null) return <AppLayout nav={nav}><div className="ml-center"><Spinner /></div></AppLayout>
 	if (!accounts.length || isSetup) return <AccountSetup onDone={() => { void loadAccounts().then(() => navigate(basePath)) }} />
 	if (isRules) return <AppLayout nav={nav}><MailRules /></AppLayout>
-	if (isStatus) return <AppLayout nav={nav}><MailStatus onCuratedChange={() => setCuratedVer((v) => v + 1)} /></AppLayout>
+	if (isStatus) return <AppLayout nav={nav}><MailStatus onCuratedChange={() => setCuratedVer((v) => v + 1)} onShowCategory={(c) => { setFilter(''); setQuery(''); setLabel({ ...noLabel, category: c }); navigate(`${basePath}/view/inbox`) }} /></AppLayout>
 	if (settingsId && accounts.some((a) => a.id === settingsId)) return <AppLayout nav={nav}><AccountSettings key={settingsId} account={accounts.find((a) => a.id === settingsId)!} boxes={boxes} onDone={loadAccounts} onClose={() => navigate(basePath)} /></AppLayout>
 
 	return <AppLayout nav={nav}>
