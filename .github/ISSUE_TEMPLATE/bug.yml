@@ -1,0 +1,27 @@
+name: 🐛 Something does not work
+description: A bug in Wavium
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what you saw instead. Screenshots help.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The git tag or commit (Settings > Overview shows it), e.g. v2.1
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options: [Mail, Calendar, Tasks, Contacts, Files, Notes, Daily Todo, Dashboard, Settings, Agents / MCP, AI providers, Install / update, Other]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "Optional: `docker compose logs app --tail 100` (remove anything private)"
+      render: text

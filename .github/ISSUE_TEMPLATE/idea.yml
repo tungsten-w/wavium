@@ -1,0 +1,11 @@
+name: 💡 An idea
+description: Something Wavium could do
+labels: [idea]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What would you like to do?
+      description: The need first, then the solution you have in mind if any.
+    validations:
+      required: true

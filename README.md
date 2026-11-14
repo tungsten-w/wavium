@@ -1,6 +1,7 @@
 <p align="center"><img src="docs/images/banner.svg" alt="Wavium: your mail, calendar, files and AI agents, in one calm place" width="100%"></p>
 
 <p align="center">
+  <a href="https://github.com/tungsten-w/wavium/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/tungsten-w/wavium/actions/workflows/ci.yml/badge.svg"></a>
   <a href="COPYING"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-0b6aa8"></a>
   <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-yes-00a6c7">
   <img alt="Agents over MCP" src="https://img.shields.io/badge/AI%20agents-MCP%20%2B%20REST-0a3d8f">
