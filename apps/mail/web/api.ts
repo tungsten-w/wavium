@@ -473,3 +473,11 @@ export const listTags = () => mail<Tag[]>('/tags')
 export const createTag = (displayName: string, color: string) => mail<Tag>('/tags', { method: 'POST', body: { displayName, color } })
 export const setTag = (id: number, imapLabel: string) => mail<Tag>(`/messages/${id}/tags/${encodeURIComponent(imapLabel)}`, { method: 'PUT' })
 export const removeTag = (id: number, imapLabel: string) => mail<Tag>(`/messages/${id}/tags/${encodeURIComponent(imapLabel)}`, { method: 'DELETE' })
+
+/** v2.1: "Sign in with Google" is available when the admin set up a Google OAuth client. */
+export interface GoogleInfo { configured: boolean, clientId: string | null, redirectUrl: string, scope: string }
+export const googleInfo = () => mail<GoogleInfo>('/integration/google')
+export const configureGoogle = (clientId: string, clientSecret: string) => mail('/integration/google', { method: 'POST', body: { clientId, clientSecret } })
+export const unlinkGoogle = () => mail('/integration/google', { method: 'DELETE' })
+/** One-time state for an OAuth sign-in of this account (Mail checks it on the way back). */
+export const oauthState = (accountId: number) => mail<{ state: string }>('/oauth/state', { method: 'POST', body: { accountId } })

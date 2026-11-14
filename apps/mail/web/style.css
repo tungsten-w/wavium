@@ -297,3 +297,9 @@
 .ml-rich__btn { min-width: 32px; height: 32px; border: 0; border-radius: var(--at-radius-s); background: none; color: inherit; font: inherit; cursor: pointer; }
 .ml-rich__btn:hover { background: var(--at-surface-container-high); }
 .ml-rich__area { min-height: 240px; max-height: 50vh; overflow-y: auto; padding: 10px 12px; outline: none; line-height: 1.5; }
+
+/* Known providers and Google sign-in (v2.1) */
+.ml-provider { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: var(--at-radius-l); background: var(--at-primary-container, var(--at-surface-container-high)); color: var(--at-on-primary-container, inherit); }
+.ml-provider p { margin: 0; font-size: 14px; }
+.ml-provider__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ml-provider__or { font-size: 13px; opacity: 0.85; }

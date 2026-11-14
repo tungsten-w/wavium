@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Atrium contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Card, Icon, Select, TextArea, TextField, confirmDialog, toast } from '@atrium/ui'
-import { createAccount, deleteAccount, listMailboxes, patchAccount, specialMailbox, updateAccount, updateSignature, type Account, type AccountInput, type Mailbox } from './api'
+import { createAccount, deleteAccount, googleInfo, listMailboxes, oauthState, patchAccount, specialMailbox, updateAccount, updateSignature, type Account, type AccountInput, type GoogleInfo, type Mailbox } from './api'
+import { detectProvider, googleAuthUrl, providerFields, type Provider } from './providers'
 
 const empty: AccountInput = {
 	accountName: '', emailAddress: '', imapHost: '', imapPort: 993, imapSslMode: 'ssl', imapUser: '', imapPassword: '',
@@ -61,25 +62,77 @@ export function AccountSettings({ account, boxes, onDone, onClose }: { account: 
 type FormInput = Omit<AccountInput, 'imapPort' | 'smtpPort'> & { imapPort: string, smtpPort: string }
 const toForm = (a: AccountInput): FormInput => ({ ...a, imapPort: String(a.imapPort), smtpPort: String(a.smtpPort) })
 
+/** Opens Google's consent page in a window and resolves when the person closed it (or it closed itself). */
+export function waitForPopup(url: string, open: typeof window.open = window.open.bind(window), every = 500): Promise<'closed' | 'blocked'> {
+	const w = open(url, 'wavium-google', 'width=520,height=700')
+	if (!w) return Promise.resolve('blocked')
+	return new Promise((resolve) => {
+		const t = setInterval(() => { if (w.closed) { clearInterval(t); resolve('closed') } }, every)
+	})
+}
+
+const providerFieldsNum = (p: Provider, email: string) => {
+	const f = providerFields(p, email)
+	return { ...f, imapPort: Number(f.imapPort), smtpPort: Number(f.smtpPort) }
+}
+
+/** After the first connection: remember which folders are Drafts, Sent, Trash... */
+async function setRoles(id: number) {
+	const result = await listMailboxes(id, true)
+	const roles: Record<string, number> = {}
+	for (const role of ['drafts', 'sent', 'trash', 'archive', 'junk']) {
+		const box = specialMailbox(result.mailboxes, role)
+		if (box) roles[`${role}MailboxId`] = box.databaseId
+	}
+	if (Object.keys(roles).length) await patchAccount(id, roles)
+}
+
 function AccountForm({ account, onDone, submitLabel = 'Connect account' }: { account?: Account, onDone: () => void, submitLabel?: string }) {
 	const [input, setInput] = useState<FormInput>(() => toForm(account ? fromAccount(account) : empty))
 	const [busy, setBusy] = useState(false)
+	const [google, setGoogle] = useState<GoogleInfo | null>(null)
+	// New accounts at a known provider: servers are filled in and hidden until asked for.
+	const [manual, setManual] = useState(!!account)
 	const patch = (p: Partial<FormInput>) => setInput((v) => ({ ...v, ...p }))
+	const provider: Provider | null = account ? null : detectProvider(input.emailAddress)
+	const showServers = manual || !provider
+	useEffect(() => { if (!account) googleInfo().then(setGoogle, () => setGoogle(null)) }, [account])
+
+	function setEmail(email: string) {
+		const p = account ? null : detectProvider(email)
+		patch({ emailAddress: email, ...(p && !manual ? providerFields(p, email) : !account && !input.imapUser && !input.smtpUser ? { imapUser: email, smtpUser: email } : {}) })
+	}
+
+	async function signInWithGoogle() {
+		if (!google?.clientId) return
+		setBusy(true)
+		let created: Account | null = null
+		try {
+			const email = input.emailAddress.trim()
+			created = await createAccount({
+				accountName: input.accountName || email, emailAddress: email, ...providerFieldsNum(detectProvider(email)!, email), authMethod: 'xoauth2',
+			})
+			const { state } = await oauthState(created.id)
+			const r = await waitForPopup(googleAuthUrl({ clientId: google.clientId, redirectUrl: google.redirectUrl, scope: google.scope, state, email }))
+			if (r === 'blocked') throw new Error('Your browser blocked the Google window: allow pop-ups for this site and try again')
+			await setRoles(created.id)
+			toast('Gmail connected')
+			onDone()
+		} catch (e) {
+			// A half-made account (Google refused or the window was closed early) is removed again.
+			if (created) await deleteAccount(created.id).catch(() => {})
+			toast.error(`Google sign-in did not finish: ${e instanceof Error ? e.message : String(e)}`)
+		} finally { setBusy(false) }
+	}
 
 	async function submit() {
 		setBusy(true)
 		try {
-			const value: AccountInput = { ...input, imapPort: Number(input.imapPort), smtpPort: Number(input.smtpPort) }
+			// With a known provider the one password field goes to both servers.
+			const pw = !showServers ? { smtpPassword: input.imapPassword } : {}
+			const value: AccountInput = { ...input, ...pw, imapPort: Number(input.imapPort), smtpPort: Number(input.smtpPort) }
 			const saved = account ? await updateAccount(account.id, value) : await createAccount(value)
-			if (!account) {
-				const result = await listMailboxes(saved.id, true)
-				const roles: Record<string, number> = {}
-				for (const role of ['drafts', 'sent', 'trash', 'archive', 'junk']) {
-					const box = specialMailbox(result.mailboxes, role)
-					if (box) roles[`${role}MailboxId`] = box.databaseId
-				}
-				if (Object.keys(roles).length) await patchAccount(saved.id, roles)
-			}
+			if (!account) await setRoles(saved.id)
 			toast(account ? 'Connection saved' : 'Mail account connected')
 			onDone()
 		} catch (e) { toast.error(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
@@ -87,9 +140,19 @@ function AccountForm({ account, onDone, submitLabel = 'Connect account' }: { acc
 
 	return (
 		<form className="ml-account-form" onSubmit={(e) => { e.preventDefault(); void submit() }}>
-			<div className="ml-account-form__two"><TextField label="Account name" required value={input.accountName} onChange={(e) => patch({ accountName: e.target.value })} placeholder="Personal" /><TextField label="Email address" required type="email" value={input.emailAddress} onChange={(e) => patch({ emailAddress: e.target.value, ...(!account && !input.imapUser && !input.smtpUser ? { imapUser: e.target.value, smtpUser: e.target.value } : {}) })} /></div>
-			<fieldset><legend>IMAP · incoming mail</legend><div className="ml-account-form__server"><TextField label="Server" required value={input.imapHost} onChange={(e) => patch({ imapHost: e.target.value })} placeholder="imap.example.org" /><TextField label="Port" required type="number" min={1} max={65535} value={input.imapPort} onChange={(e) => patch({ imapPort: e.target.value })} /><Select label="Encryption" value={input.imapSslMode} onChange={(e) => patch({ imapSslMode: e.target.value })}><option value="ssl">SSL</option><option value="tls">STARTTLS</option><option value="none">None</option></Select></div><div className="ml-account-form__two"><TextField label="Username" required value={input.imapUser} onChange={(e) => patch({ imapUser: e.target.value })} /><TextField label={account ? 'New password (leave blank to keep)' : 'Password'} type="password" required={!account} value={input.imapPassword} onChange={(e) => patch({ imapPassword: e.target.value })} autoComplete="current-password" /></div></fieldset>
-			<fieldset><legend>SMTP · outgoing mail</legend><div className="ml-account-form__server"><TextField label="Server" required value={input.smtpHost} onChange={(e) => patch({ smtpHost: e.target.value })} placeholder="smtp.example.org" /><TextField label="Port" required type="number" min={1} max={65535} value={input.smtpPort} onChange={(e) => patch({ smtpPort: e.target.value })} /><Select label="Encryption" value={input.smtpSslMode} onChange={(e) => patch({ smtpSslMode: e.target.value })}><option value="ssl">SSL</option><option value="tls">STARTTLS</option><option value="none">None</option></Select></div><div className="ml-account-form__two"><TextField label="Username" required value={input.smtpUser} onChange={(e) => patch({ smtpUser: e.target.value })} /><TextField label={account ? 'New password (leave blank to keep)' : 'Password'} type="password" required={!account} value={input.smtpPassword} onChange={(e) => patch({ smtpPassword: e.target.value })} autoComplete="current-password" /></div></fieldset>
+			<div className="ml-account-form__two"><TextField label="Account name" required value={input.accountName} onChange={(e) => patch({ accountName: e.target.value })} placeholder="Personal" /><TextField label="Email address" required type="email" value={input.emailAddress} onChange={(e) => setEmail(e.target.value)} /></div>
+			{provider && <div className="ml-provider" aria-label="Provider">
+				<p><strong>{provider.name}</strong>: server settings are filled in for you.{provider.note ? ` ${provider.note}` : ''}</p>
+				<div className="ml-provider__actions">
+					{provider.oauth === 'google' && google?.configured && <Button type="button" icon="key" busy={busy} onClick={() => void signInWithGoogle()}>Sign in with Google</Button>}
+					{provider.appPasswordUrl && <a className="at-btn at-btn--text" href={provider.appPasswordUrl} target="_blank" rel="noopener noreferrer"><Icon name="openInNew" />Create an app password</a>}
+				</div>
+				{provider.oauth === 'google' && google?.configured && <p className="ml-provider__or">or connect with an app password:</p>}
+			</div>}
+			{!showServers && <TextField label={provider?.password === 'app' ? 'App password' : 'Password'} type="password" required value={input.imapPassword} onChange={(e) => patch({ imapPassword: e.target.value })} autoComplete="current-password" />}
+			{!showServers && <Button type="button" variant="text" size="s" onClick={() => setManual(true)}>Server settings…</Button>}
+			{showServers && <><fieldset><legend>IMAP · incoming mail</legend><div className="ml-account-form__server"><TextField label="Server" required value={input.imapHost} onChange={(e) => patch({ imapHost: e.target.value })} placeholder="imap.example.org" /><TextField label="Port" required type="number" min={1} max={65535} value={input.imapPort} onChange={(e) => patch({ imapPort: e.target.value })} /><Select label="Encryption" value={input.imapSslMode} onChange={(e) => patch({ imapSslMode: e.target.value })}><option value="ssl">SSL</option><option value="tls">STARTTLS</option><option value="none">None</option></Select></div><div className="ml-account-form__two"><TextField label="Username" required value={input.imapUser} onChange={(e) => patch({ imapUser: e.target.value })} /><TextField label={account ? 'New password (leave blank to keep)' : 'Password'} type="password" required={!account} value={input.imapPassword} onChange={(e) => patch({ imapPassword: e.target.value })} autoComplete="current-password" /></div></fieldset>
+			<fieldset><legend>SMTP · outgoing mail</legend><div className="ml-account-form__server"><TextField label="Server" required value={input.smtpHost} onChange={(e) => patch({ smtpHost: e.target.value })} placeholder="smtp.example.org" /><TextField label="Port" required type="number" min={1} max={65535} value={input.smtpPort} onChange={(e) => patch({ smtpPort: e.target.value })} /><Select label="Encryption" value={input.smtpSslMode} onChange={(e) => patch({ smtpSslMode: e.target.value })}><option value="ssl">SSL</option><option value="tls">STARTTLS</option><option value="none">None</option></Select></div><div className="ml-account-form__two"><TextField label="Username" required value={input.smtpUser} onChange={(e) => patch({ smtpUser: e.target.value })} /><TextField label={account ? 'New password (leave blank to keep)' : 'Password'} type="password" required={!account} value={input.smtpPassword} onChange={(e) => patch({ smtpPassword: e.target.value })} autoComplete="current-password" /></div></fieldset></>}
 			<Button type="submit" busy={busy} icon={account ? 'check' : 'add'}>{submitLabel}</Button>
 		</form>
 	)

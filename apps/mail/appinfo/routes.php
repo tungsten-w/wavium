@@ -487,6 +487,11 @@ return [
 			'verb' => 'POST'
 		],
 		[
+			'name' => 'googleIntegration#info',
+			'url' => '/api/integration/google',
+			'verb' => 'GET',
+		],
+		[
 			'name' => 'googleIntegration#configure',
 			'url' => '/api/integration/google',
 			'verb' => 'POST',

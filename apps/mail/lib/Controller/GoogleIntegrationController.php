@@ -73,6 +73,22 @@ class GoogleIntegrationController extends Controller {
 	}
 
 	/**
+	 * Wavium (v2.1): whether "Sign in with Google" is available, for the React
+	 * UIs (the old UI got this with the page). The client id is public by
+	 * nature (it is in every authorization URL); the secret never leaves PHP.
+	 */
+	#[NoAdminRequired]
+	public function info(): JsonResponse {
+		$clientId = $this->googleIntegration->getClientId();
+		return JsonResponse::success([
+			'configured' => $clientId !== null,
+			'clientId' => $clientId,
+			'redirectUrl' => $this->googleIntegration->getRedirectUrl(),
+			'scope' => 'https://mail.google.com/',
+		]);
+	}
+
+	/**
 	 * @return Response
 	 */
 	#[NoAdminRequired]
