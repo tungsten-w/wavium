@@ -1,16 +1,15 @@
-# Wavium v2 « Bob » : guide de test
+# Wavium v2 : guide de test
 
-Version 2 de Wavium (ex-Atrium). La v1 s'appelait « Alice », la v2 « Bob ».
-Instance de démo avec des **données fictives** : faux serveur mail, et une
+Version 2 de Wavium (ex-Atrium). Instance de démo avec des **données fictives** : faux serveur mail, et une
 **IA de démo** qui répond avec des règles sur des mots-clés, sans vrai
 modèle ni clé. Rien ne sort de la machine.
 
 ## Ouvrir la démo
 
-Elle tourne sur gallium, port **8300**. Depuis ton ordinateur :
+Elle tourne sur le serveur, port **8300**. Depuis ton ordinateur :
 
 ```
-ssh -L 8300:localhost:8300 sodium@gallium
+ssh -L 8300:localhost:8300 <user>@<serveur>
 ```
 
 Puis **http://localhost:8300** dans le navigateur.
@@ -24,7 +23,7 @@ Puis **http://localhost:8300** dans le navigateur.
 Relancer ou remettre la démo en place :
 
 ```
-cd ~/Documents/mailorganiser/wt/v2
+cd <dossier de la v2>
 sg docker -c "ATRIUM_PORT=8300 COMPOSE_PROJECT_NAME=atrium-v2 bash deploy/dev/demo.sh"
 ```
 

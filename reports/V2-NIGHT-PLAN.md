@@ -1,6 +1,6 @@
 # Night plan: from today's main to Atrium v2
 
-- Written 2026-11-13 by sodium-7a, for sodium-7a and sodium-93 (and any session
+- Written 2026-11-13 by session A, for session A and session B (and any session
   that picks it up after a context or usage reset).
 - Start: `main` = 0ca5d2f6. Done so far: P0, P1, P2-1 to P2-6, P3-1 to P3-7,
   P5-1, P5-4, P6-3.
@@ -30,7 +30,7 @@ The last step is a release note (`reports/V2.md`) and a morning note.
 
 ## Split (one owner per file area, to avoid conflicts)
 
-| Order | sodium-7a (mail / AI features) | sodium-93 (agents / apps / install) |
+| Order | session A (mail / AI features) | session B (agents / apps / install) |
 | --- | --- | --- |
 | 1 | P5-2 AI reply drafts through approval | P2-8 Several agents per user + activity page |
 | 2 | P5-3 Filing rules in natural language | P2-7 OAuth 2.1 for MCP |
@@ -40,12 +40,12 @@ The last step is a release note (`reports/V2.md`) and a morning note.
 | 6 | P6-1 Production compose (Bun + Caddy) | P6-4 Install + migration guide; P6-2 prepared, not pushed |
 
 **Shared files:** `server/agent/index.ts` (one line in the modules list),
-`docs/agents-journal.md`, `docs/lessons.md` and `TASKS.md`. sodium-93 owns
+`docs/agents-journal.md`, `docs/lessons.md` and `TASKS.md`. session B owns
 `TASKS.md` on main and claims tasks there.
 
 **Ports:**
-- sodium-7a: 8201 and up (`atrium-p52` …);
-- sodium-93: 8101 and up.
+- session A: 8201 and up (`atrium-p52` …);
+- session B: 8101 and up.
 
 ## Rules that keep the night safe
 
@@ -73,7 +73,7 @@ The last step is a release note (`reports/V2.md`) and a morning note.
 
 ## Designs (enough to start without re-reading everything)
 
-### P5-2 AI reply drafts through approval (sodium-7a)
+### P5-2 AI reply drafts through approval (session A)
 
 - Agent tool `mail_draft_reply`, plus an owner route for the UI button
   "Suggest a reply". It takes a `message_key` and an optional instruction.
@@ -91,7 +91,7 @@ The last step is a release note (`reports/V2.md`) and a morning note.
   - the approval is required for send;
   - budget errors come back as clear messages.
 
-### P5-3 Filing rules in natural language (sodium-7a)
+### P5-3 Filing rules in natural language (session A)
 
 - Rule = `{when: {from_domain?, from?, category?, subject_contains?}, then:
   {move_to_folder | add_tag | mark_read}}`, stored per user in a Bun table.
@@ -107,7 +107,7 @@ The last step is a release note (`reports/V2.md`) and a morning note.
   - nothing applies before validation;
   - folder moves are idempotent.
 
-### P5-5 Assisted unsubscribe (sodium-7a)
+### P5-5 Assisted unsubscribe (session A)
 
 - Use the stored headers (`mail_bodies.headers`): `List-Unsubscribe` and
   `List-Unsubscribe-Post`.
@@ -117,7 +117,7 @@ The last step is a release note (`reports/V2.md`) and a morning note.
 - URL fetches go through netguard: no internal addresses.
 - In tests the HTTP is a fake: never call a real list.
 
-### P5-7 Mail → tasks and calendar (sodium-7a)
+### P5-7 Mail → tasks and calendar (session A)
 
 - "This mail has an appointment / a deadline": the AI extracts title, start,
   end, place and due date (forced tool, task `triage` or `summary`).
@@ -127,7 +127,7 @@ The last step is a release note (`reports/V2.md`) and a morning note.
 - For agents: the existing calendar tools already cover it; add the extraction
   tool `mail_extract_dates`.
 
-### P4-1 Mail gaps (sodium-7a)
+### P4-1 Mail gaps (session A)
 
 Order by value:
 1. undo delete (move back from Trash);
@@ -142,7 +142,7 @@ Order by value:
 A gap that is too big goes back as its own `[ ]` line in TASKS.md with a
 note.
 
-### P6-1 Production compose (sodium-7a)
+### P6-1 Production compose (session A)
 
 - `deploy/compose.yaml` is the old stack: do **not** run it.
 - Write `deploy/v2/compose.yaml`: php-fpm, cron, Bun web, Postgres, Redis and
@@ -151,7 +151,7 @@ note.
 - Validate it **only** with `docker compose config` and a local run on a test
   project name, `ATRIUM_DOMAIN=localhost`, internal CA. No real domain.
 
-### P2-8, P2-7, P5-6, P4-2…P4-6, P6-4 (sodium-93)
+### P2-8, P2-7, P5-6, P4-2…P4-6, P6-4 (session B)
 
 See PLAN.md. Notes:
 - **P5-6:** the assistant calls the same `callTool` path as an external agent,
@@ -162,7 +162,7 @@ See PLAN.md. Notes:
 
 ## Resuming after a reset
 
-1. `cd ~/Documents/mailorganiser/atrium && git log --oneline -3 main && cat TASKS.md`
+1. `cd <dossier du dépôt> && git log --oneline -3 main && cat TASKS.md`
 2. Read this file, then the last `reports/*.md`, then `docs/lessons.md`.
 3. `ListAgents` → message the other session: what you take, which port.
 4. Continue the first task of your column that is not `[x]`.

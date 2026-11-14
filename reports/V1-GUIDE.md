@@ -6,11 +6,11 @@ des mots-clés, sans vrai modèle et sans clé. Rien ne sort de la machine.
 
 ## Ouvrir la démo
 
-Elle tourne sur gallium, port **8300**. Depuis ton ordinateur, ouvre un tunnel
+Elle tourne sur le serveur, port **8300**. Depuis ton ordinateur, ouvre un tunnel
 SSH (remplace par ce que tu utilises d'habitude pour te connecter) :
 
 ```
-ssh -L 8300:localhost:8300 sodium@gallium
+ssh -L 8300:localhost:8300 <user>@<serveur>
 ```
 
 Puis ouvre **http://localhost:8300** dans le navigateur.
@@ -24,7 +24,7 @@ Puis ouvre **http://localhost:8300** dans le navigateur.
 Relancer ou remettre en place la démo (depuis le dossier de la branche) :
 
 ```
-cd ~/Documents/mailorganiser/wt/v1
+cd <dossier de la v1>
 sg docker -c "ATRIUM_PORT=8300 COMPOSE_PROJECT_NAME=atrium-v1 bash deploy/dev/demo.sh"
 ```
 

@@ -49,12 +49,12 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 
 ## Phase 4: finish the React apps
 
-- [~] (sodium-7a, 2026-11-13) P4-1 Mail: threads, contact autocomplete, HTML compose, tags, snooze, unified inbox, Sieve, undo delete
+- [~] (session A, 2026-11-13) P4-1 Mail: threads, contact autocomplete, HTML compose, tags, snooze, unified inbox, Sieve, undo delete
 - [x] P4-2 Calendar: appointments, attendees, subscriptions, old event URLs — branch ready: night/P4-2
 - [x] P4-3 Tasks: recurring, drag sort, sharing — branch ready: night/P4-3
-- [~] (sodium-93, 2026-11-13) P4-4 Files: versions, comments, tags, file requests, templates, external storage
-- [~] (sodium-93, 2026-11-13) P4-5 Dashboard: JS widgets, weather
-- [~] (sodium-93, 2026-11-13) P4-6 Last Vue settings pages: Availability, Flow, External storage, Passkeys
+- [~] (session B, 2026-11-13) P4-4 Files: versions, comments, tags, file requests, templates, external storage
+- [~] (session B, 2026-11-13) P4-5 Dashboard: JS widgets, weather
+- [~] (session B, 2026-11-13) P4-6 Last Vue settings pages: Availability, Flow, External storage, Passkeys
 
 ## Phase 5: mail organiser (after P2-1..P2-4)
 
@@ -68,7 +68,7 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 
 ## Phase 6: installable by anyone
 
-- [~] (sodium-7a, 2026-11-13) P6-1 Generic production compose (domain, Caddy with HTTPS, resources from .env)
-- [~] (sodium-93, 2026-11-13) P6-2 Images on GHCR (amd64 baseline + arm64), tagged
+- [~] (session A, 2026-11-13) P6-1 Generic production compose (domain, Caddy with HTTPS, resources from .env)
+- [~] (session B, 2026-11-13) P6-2 Images on GHCR (amd64 baseline + arm64), tagged
 - [x] P6-3 `make backup` / `make restore`, tested — branch ready: night/P6-3
-- [~] (sodium-93, 2026-11-13) P6-4 Install guide + migration from an existing Nextcloud
+- [~] (session B, 2026-11-13) P6-4 Install guide + migration from an existing Nextcloud

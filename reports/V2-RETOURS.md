@@ -1,4 +1,4 @@
-# Retours sur la v2 « Bob »
+# Retours sur la v2
 
 Une ligne par remarque suffit : où, ce qui gêne, ce que tu attendais.
 

@@ -1,6 +1,6 @@
 # Wavium: name and logo
 
-- Branch: `night/brand` (on top of `night/v1`) · Instance: sodium-7a · Date: 2026-11-13
+- Branch: `night/brand` (on top of `night/v1`) · Instance: session A · Date: 2026-11-13
 - Status: done
 
 ## Done
