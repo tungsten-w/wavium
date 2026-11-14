@@ -76,7 +76,7 @@ export function AgentActivity(_: { session: Session }) {
 	return (
 		<section className="settings-section settings-section--wide">
 			<h2 className="at-headline">Agent activity</h2>
-			<p className="at-muted">What your agents did in your data over the last 30 days, and what they asked you. Undo puts a change back where Atrium knows how.</p>
+			<p className="at-muted">What your agents did in your data over the last 30 days, and what they asked you. Undo puts a change back where Wavium knows how.</p>
 			<div style={{ maxWidth: 320, marginBottom: 12 }}>
 				<Select label="Agent" value={agent} onChange={(e) => setQuery(e.target.value, null)}>
 					<option value="">All agents</option>

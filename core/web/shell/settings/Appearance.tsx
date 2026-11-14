@@ -54,7 +54,7 @@ export function Appearance({ session: _session }: { session: Session }) {
 	return (
 		<section className="settings-section">
 			<h2 className="at-headline">Appearance</h2>
-			<p className="at-muted">Choose how Atrium looks. The theme is per device; colour and wallpaper follow your account.</p>
+			<p className="at-muted">Choose how Wavium looks. The theme is per device; colour and wallpaper follow your account.</p>
 			<Card className="settings-block">
 				<h3>Theme</h3>
 				<div className="theme-options">
@@ -68,7 +68,7 @@ export function Appearance({ session: _session }: { session: Session }) {
 			</Card>
 			<Card className="settings-block">
 				<h3>Accent colour</h3>
-				<p className="at-muted" style={{ margin: '-4px 0 16px' }}>Atrium builds its light and dark tones, and its default wallpaper, from this colour.</p>
+				<p className="at-muted" style={{ margin: '-4px 0 16px' }}>Wavium builds its light and dark tones, and its default wallpaper, from this colour.</p>
 				<div className="accent-grid" role="radiogroup" aria-label="Accent colour">
 					{[...(serverColor ? [serverColor] : []), ...COLORS.filter((c) => c !== serverColor)].map((c) => {
 						const active = current === c
@@ -100,7 +100,7 @@ export function Appearance({ session: _session }: { session: Session }) {
 				<h3>Wallpaper</h3>
 				<p className="at-muted" style={{ margin: '-4px 0 16px' }}>Shown behind the top bar and around your apps.</p>
 				<div className="wallpaper-grid" role="radiogroup" aria-label="Wallpaper">
-					<WallpaperTile label="Atrium" active={wallpaper === 'default'} className="wallpaper-tile--atrium" onClick={() => pickWallpaper('default')} />
+					<WallpaperTile label="Wavium" active={wallpaper === 'default'} className="wallpaper-tile--atrium" onClick={() => pickWallpaper('default')} />
 					<WallpaperTile label="Plain" active={wallpaper === 'color'} className="wallpaper-tile--plain" onClick={() => pickWallpaper('color')} />
 					{IMAGES.map((f) => (
 						<WallpaperTile key={f} active={wallpaper === f} image={`/apps/theming/img/background/preview/${f}`} title={f.replace(/\.\w+$/, '').replace(/-/g, ' ')} onClick={() => pickWallpaper(f)} />

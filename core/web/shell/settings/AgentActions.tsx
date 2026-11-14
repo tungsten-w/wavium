@@ -61,7 +61,7 @@ export function AgentActions({ names, refresh }: { names: Map<string, string>, r
 	return (
 		<Card className="settings-block agent-actions">
 			<h3 style={{ margin: 0 }}>Recent agent actions</h3>
-			<p className="at-muted" style={{ marginTop: 4 }}>Changes made by your agents in the last 30 days. Undo puts things back where Atrium knows how.</p>
+			<p className="at-muted" style={{ marginTop: 4 }}>Changes made by your agents in the last 30 days. Undo puts things back where Wavium knows how.</p>
 			<div style={{ overflowX: 'auto' }}><table className="settings-table" style={{ marginTop: 8 }}>
 				<thead><tr><th>Action</th><th>Agent</th><th>When</th><th /></tr></thead>
 				<tbody>{items.map((a) => (

@@ -202,7 +202,7 @@ function AgentCard({ agent: a, areas, onChange, onConnect, onDeleted }: {
 			</div>
 
 			<h3 style={{ marginTop: 20 }}>Doorbell</h3>
-			<p className="at-muted" style={{ marginTop: 0, fontSize: 13 }}>Atrium POSTs a signed, data-free ping to this URL when there is something new; the agent then reads its events. Leave empty if it polls.</p>
+			<p className="at-muted" style={{ marginTop: 0, fontSize: 13 }}>Wavium POSTs a signed, data-free ping to this URL when there is something new; the agent then reads its events. Leave empty if it polls.</p>
 			<form className="settings-row" onSubmit={(e) => { e.preventDefault(); void run(() => api.update(a.uid, { webhookUrl: webhook.trim() || null }), 'Doorbell saved') }}>
 				<TextField label="Webhook URL" value={webhook} onChange={(e) => setWebhook(e.target.value)} placeholder="http://agent-host.lan:7013/atrium/doorbell" />
 				<Button type="submit" variant="tonal" busy={busy} disabled={webhook.trim() === (a.webhookUrl ?? '')}>Save</Button>

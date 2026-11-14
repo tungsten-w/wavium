@@ -136,7 +136,7 @@ export function MailStatus({ onCuratedChange }: { onCuratedChange?: () => void }
 
 		<Card className="ml-st__card ml-st__wide">
 			<h2>Our copy and the mail server</h2>
-			<p className="ml-st__muted">Atrium’s own copy is the one to trust. Per account, every mail (counted once by Message-ID) is either on the server and in Atrium with its text, on the server with its text not copied yet, or only in Atrium: the server no longer has it and Atrium keeps it (listed in its folder, marked “Only in Atrium”). Mail that only moved on the server is not counted twice. Attachments are not kept.</p>
+			<p className="ml-st__muted">Wavium’s own copy is the one to trust. Per account, every mail (counted once by Message-ID) is either on the server and in Wavium with its text, on the server with its text not copied yet, or only in Wavium: the server no longer has it and Wavium keeps it (listed in its folder, marked “Only in Wavium”). Mail that only moved on the server is not counted twice. Attachments are not kept.</p>
 			{s.copy.map((c) => {
 				const a = s.accounts.find((x) => x.id === c.accountId)
 				const total = Math.max(1, c.withBody + c.missingBody + c.onlyInAtrium)
@@ -149,9 +149,9 @@ export function MailStatus({ onCuratedChange }: { onCuratedChange?: () => void }
 						<span className="ml-st__seg ml-st__seg--only" style={{ width: pct(c.onlyInAtrium) }} />
 					</div>
 					<ul className="ml-st__legend">
-						<li><span className="ml-st__seg ml-st__seg--have" />On the server and in Atrium: <strong>{c.withBody}</strong></li>
+						<li><span className="ml-st__seg ml-st__seg--have" />On the server and in Wavium: <strong>{c.withBody}</strong></li>
 						<li><span className="ml-st__seg ml-st__seg--missing" />On the server, text not copied yet: <strong>{c.missingBody}</strong></li>
-						<li><span className="ml-st__seg ml-st__seg--only" />Only in Atrium (gone from the server): <strong>{c.onlyInAtrium}</strong>{c.onlyInAtrium > 0 && <small className="ml-st__muted"> · {c.keptRows ?? 0} kept in the list ({c.keptWithText ?? 0} with text){(c.orphanTexts ?? 0) > 0 && `, ${c.orphanTexts} text only (removed before Atrium kept list rows)`}</small>}</li>
+						<li><span className="ml-st__seg ml-st__seg--only" />Only in Wavium (gone from the server): <strong>{c.onlyInAtrium}</strong>{c.onlyInAtrium > 0 && <small className="ml-st__muted"> · {c.keptRows ?? 0} kept in the list ({c.keptWithText ?? 0} with text){(c.orphanTexts ?? 0) > 0 && `, ${c.orphanTexts} text only (removed before Wavium kept list rows)`}</small>}</li>
 					</ul>
 				</div>
 			})}
@@ -159,11 +159,11 @@ export function MailStatus({ onCuratedChange }: { onCuratedChange?: () => void }
 
 		<Card className="ml-st__card ml-st__wide">
 			<h2>Folders</h2>
-			<p className="ml-st__muted">Per folder: what the mail server has, what Atrium’s list holds, and how many mails Atrium has a full copy of (body text, never attachments) and has classified. “Of” counts the mails queued for classification (Inbox and Spam).</p>
-			<table className="ml-st__table"><thead><tr><th>Folder</th><th>On server</th><th>In Atrium (list)</th><th>Body stored</th><th>Classified</th><th>Previews ready</th><th>State</th></tr></thead>
+			<p className="ml-st__muted">Per folder: what the mail server has, what Wavium’s list holds, and how many mails Wavium has a full copy of (body text, never attachments) and has classified. “Of” counts the mails queued for classification (Inbox and Spam).</p>
+			<table className="ml-st__table"><thead><tr><th>Folder</th><th>On server</th><th>In Wavium (list)</th><th>Body stored</th><th>Classified</th><th>Previews ready</th><th>State</th></tr></thead>
 				<tbody>{s.folders.map((f) => {
 					const account = s.accounts.find((a) => a.id === f.accountId)
-					return <tr key={f.id}><td>{f.name}{s.accounts.length > 1 && <small className="ml-st__muted"> · {account?.email}</small>}</td><td>{f.serverMessages}</td><td>{f.cached ? f.stored : '–'}{f.kept > 0 && <small className="ml-st__muted" title="Kept in Atrium after the server stopped holding them"> ({f.kept} only in Atrium)</small>}</td><td>{f.queued ? `${f.bodies} of ${f.queued}` : "–"}</td><td>{f.queued ? `${f.classified} of ${f.queued}` : "–"}</td>
+					return <tr key={f.id}><td>{f.name}{s.accounts.length > 1 && <small className="ml-st__muted"> · {account?.email}</small>}</td><td>{f.serverMessages}</td><td>{f.cached ? f.stored : '–'}{f.kept > 0 && <small className="ml-st__muted" title="Kept in Wavium after the server stopped holding them"> ({f.kept} only in Wavium)</small>}</td><td>{f.queued ? `${f.bodies} of ${f.queued}` : "–"}</td><td>{f.queued ? `${f.classified} of ${f.queued}` : "–"}</td>
 						<td>{f.stored ? `${Math.round((f.previews / f.stored) * 100)}%` : '–'}</td><td>{f.syncing ? 'Syncing' : f.cached ? 'Synced' : 'Not synced yet (opens on first visit)'}</td></tr>
 				})}</tbody></table>
 		</Card>

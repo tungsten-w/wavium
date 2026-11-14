@@ -70,7 +70,7 @@ export function AgentConnect(_: { session: Session }) {
 				: error && !flow ? <Card className="settings-block"><p>{error}</p></Card>
 				: !flow || !agents ? <Spinner />
 				: <Card className="settings-block agent-connect">
-					<p style={{ marginTop: 0 }}><strong>{flow.client_name}</strong> wants to use Atrium as one of your agents.</p>
+					<p style={{ marginTop: 0 }}><strong>{flow.client_name}</strong> wants to use Wavium as one of your agents.</p>
 					<table className="settings-table"><tbody>
 						<tr><td className="at-muted" style={{ width: 130 }}>Goes back to</td><td><strong>{flow.redirect_host}</strong></td></tr>
 						{flow.client_kind === 'cimd' && <tr><td className="at-muted">App identity</td><td style={{ wordBreak: 'break-all' }}>{flow.client_id}</td></tr>}

@@ -44,7 +44,7 @@ export function Ai(_: { session: Session }) {
 	return (
 		<section className="settings-section">
 			<h2 className="at-headline">AI providers</h2>
-			<p className="at-muted">The AIs Atrium itself uses: mail sorting, summaries, drafts. API keys are stored encrypted and are never shown again after saving.</p>
+			<p className="at-muted">The AIs Wavium itself uses: mail sorting, summaries, drafts. API keys are stored encrypted and are never shown again after saving.</p>
 			{error ? <Card className="settings-block"><p>{error}</p><Button variant="tonal" onClick={() => void load()}>Retry</Button></Card>
 				: !data ? <div className="settings-center"><Spinner /></div>
 					: <>

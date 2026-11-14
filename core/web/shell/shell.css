@@ -16,7 +16,9 @@ html, body, #atrium { height: 100%; }
 .shell-header .at-icon-btn { color: inherit; }
 .shell-logo { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; border-radius: var(--at-radius-full); color: inherit; text-decoration: none; font-weight: 600; font-size: 17px; flex: none; }
 .shell-logo:hover { background: rgb(255 255 255 / 0.12); }
-.shell-logo img { height: 26px; width: auto; }
+.shell-logo img { height: 22px; width: auto; }
+.shell-logo__name { letter-spacing: -0.2px; }
+@media (max-width: 720px) { .shell-logo__name { display: none; } }
 .shell-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .shell-apps { display: flex; align-items: center; justify-content: center; gap: 2px; overflow-x: auto; scrollbar-width: none; min-width: 0; padding: 0 8px; }
 .shell-apps::-webkit-scrollbar { display: none; }
@@ -64,8 +66,9 @@ html, body, #atrium { height: 100%; }
 }
 .login-card { width: min(420px, 100%); background: var(--at-surface-container-lowest); border-radius: var(--at-radius-xl); padding: 36px 32px; box-shadow: 0 10px 40px var(--at-shadow); animation: at-pop var(--at-medium) var(--at-spring); }
 .login-brand { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 28px; text-align: center; }
-.login-brand .mark { width: 64px; height: 64px; border-radius: 22px; background: var(--at-seed, #00679e); color: #fff; display: grid; place-items: center; }
-.login-brand .mark img { width: 40px; height: 40px; }
+.login-brand .mark { width: 96px; height: 96px; border-radius: 28px; background: linear-gradient(135deg, #0a3d8f, #00a6c7); color: #fff; display: grid; place-items: center; box-shadow: 0 10px 30px rgb(10 61 143 / 0.35); }
+.login-brand .mark img { width: 72px; height: auto; }
+.login-brand h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; }
 .login form { display: flex; flex-direction: column; gap: 16px; }
 .login-error { background: var(--at-error-container); color: var(--at-error); border-radius: var(--at-radius-m); padding: 10px 14px; font-size: 14px; }
 :root[data-theme='dark'] .login-error { color: #ffdad6; }

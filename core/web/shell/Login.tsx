@@ -84,7 +84,7 @@ export function Login() {
 				<div className="login-brand">
 					<div className="mark">{theming?.logo ? <img src={theming.logo} alt="" /> : <Icon name="home" size="l" />}</div>
 					<div>
-						<h1 className="at-headline" style={{ margin: 0 }}>{theming?.name ?? 'Atrium'}</h1>
+						<h1 className="at-headline" style={{ margin: 0 }}>{theming?.name ?? 'Wavium'}</h1>
 						{theming?.slogan && <p className="at-muted" style={{ margin: '4px 0 0' }}>{theming.slogan}</p>}
 					</div>
 				</div>

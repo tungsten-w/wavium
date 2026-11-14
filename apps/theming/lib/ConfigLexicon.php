@@ -68,8 +68,8 @@ class ConfigLexicon implements ILexicon {
 			new Entry(
 				self::PRODUCT_NAME,
 				ValueType::STRING,
-				defaultRaw: 'Atrium',
-				definition: 'The name of the software running on this instance (usually "Atrium").',
+				defaultRaw: 'Wavium',
+				definition: 'The name of the software running on this instance (usually "Wavium").',
 			),
 			new Entry(
 				self::INSTANCE_NAME,

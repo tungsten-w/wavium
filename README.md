@@ -1,8 +1,13 @@
-# Atrium
+<p align="center"><img src="core/img/wavium/app-icon.svg" width="96" alt=""></p>
+
+# Wavium
 
 **A self-hosted personal hub built for humans *and* AI agents.**
 
-Atrium is a hard fork of [Nextcloud](https://nextcloud.com) 34.0.5. It keeps
+> Wavium was called Atrium while it was built: the code, the repository, the
+> containers and the environment variables (`ATRIUM_*`) keep that name.
+
+Wavium is a hard fork of [Nextcloud](https://nextcloud.com) 34.0.5. It keeps
 Nextcloud's backend (files, calendar, contacts, tasks, mail, DAV, OCS) and its
 client compatibility, and adds what an AI agent needs to work with your data
 properly:

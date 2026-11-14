@@ -17,7 +17,7 @@ export function AccountSetup({ onDone }: { onDone: () => void }) {
 	return (
 		<div className="ml-setup">
 			<Card className="ml-setup__card">
-				<div className="ml-setup__hero"><Icon name="mail" /><h1>Connect your mail</h1><p>Read and send mail without leaving Atrium. Your credentials stay on your server.</p></div>
+				<div className="ml-setup__hero"><Icon name="mail" /><h1>Connect your mail</h1><p>Read and send mail without leaving Wavium. Your credentials stay on your server.</p></div>
 				<AccountForm onDone={onDone} />
 			</Card>
 		</div>
@@ -36,7 +36,7 @@ export function AccountSettings({ account, boxes, onDone, onClose }: { account: 
 		try { await updateSignature(account.id, signature); toast('Signature saved'); onDone() } catch (e) { toast.error(e instanceof Error ? e.message : String(e)) }
 	}
 	async function remove() {
-		if (!await confirmDialog(`Remove ${account.emailAddress} from Atrium? This does not delete mail from the mail server.`, { title: 'Remove mail account', confirm: 'Remove', danger: true })) return
+		if (!await confirmDialog(`Remove ${account.emailAddress} from Wavium? This does not delete mail from the mail server.`, { title: 'Remove mail account', confirm: 'Remove', danger: true })) return
 		try { await deleteAccount(account.id); toast('Account removed'); onDone(); onClose() } catch (e) { toast.error(e instanceof Error ? e.message : String(e)) }
 	}
 

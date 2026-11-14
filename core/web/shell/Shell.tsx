@@ -68,6 +68,7 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 				<IconButton className="shell-picker-btn" icon="apps" label="Apps" onClick={() => setPicker(true)} />
 				<a className="shell-logo" href={home} onClick={linkHandler} title={session.capabilities.theming?.name}>
 					{session.capabilities.theming?.logo ? <img src={session.capabilities.theming.logo} alt="" /> : <Icon name="home" />}
+					<span className="shell-logo__name">{session.capabilities.theming?.name ?? 'Wavium'}</span>
 				</a>
 				<Search />
 				</div>
@@ -139,7 +140,7 @@ function ReactApp({ man, session }: { man: AppManifest, session: Session }) {
 		appId: man.app,
 		basePath: `/apps/${man.route}`,
 		session,
-		setTitle: (t: string) => { document.title = t ? `${t} - ${session.capabilities.theming?.name ?? 'Atrium'}` : session.capabilities.theming?.name ?? 'Atrium' },
+		setTitle: (t: string) => { document.title = t ? `${t} - ${session.capabilities.theming?.name ?? 'Wavium'}` : session.capabilities.theming?.name ?? 'Wavium' },
 	}), [man, session])
 	if (error) return <div className="shell-loading"><p>Could not load {man.app}: {error}</p></div>
 	if (!mod) return <div className="shell-loading"><Spinner /></div>

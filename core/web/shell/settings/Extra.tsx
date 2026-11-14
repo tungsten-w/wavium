@@ -233,7 +233,7 @@ function SecurityForm({ user, s, enc }: { user: string, s: TwoFactorState, enc: 
 			</Card>
 			<Card className="settings-block">
 				<h3>Server-side encryption</h3>
-				<p className="at-muted">{enc ? 'Server-side encryption is on.' : 'Server-side encryption is off.'} Turning it on or off changes how every file is stored, so Atrium leaves that to the command line (occ encryption).</p>
+				<p className="at-muted">{enc ? 'Server-side encryption is on.' : 'Server-side encryption is off.'} Turning it on or off changes how every file is stored, so Wavium leaves that to the command line (occ encryption).</p>
 			</Card>
 		</>
 	)

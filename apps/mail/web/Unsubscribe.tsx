@@ -44,7 +44,7 @@ export function UnsubscribeBanner({ body, onMailto }: { body: MessageBody, onMai
 	}
 
 	const what = oneClick
-		? `Atrium will ask ${hostOf(url!)} to remove you from this list. You do not need to visit any page.`
+		? `Wavium will ask ${hostOf(url!)} to remove you from this list. You do not need to visit any page.`
 		: url
 			? `The list's unsubscribe page (${hostOf(url)}) opens in a new tab; finish there.`
 			: `A mail to ${mailto!.to} is prepared in the composer; check it and send it.`

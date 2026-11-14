@@ -35,9 +35,9 @@ class OC_Defaults {
 		$config = Server::get(IConfig::class);
 		$serverVersion = Server::get(ServerVersion::class);
 
-		$this->defaultEntity = 'Atrium'; /* e.g. company name, used for footers and copyright notices */
-		$this->defaultName = 'Atrium'; /* short name, used when referring to the software */
-		$this->defaultTitle = 'Atrium'; /* can be a longer name, for titles */
+		$this->defaultEntity = 'Wavium'; /* e.g. company name, used for footers and copyright notices */
+		$this->defaultName = 'Wavium'; /* short name, used when referring to the software */
+		$this->defaultTitle = 'Wavium'; /* can be a longer name, for titles */
 		$this->defaultBaseUrl = 'https://nextcloud.com';
 		$this->defaultSyncClientUrl = $config->getSystemValue('customclient_desktop', 'https://nextcloud.com/install/#install-clients');
 		$this->defaultiOSClientUrl = $config->getSystemValue('customclient_ios', 'https://geo.itunes.apple.com/us/app/nextcloud/id1125420102?mt=8');
@@ -46,10 +46,10 @@ class OC_Defaults {
 		$this->defaultFDroidClientUrl = $config->getSystemValue('customclient_fdroid', 'https://f-droid.org/packages/com.nextcloud.client/');
 		$this->defaultDocBaseUrl = 'https://docs.nextcloud.com';
 		$this->defaultDocVersion = $serverVersion->getMajorVersion(); // used to generate doc links
-		$this->defaultColorBackground = '#00679e';
-		$this->defaultColorPrimary = '#00679e';
+		$this->defaultColorBackground = '#0b6aa8';
+		$this->defaultColorPrimary = '#0b6aa8';
 		$this->defaultTextColorPrimary = '#ffffff';
-		$this->defaultProductName = 'Atrium';
+		$this->defaultProductName = 'Wavium';
 
 		$themePath = OC::$SERVERROOT . '/themes/' . OC_Util::getTheme() . '/defaults.php';
 		if (file_exists($themePath)) {
@@ -215,7 +215,7 @@ class OC_Defaults {
 		} else {
 			if ($this->defaultSlogan === null) {
 				$l10n = \OC::$server->getL10N('lib', $lang);
-				$this->defaultSlogan = $l10n->t('a safe home for all your data');
+				$this->defaultSlogan = $l10n->t('Your mail, calendar, files and AI agents, in one calm place');
 			}
 			return $this->defaultSlogan;
 		}
