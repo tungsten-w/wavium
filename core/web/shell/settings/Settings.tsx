@@ -20,11 +20,13 @@ import { Apps } from './Apps'
 import { AdminSharing, AdminTheming, Overview, PersonalSharing, Server } from './Admin'
 import { AdminSecurity, Delegation, Groupware, Notifications, Presets } from './Extra'
 import { AdminGoogle, MoveFromGoogle } from './Google'
+import { Tutorial } from './Tutorial'
 
 interface ReactSection { path: string, label: string, icon: string, admin?: boolean, hidden?: boolean, replaces?: string, Component: ComponentType<{ session: Session }> }
 
 /** Paths owned by React; the classic section with the same id is hidden from the list. */
 const SECTIONS: ReactSection[] = [
+	{ path: '/settings/user/tutorial', label: 'Tutorial', icon: 'lifebuoy', Component: Tutorial },
 	{ path: '/settings/user', label: 'Profile', icon: 'user-circle', replaces: 'personal-info', Component: Profile },
 	{ path: '/settings/user/security', label: 'Security', icon: 'shield-lock', replaces: 'security', Component: Security },
 	{ path: '/settings/user/theming', label: 'Appearance', icon: 'palette', replaces: 'theming', Component: Appearance },
