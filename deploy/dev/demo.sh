@@ -45,6 +45,9 @@ say "Morning digest for alice"
 json -u alice:alice-demo-pass -X PUT "$base/agent/v1/digest/settings" -d '{"enabled":true,"time":"07:30","ai":true}' >/dev/null
 json -u alice:alice-demo-pass -X POST "$base/agent/v1/digest/refresh" | head -c 200; echo
 
+say "Wavium blue for alice (new accounts get a random accent)"
+dc exec -T php php occ user:setting alice theming primary_color '#0b6aa8' >/dev/null && echo done
+
 say "An agent for alice"
 if json -u alice:alice-demo-pass "$base/agent/v1/owner/agents" | grep -q 'Mon assistant'; then
 	echo "already there"

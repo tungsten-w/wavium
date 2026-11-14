@@ -285,10 +285,11 @@
 .ml-snooze { display: flex; flex-direction: column; gap: 8px; min-width: min(320px, 75vw); }
 
 /* Tags (P4-1) */
-.ml-tag { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: var(--at-radius-full); font-size: 11.5px; font-weight: 600; line-height: 18px; color: var(--tag); background: color-mix(in srgb, var(--tag) 14%, transparent); margin-left: 4px; }
-.ml-tags { display: flex; flex-direction: column; gap: 6px; min-width: min(320px, 75vw); }
-.ml-tags__new { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.ml-tags__new > .at-field { flex: 1; }
+.ml-utag { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: var(--at-radius-full); font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap; color: var(--tag); background: color-mix(in srgb, var(--tag) 14%, transparent); }
+.ml-utags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.ml-tagpick { display: flex; flex-direction: column; gap: 6px; min-width: min(320px, 75vw); }
+.ml-tagpick__new { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.ml-tagpick__new > .at-field { flex: 1; }
 
 /* HTML compose (P4-1c) */
 .ml-rich { display: flex; flex-direction: column; border: 1px solid var(--at-outline-variant); border-radius: var(--at-radius-m); overflow: hidden; }

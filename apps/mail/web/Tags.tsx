@@ -14,7 +14,7 @@ const errText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 export function TagChips({ message }: { message: Message }) {
 	const tags = Object.values(message.tags ?? {}).filter((t) => t.displayName)
 	if (!tags.length) return null
-	return <>{tags.map((t) => <span key={t.imapLabel} className="ml-tag" style={{ ['--tag' as string]: t.color || '#888' }}>{t.displayName}</span>)}</>
+	return <span className="ml-utags">{tags.map((t) => <span key={t.imapLabel} className="ml-utag" style={{ ['--tag' as string]: t.color || '#888' }}>{t.displayName}</span>)}</span>
 }
 
 export function TagsDialog({ message, open, onClose, onChange }: { message: Message, open: boolean, onClose: () => void, onChange: (tags: Record<string, Tag>) => void }) {
@@ -52,13 +52,13 @@ export function TagsDialog({ message, open, onClose, onChange }: { message: Mess
 
 	return (
 		<Dialog open={open} title="Tags" onClose={onClose} actions={<Button variant="text" onClick={onClose}>Done</Button>}>
-			<div className="ml-tags">
+			<div className="ml-tagpick">
 				{!all && <Spinner small />}
 				{all && all.map((t) => (
-					<Checkbox key={t.imapLabel} label={<span className="ml-tag" style={{ ['--tag' as string]: t.color || '#888' }}>{t.displayName}</span>}
+					<Checkbox key={t.imapLabel} label={<span className="ml-utag" style={{ ['--tag' as string]: t.color || '#888' }}>{t.displayName}</span>}
 						checked={!!mine[t.imapLabel]} disabled={busy !== null} onChange={(e) => void toggle(t, e.target.checked)} />
 				))}
-				<form className="ml-tags__new" onSubmit={(e) => { e.preventDefault(); void add() }}>
+				<form className="ml-tagpick__new" onSubmit={(e) => { e.preventDefault(); void add() }}>
 					<TextField label="New tag" value={name} onChange={(e) => setName(e.target.value)} />
 					<Button type="submit" variant="tonal" busy={busy === 'new'} disabled={!name.trim()}>Add</Button>
 				</form>

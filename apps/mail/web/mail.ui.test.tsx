@@ -248,7 +248,7 @@ test('tags: chips in the list; Tags… adds one, creates a new one', async () =>
 		.on('POST', '/apps/mail/api/tags', (req) => ({ id: 9, displayName: (req.body as { displayName: string }).displayName, imapLabel: 'urgent_1', color: '#0b6aa8' }))
 	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
 	await waitFor(() => getByText(container, 'Your invoice'))
-	expect(container.querySelector('.ml-tag')?.textContent).toBe('Work')
+	expect(container.querySelector('.ml-utag')?.textContent).toBe('Work')
 	await click(getByText(container, 'Dinner on Friday?').closest('button')!)
 	const reader = await waitFor(() => container.querySelector('[aria-label="Message"]'))
 	await click(getButton(reader, 'More actions'))
