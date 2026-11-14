@@ -3,6 +3,18 @@
 Wavium (formerly Atrium) is a hard fork of Nextcloud 34.0.5. Versions are
 tagged in git (`v1`, `v2`, ...).
 
+## v2.1
+
+- **Logo everywhere**, drawn inline so it can never be a broken image (login,
+  header, boot screen, agent consent page).
+- **Leave Google easily**:
+  - known mail providers fill in their servers;
+  - Sign in with Google for Gmail (admin page to set it up);
+  - Settings > Move from Google for Gmail, Calendar (subscribe or import
+    .ics), Contacts (.vcf) and Drive.
+- **Settings > Tutorial**: an illustrated nine-step tour.
+- **One-command install**: `bash deploy/wavium/install.sh`.
+
 ## v2
 
 - **Name and logo**: Wavium everywhere a person sees it (login, header, tab,
