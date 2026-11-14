@@ -37,6 +37,7 @@ sg docker -c "ATRIUM_PORT=8300 COMPOSE_PROJECT_NAME=atrium-v2 bash deploy/dev/de
 | **Agenda** | Invités et réponses aux invitations, abonnements à des agendas, pages de prise de rendez-vous, anciens liens d'événements. |
 | **Tâches** | Tâches qui se répètent, ordre à la main (glisser-déposer), partage d'une liste. |
 | **Installer chez soi** | `deploy/wavium/` : installation complète avec HTTPS automatique (Caddy), testée sur cette machine. |
+| **Assistant** | Avec l'IA de démo, il comprend quelques phrases en français et utilise les vrais outils. |
 | **Corrections** | Le résumé du jour ne montre plus les séparateurs « --- » de Daily Todo. |
 
 ## À tester (en alice)
@@ -67,8 +68,10 @@ Coche ce qui marche ; note le reste dans `reports/V2-RETOURS.md`.
       une suppression, autocomplétion dans **To**, la conversation sous un
       mail, la page **Rules**, le bandeau **Unsubscribe…** des newsletters.
 - [ ] **Settings** : Agents, Agent activity, AI providers.
-- [ ] **Assistant** (bouton robot) : tape
-      `mock-tool: notes_note_create {"content":"Bonjour"}` → une note est créée.
+- [ ] **Assistant** (bouton robot, en haut à droite) : l'IA de démo comprend
+      quelques phrases et utilise de vrais outils : « mes derniers mails »,
+      « mon agenda », « mes tâches », « ma liste du jour », « note : acheter du
+      pain », « cherche facture ». Une vraie IA (Settings > AI) comprend tout.
 - [ ] En **bob** : il ne voit rien d'alice (mails, règles, résumé).
 
 ## Installer Wavium sur un vrai serveur
