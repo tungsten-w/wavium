@@ -136,3 +136,10 @@
 
 /* Chrome is not text-selectable; note titles and text are. */
 .nt-head, .nt-group__label, .nt-editor__head .at-icon-btn, .nt-status, .nt-editor__meta, .nt-nav-new, .nt-row__time, .nt-chip { -webkit-user-select: none; user-select: none; }
+
+/* Motion (v4) */
+.nt-row { animation: at-enter 320ms var(--at-ease) backwards; }
+.nt-row:nth-child(2) { animation-delay: 25ms; } .nt-row:nth-child(3) { animation-delay: 50ms; } .nt-row:nth-child(4) { animation-delay: 75ms; } .nt-row:nth-child(5) { animation-delay: 100ms; } .nt-row:nth-child(6) { animation-delay: 125ms; } .nt-row:nth-child(n+7) { animation-delay: 150ms; }
+.nt-row { transition: background var(--at-fast), transform var(--at-medium) var(--at-spring); }
+.nt-row:hover { transform: translateX(2px); }
+.nt-editor { animation: at-fade 300ms var(--at-ease); }

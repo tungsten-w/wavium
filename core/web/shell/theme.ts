@@ -17,6 +17,14 @@ function write(key: string, value: string | null) {
 
 export const getMode = (): ThemeMode => (read('atrium.theme') as ThemeMode) || 'system'
 
+/** Animations (v4), per device: 'full' (default) or 'reduced'. The system's reduce-motion setting always wins. */
+export type MotionMode = 'full' | 'reduced'
+export const getMotion = (): MotionMode => read('atrium.motion') === 'reduced' ? 'reduced' : 'full'
+export function setMotion(m: MotionMode) {
+	write('atrium.motion', m === 'full' ? null : m)
+	applyTheme(null)
+}
+
 /** The wallpaper setting: 'default' (Atrium's generated one), 'color' (plain), 'custom' or a shipped file name. */
 export type WallpaperSetting = string
 
@@ -64,6 +72,8 @@ export function applyTheme(session: Session | null) {
 	const mode = getMode()
 	if (mode === 'system') delete el.dataset.theme
 	else el.dataset.theme = mode
+	if (getMotion() === 'reduced') el.dataset.motion = 'reduced'
+	else delete el.dataset.motion
 	if (state.accent) el.style.setProperty('--at-seed', state.accent)
 	else el.style.removeProperty('--at-seed')
 

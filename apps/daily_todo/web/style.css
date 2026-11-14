@@ -40,7 +40,7 @@ a.dt-row__title { cursor: pointer; }
 a.dt-row__title:hover { text-decoration: underline; }
 .dt-row__sub { font-size: 12px; color: var(--at-on-surface-variant); }
 .dt-row__err { font-size: 12px; color: var(--at-error); }
-.dt-row--done .dt-row__title { text-decoration: line-through; color: var(--at-on-surface-variant); }
+.dt-row--done .dt-row__title { color: var(--at-on-surface-variant); }
 .dt-row--child .dt-row__title { font-size: 14px; }
 .dt-rename { font: inherit; font-size: 15px; border: 0; border-bottom: 2px solid var(--at-primary); background: transparent; color: inherit; outline: none; padding: 2px 0; width: 100%; }
 .dt-chip { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 10px; color: var(--at-on-surface-variant); }
@@ -142,3 +142,14 @@ a.dt-row__title:hover { text-decoration: underline; }
 
 /* Header rows are chrome, not content. */
 .dt-head, .dt-toolbar, .dt-cal__head { -webkit-user-select: none; user-select: none; }
+
+/* Motion (v4) */
+.dt-row { animation: at-enter 320ms var(--at-ease) backwards; }
+.dt-row:nth-child(2) { animation-delay: 25ms; } .dt-row:nth-child(3) { animation-delay: 50ms; } .dt-row:nth-child(4) { animation-delay: 75ms; } .dt-row:nth-child(5) { animation-delay: 100ms; } .dt-row:nth-child(6) { animation-delay: 125ms; } .dt-row:nth-child(n+7) { animation-delay: 150ms; }
+.dt-row__title { text-decoration: line-through transparent; transition: text-decoration-color 400ms var(--at-ease), color 400ms var(--at-ease); }
+.dt-row--done .dt-row__title { text-decoration-color: currentColor; }
+.dt-row--done { animation: dt-done 450ms var(--at-spring); }
+.dt-bar__fill { transition: width 600ms var(--at-spring); }
+.dt-tile { transition: transform var(--at-medium) var(--at-spring); }
+.dt-tile:hover { transform: translateY(-2px); }
+@keyframes dt-done { 30% { transform: scale(1.02); } }

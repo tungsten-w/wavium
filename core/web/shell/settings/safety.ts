@@ -44,7 +44,7 @@ export const CRITERIA: Criterion[] = [
 		id: 'agents', question: 'AI agents ask before acting', why: 'An agent that sends or deletes on its own can do damage.',
 		marks: {
 			wavium: ['yes', 'Per-app permissions, approval before send, delete or share, undo'], nextcloud: ['partly', 'Assistant, no per-agent approvals'],
-			proton: ['partly', 'No agents'], google: ['partly', 'Agent features, few limits per app'], microsoft: ['partly', 'Copilot agents, admin controls'],
+			proton: ['yes', 'No agents that act on their own'], google: ['partly', 'Agent features, few limits per app'], microsoft: ['partly', 'Copilot agents, admin controls'],
 		},
 	},
 	{

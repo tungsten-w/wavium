@@ -43,3 +43,10 @@
 
 /* Chrome is not text-selectable; the sentences are. */
 .ac-head, .ac-day__label, .ac-entry__time, .ac-more { -webkit-user-select: none; user-select: none; }
+
+/* Motion (v4) */
+.ac-entry { animation: at-enter 320ms var(--at-ease) backwards; }
+.ac-entry:nth-child(2) { animation-delay: 25ms; } .ac-entry:nth-child(3) { animation-delay: 50ms; } .ac-entry:nth-child(4) { animation-delay: 75ms; } .ac-entry:nth-child(5) { animation-delay: 100ms; } .ac-entry:nth-child(6) { animation-delay: 125ms; } .ac-entry:nth-child(n+7) { animation-delay: 150ms; }
+.ac-day__label { animation: at-fade 400ms var(--at-ease) backwards; }
+.ac-entry__icon { transition: transform var(--at-medium) var(--at-spring); }
+.ac-entry:hover .ac-entry__icon { transform: scale(1.12) rotate(-6deg); }

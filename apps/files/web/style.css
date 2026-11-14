@@ -155,3 +155,16 @@
 
 /* Header rows are chrome, not content. */
 .fl-head, .fl-tr--head, .fl-uploads__head { -webkit-user-select: none; user-select: none; }
+
+/* Motion (v4) */
+.fl-tr:not(.fl-tr--head) { animation: at-enter 320ms var(--at-ease) backwards; }
+.fl-tr:not(.fl-tr--head):nth-child(2) { animation-delay: 25ms; } .fl-tr:not(.fl-tr--head):nth-child(3) { animation-delay: 50ms; } .fl-tr:not(.fl-tr--head):nth-child(4) { animation-delay: 75ms; } .fl-tr:not(.fl-tr--head):nth-child(5) { animation-delay: 100ms; } .fl-tr:not(.fl-tr--head):nth-child(6) { animation-delay: 125ms; } .fl-tr:not(.fl-tr--head):nth-child(n+7) { animation-delay: 150ms; }
+.fl-card { animation: at-enter 320ms var(--at-ease) backwards; }
+.fl-card:nth-child(2) { animation-delay: 25ms; } .fl-card:nth-child(3) { animation-delay: 50ms; } .fl-card:nth-child(4) { animation-delay: 75ms; } .fl-card:nth-child(5) { animation-delay: 100ms; } .fl-card:nth-child(6) { animation-delay: 125ms; } .fl-card:nth-child(n+7) { animation-delay: 150ms; }
+.fl-card { transition: transform var(--at-medium) var(--at-spring), box-shadow var(--at-fast); }
+.fl-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px var(--at-shadow); }
+.fl-thumb { transition: transform var(--at-medium) var(--at-spring); }
+.fl-tr:hover .fl-thumb { transform: scale(1.1); }
+.fl-upload { animation: at-enter 300ms var(--at-ease) backwards; }
+.fl-dropzone { animation: at-fade 200ms var(--at-ease); }
+.fl-selbar { animation: at-enter 260ms var(--at-spring); }

@@ -22,7 +22,7 @@
 .tk-row { display: flex; align-items: center; gap: 4px; margin-left: calc(var(--depth) * 32px); padding: 4px 4px 4px 14px; min-height: 56px; border-radius: var(--at-radius-l); background: var(--at-surface-container); transition: background var(--at-fast); }
 .tk-row:hover { background: var(--at-surface-container-high); }
 .tk-row--sel, .tk-row--sel:hover { background: var(--at-secondary-container); color: var(--at-on-secondary-container); }
-.tk-row--done .tk-row__title { text-decoration: line-through; color: var(--at-on-surface-variant); }
+.tk-row--done .tk-row__title { color: var(--at-on-surface-variant); }
 .tk-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 6px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .tk-row__title { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .tk-row__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12.5px; color: var(--at-on-surface-variant); }
@@ -120,3 +120,15 @@
 .tk-share__list .at-field { width: 140px; }
 .tk-share__found button { width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: inherit; font: inherit; }
 .tk-share__found button:hover { background: var(--at-surface-container, rgba(127,127,127,.12)); }
+
+/* Motion (v4) */
+.tk-row { animation: at-enter 320ms var(--at-ease) backwards; }
+.tk-row:nth-child(2) { animation-delay: 25ms; } .tk-row:nth-child(3) { animation-delay: 50ms; } .tk-row:nth-child(4) { animation-delay: 75ms; } .tk-row:nth-child(5) { animation-delay: 100ms; } .tk-row:nth-child(6) { animation-delay: 125ms; } .tk-row:nth-child(n+7) { animation-delay: 150ms; }
+.tk-check { transition: transform var(--at-medium) var(--at-spring), background var(--at-fast); }
+.tk-check:active { transform: scale(0.8); }
+.tk-row--done { animation: dt-done 450ms var(--at-spring); }
+.tk-row__title { text-decoration: line-through transparent; transition: text-decoration-color 400ms var(--at-ease), color 400ms var(--at-ease); }
+.tk-row--done .tk-row__title { text-decoration-color: currentColor; }
+.tk-detail { animation: ml-slide 320ms var(--at-ease) backwards; }
+@keyframes dt-done { 30% { transform: scale(1.02); } }
+@keyframes ml-slide { from { opacity: 0; transform: translateX(24px); } }

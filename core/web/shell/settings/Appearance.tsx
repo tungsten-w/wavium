@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import { ocs, type Session } from '@atrium/sdk'
 import { Card, Icon, TextField, toast } from '@atrium/ui'
-import { getAccent, getMode, getServerAccent, getWallpaper, setAccent, setMode, setWallpaper, type ThemeMode } from '../theme'
+import { getAccent, getMode, getMotion, setMotion, type MotionMode, getServerAccent, getWallpaper, setAccent, setMode, setWallpaper, type ThemeMode } from '../theme'
 
 const COLORS = ['#00679e', '#0b57d0', '#6750a4', '#8e4585', '#b3261e', '#c26401', '#7c5800', '#386a20', '#006a6a', '#455a64']
 const MODES: { id: ThemeMode, label: string, bg: string, fg: string }[] = [
@@ -28,6 +28,7 @@ const imageUrl = (file: string) => `/apps/theming/img/background/${file}`
 
 export function Appearance({ session: _session }: { session: Session }) {
 	const [mode, setM] = useState(getMode())
+	const [motion, setMo] = useState<MotionMode>(getMotion())
 	const serverColor = getServerAccent()?.toLowerCase() ?? null
 	const [current, setCurrent] = useState((getAccent() ?? serverColor ?? '#00679e').toLowerCase())
 	const [hex, setHex] = useState(current)
@@ -62,6 +63,18 @@ export function Appearance({ session: _session }: { session: Session }) {
 						<button key={m.id} type="button" className={'theme-option' + (mode === m.id ? ' theme-option--active' : '')} onClick={() => pickMode(m.id)} aria-pressed={mode === m.id}>
 							<span className="swatch" style={{ background: m.bg }} />
 							<span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{mode === m.id && <Icon name="check" />}{m.label}</span>
+						</button>
+					))}
+				</div>
+			</Card>
+			<Card className="settings-block">
+				<h3>Animations</h3>
+				<div className="theme-options">
+					{([['full', 'Lively', 'Pages, lists and charts move in'], ['reduced', 'Calm', 'Almost no movement']] as [MotionMode, string, string][]).map(([id, label, sub]) => (
+						<button key={id} type="button" className={'theme-option motion-option motion-option--' + id + (motion === id ? ' theme-option--active' : '')} onClick={() => { setMo(id); setMotion(id) }} aria-pressed={motion === id}>
+							<span className="swatch motion-swatch"><span /><span /><span /></span>
+							<span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{motion === id && <Icon name="check" />}{label}</span>
+							<small className="at-muted">{sub}</small>
 						</button>
 					))}
 				</div>

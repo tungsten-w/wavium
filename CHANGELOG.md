@@ -3,6 +3,24 @@
 Wavium (formerly Atrium) is a hard fork of Nextcloud 34.0.5. Versions are
 tagged in git (`v1`, `v2`, ...).
 
+## v4 (in progress)
+
+From friends' feedback on the v3 demo:
+
+- **It moves now**: pages fade up, lists and cards arrive one after the
+  other, buttons react to the press, the logo writes itself in on the login
+  page, done tasks strike through. Settings > Appearance > Animations: Lively
+  or Calm (per device); the system's reduce-motion setting is respected.
+- **Settings > Your data**: where each kind of your data is stored on the
+  machine (files, versions, trash, database and its tables, Docker volumes),
+  with sizes and a copy button. Hidden host paths in the public demo.
+- **Is it safe to install?** A yes / partly / no chart of Wavium next to
+  Nextcloud, Proton, Google and Microsoft 365, in the app and the README.
+- **Mail > Status > Where your mail goes**: per address, threads that split
+  into important, everyday, hidden by Curated, spam and not sorted yet, then
+  into categories. Hover for numbers, click a category to open it.
+- Fix: the Theme previews in Settings > Appearance were empty.
+
 ## v3
 
 - **Public demo mode** (`ATRIUM_PUBLIC_DEMO=1`, `deploy/demo/`): anyone can

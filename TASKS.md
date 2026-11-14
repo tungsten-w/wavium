@@ -98,3 +98,10 @@ ADR 0010, waits for the owner's go), the rest in any order.
 - [ ] V4-10 "Why is this mail here?" with "wrong" button feeding the classifier (IDEAS 5)
 - [ ] V4-11 Quiet hours for agents, pings queued into the morning digest (IDEAS 8)
 - [ ] V4-12 `make test-e2e` in CI with screenshots per app (IDEAS 9)
+
+### Friends' feedback on v3 (2026-11-14)
+
+- [x] V4-13 Animations everywhere: pages fade up, rows and cards arrive one after another, press/hover feedback, logo writes itself in, done items strike through; Settings > Appearance > Animations (Lively / Calm, per device); system reduce-motion respected — branch ready: night/v4-feedback
+- [x] V4-14 Settings > Your data: where each kind of data is stored (host path and in-container path, Docker volume, database tables), sizes — branch ready: night/v4-feedback
+- [x] V4-15 "Is Wavium safe to install?" chart next to Nextcloud, Proton, Google, Microsoft 365, in Settings > Your data and the README — branch ready: night/v4-feedback
+- [x] V4-16 Mail status: "Where your mail goes" flow chart per address (important / everyday / hidden by Curated / spam / not sorted yet, then categories; click opens them) — branch ready: night/v4-feedback

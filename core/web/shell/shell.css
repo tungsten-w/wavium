@@ -88,7 +88,7 @@ html, body, #atrium { height: 100%; }
 .theme-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .theme-option { border: 2px solid var(--at-outline-variant); border-radius: var(--at-radius-l); padding: 12px; cursor: pointer; background: var(--at-surface); text-align: left; display: flex; flex-direction: column; gap: 8px; }
 .theme-option--active { border-color: var(--at-primary); }
-.theme-option .swatch { height: 56px; border-radius: var(--at-radius-m); box-shadow: inset 0 0 0 1px var(--at-outline-variant); }
+.theme-option .swatch { display: block; align-self: stretch; width: 100%; height: 56px; border-radius: var(--at-radius-m); box-shadow: inset 0 0 0 1px var(--at-outline-variant); }
 .settings-page { padding: 24px 28px 48px; }
 .settings-section--wide { max-width: 1100px; }
 .settings-topbar { padding: 8px 12px 0; }
@@ -396,7 +396,7 @@ html, body, #atrium { height: 100%; }
 .at-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .data-intro { margin: 0 0 14px; }
 .data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-bottom: 12px; }
-.data-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; animation: at-rise var(--at-medium) var(--at-spring) both; transition: transform var(--at-fast) var(--at-ease), box-shadow var(--at-fast) var(--at-ease); }
+.data-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; animation: at-rise var(--at-medium) var(--at-spring) backwards; transition: transform var(--at-fast) var(--at-ease), box-shadow var(--at-fast) var(--at-ease); }
 .data-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px var(--at-shadow); }
 .data-card p { margin: 0; font-size: 14px; color: var(--at-on-surface-variant); }
 .data-card__head { display: flex; align-items: center; gap: 10px; }
@@ -405,16 +405,15 @@ html, body, #atrium { height: 100%; }
 .data-card:hover .data-card__icon { transform: rotate(-6deg) scale(1.08); }
 .data-card__icon--s { width: 28px; height: 28px; border-radius: var(--at-radius-s); }
 .data-card__icon--s .at-icon { width: 16px; height: 16px; }
-.data-path { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
-.data-path__label { flex: none; width: 112px; color: var(--at-on-surface-variant); }
-.data-path code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; padding: 4px 8px; border-radius: var(--at-radius-s); background: var(--at-surface-container); font-size: 12.5px; }
+.data-path { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 6px; min-width: 0; font-size: 13px; }
+.data-path__label { grid-column: 1 / -1; color: var(--at-on-surface-variant); font-size: 12px; }
+.data-path code { min-width: 0; overflow-wrap: anywhere; padding: 6px 8px; border-radius: var(--at-radius-s); background: var(--at-surface-container); font-size: 12.5px; line-height: 1.4; }
 .data-small { font-size: 13px !important; }
 .data-tables { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px 20px; }
 .data-tables li { display: flex; gap: 10px; align-items: flex-start; }
 .data-tables strong { font-size: 14px; }
 .data-tables small code { font-size: 11.5px; }
 .data-notes { margin: 14px 0 0; padding-left: 20px; color: var(--at-on-surface-variant); font-size: 14px; display: grid; gap: 4px; }
-@media (max-width: 600px) { .data-path { flex-wrap: wrap; } .data-path__label { width: 100%; } }
 
 /* "Is Wavium safe?" chart: yes / partly / no carry an icon and a word, never colour alone. */
 .safety { --yes: var(--at-success); --partly: var(--at-warning); --no: var(--at-error); }
@@ -428,7 +427,7 @@ html, body, #atrium { height: 100%; }
 .safety__bar { display: flex; gap: 2px; height: 6px; margin: 8px auto 0; width: 72px; }
 .safety__seg { border-radius: 3px; min-width: 0; transform-origin: left; animation: safety-grow 700ms var(--at-ease) both; }
 .safety__seg--yes { background: var(--yes); } .safety__seg--partly { background: var(--partly); animation-delay: 120ms; } .safety__seg--no { background: var(--no); animation-delay: 240ms; }
-.safety__table tbody tr { animation: at-rise var(--at-medium) var(--at-ease) both; }
+.safety__table tbody tr { animation: at-rise var(--at-medium) var(--at-ease) backwards; }
 .safety__table tbody th { text-align: left; font-weight: 500; padding: 10px 12px 10px 0; border-top: 1px solid var(--at-outline-variant); max-width: 300px; }
 .safety__table tbody th small { display: block; font-weight: 400; font-size: 12.5px; color: var(--at-on-surface-variant); margin-top: 2px; }
 .safety__table td { position: relative; text-align: center; padding: 8px 6px; border-top: 1px solid var(--at-outline-variant); }
@@ -445,3 +444,38 @@ button.safety__mark:hover, button.safety__mark:focus-visible { transform: scale(
 .safety__verdict { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
 .safety__verdict ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
 @keyframes safety-grow { from { transform: scaleX(0); } }
+
+/* Motion (v4), shell: the logo writes itself in, app icons bounce, pages fade up. */
+.login-brand .at-wavium, .shell-boot__mark .at-wavium { animation: wv-write 900ms var(--at-ease) 120ms backwards; }
+.login-brand .at-wavium { filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--at-seed, #00679e) 30%, transparent)); }
+.login-card > * { animation: at-enter 420ms var(--at-ease) backwards; }
+.login-card > :nth-child(2) { animation-delay: 80ms; } .login-card > :nth-child(3) { animation-delay: 140ms; } .login-card > :nth-child(n+4) { animation-delay: 200ms; }
+.shell-logo .at-wavium { transition: transform var(--at-medium) var(--at-spring); }
+.shell-logo:hover .at-wavium { transform: translateY(-1px) scale(1.08) rotate(-4deg); }
+.shell-app { transition: background var(--at-fast), border-radius var(--at-fast) var(--at-ease), opacity var(--at-fast), transform var(--at-medium) var(--at-spring); }
+.shell-app img, .shell-app .at-icon { transition: transform var(--at-medium) var(--at-spring); }
+.shell-app:hover img, .shell-app:hover .at-icon { transform: translateY(-2px) scale(1.12); }
+.shell-app:active { transform: scale(0.92); }
+.shell-app--active img, .shell-app--active .at-icon { animation: wv-hop 450ms var(--at-spring); }
+.shell-apps .shell-app { animation: at-enter 360ms var(--at-ease) backwards; }
+.shell-apps .shell-app:nth-child(2) { animation-delay: 30ms; } .shell-apps .shell-app:nth-child(3) { animation-delay: 60ms; } .shell-apps .shell-app:nth-child(4) { animation-delay: 90ms; }
+.shell-apps .shell-app:nth-child(5) { animation-delay: 120ms; } .shell-apps .shell-app:nth-child(6) { animation-delay: 150ms; } .shell-apps .shell-app:nth-child(n+7) { animation-delay: 180ms; }
+.shell-search__panel { animation: at-pop var(--at-fast) var(--at-ease); transform-origin: top left; }
+.shell-search__item { animation: at-enter 260ms var(--at-ease) backwards; }
+.shell-demo { animation: at-enter 400ms var(--at-ease) backwards; }
+.settings-page > * { animation: at-enter 380ms var(--at-ease) backwards; }
+.settings-block { animation: at-enter 420ms var(--at-ease) backwards; }
+.settings-section > .settings-block:nth-of-type(2) { animation-delay: 60ms; } .settings-section > .settings-block:nth-of-type(3) { animation-delay: 120ms; } .settings-section > .settings-block:nth-of-type(n+4) { animation-delay: 180ms; }
+.theme-option, .accent-tile, .wallpaper-tile, .app-card { transition: transform var(--at-medium) var(--at-spring), border-color var(--at-fast), box-shadow var(--at-fast); }
+.theme-option:hover, .accent-tile:hover, .wallpaper-tile:hover, .app-card:hover { transform: translateY(-2px); }
+.theme-option:active, .accent-tile:active, .wallpaper-tile:active { transform: scale(0.97); }
+.theme-option--active, .accent-tile--active, .wallpaper-tile--active { animation: at-select var(--at-medium) var(--at-spring); }
+.assistant__msg { animation: at-enter 300ms var(--at-ease) backwards; }
+.tour__step { animation: at-enter 380ms var(--at-ease) backwards; }
+.theme-option .motion-swatch { display: flex; align-items: flex-end; gap: 6px; padding: 10px 12px; background: var(--at-surface-container); }
+.motion-swatch span { flex: 1; border-radius: 4px; background: var(--at-primary); opacity: 0.75; height: 40%; }
+.motion-option--full .motion-swatch span { animation: wv-bars 1.4s ease-in-out infinite; }
+.motion-option--full .motion-swatch span:nth-child(2) { animation-delay: 0.2s; } .motion-option--full .motion-swatch span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes wv-write { from { clip-path: inset(0 100% 0 0); opacity: 0.3; } }
+@keyframes wv-hop { 40% { transform: translateY(-4px) scale(1.1); } }
+@keyframes wv-bars { 50% { height: 90%; } }

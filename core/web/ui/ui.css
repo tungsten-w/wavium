@@ -400,7 +400,55 @@ a { color: var(--at-primary); }
 @keyframes at-pop { from { opacity: 0; transform: scale(0.92); } }
 @keyframes at-rise { from { opacity: 0; transform: translateY(16px); } }
 @keyframes at-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
+/*
+ * Motion (v4): the UI should feel alive. Things enter (pages fade up, list rows
+ * and cards arrive one after the other), respond (press shrinks, hover lifts)
+ * and confirm (badges pop). Rules: short (150-450 ms), only opacity and
+ * transform, fill-mode backwards (no transform left on an element after it
+ * entered: it would trap position: fixed menus inside), and none of it with
+ * the system's reduce-motion or Settings > Appearance > Animations > Calm.
+ */
+.at-app-main { animation: at-fade var(--at-medium) var(--at-ease) backwards; }
+.at-app-main > * { animation: at-enter 420ms var(--at-ease) backwards; }
+.at-list > *, .at-stagger > * { animation: at-enter 360ms var(--at-ease) backwards; }
+.at-list > :nth-child(2), .at-stagger > :nth-child(2) { animation-delay: 30ms; }
+.at-list > :nth-child(3), .at-stagger > :nth-child(3) { animation-delay: 60ms; }
+.at-list > :nth-child(4), .at-stagger > :nth-child(4) { animation-delay: 90ms; }
+.at-list > :nth-child(5), .at-stagger > :nth-child(5) { animation-delay: 120ms; }
+.at-list > :nth-child(6), .at-stagger > :nth-child(6) { animation-delay: 150ms; }
+.at-list > :nth-child(7), .at-stagger > :nth-child(7) { animation-delay: 180ms; }
+.at-list > :nth-child(8), .at-stagger > :nth-child(8) { animation-delay: 210ms; }
+.at-list > :nth-child(9), .at-stagger > :nth-child(9) { animation-delay: 240ms; }
+.at-list > :nth-child(n+10), .at-stagger > :nth-child(n+10) { animation-delay: 270ms; }
+.at-btn, .at-icon-btn, .at-fab, .at-chip { transition-property: border-radius, box-shadow, background, transform; transition-duration: var(--at-fast); transition-timing-function: var(--at-ease); }
+.at-btn:active, .at-chip:active { transform: scale(0.96); }
+.at-icon-btn:active { transform: scale(0.88); }
+.at-fab { transition: border-radius var(--at-fast) var(--at-ease), box-shadow var(--at-fast), transform var(--at-medium) var(--at-spring); }
+.at-fab:hover { transform: translateY(-2px); }
+.at-fab:active { transform: scale(0.95); }
+.at-icon-btn .at-icon, .at-app-nav__item .at-icon { transition: transform var(--at-medium) var(--at-spring); }
+.at-icon-btn:hover .at-icon { transform: scale(1.12); }
+.at-app-nav__item:hover .at-icon { transform: translateX(2px) scale(1.08); }
+.at-app-nav__item { transition: background var(--at-fast), color var(--at-fast); }
+.at-app-nav__item--active { animation: at-select var(--at-medium) var(--at-spring); }
+.at-card--elevated { transition: transform var(--at-medium) var(--at-spring), box-shadow var(--at-medium) var(--at-ease); }
+.at-card--elevated:hover { box-shadow: 0 6px 18px var(--at-shadow); }
+.at-badge { animation: at-pop var(--at-medium) var(--at-spring); }
+.at-chip--selected { animation: at-select var(--at-medium) var(--at-spring); }
+.at-tab--active::after { animation: at-grow var(--at-medium) var(--at-ease); transform-origin: center; }
+.at-empty .at-icon { animation: at-float 3.2s ease-in-out infinite; }
+.at-progress > div { position: relative; overflow: hidden; }
+.at-progress > div::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.35), transparent); animation: at-shine 1.8s ease-in-out infinite; }
+.at-dialog__actions .at-btn { animation: at-enter 300ms var(--at-ease) 80ms backwards; }
+
+@keyframes at-enter { from { opacity: 0; transform: translateY(8px); } }
+@keyframes at-select { from { transform: scale(0.94); } }
+@keyframes at-grow { from { transform: scaleX(0); } }
+@keyframes at-float { 50% { transform: translateY(-6px); } }
+@keyframes at-shine { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 1ms !important; } }
+:root[data-motion='reduced'] *, :root[data-motion='reduced'] *::before, :root[data-motion='reduced'] *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
 .at-app-nav__group + .at-app-nav__group { margin-top: 8px; }
 /* Classic (Nextcloud) SVG icons are dark glyphs: lighten them on dark surfaces. */
 :root[data-theme='dark'] img.at-icon { filter: invert(1) brightness(0.9); }
@@ -441,3 +489,6 @@ input, textarea, select, [contenteditable="true"], .at-selectable {
 .at-app-nav__fold svg { width: 18px; height: 18px; flex: none; transition: transform 0.15s; }
 .at-app-nav__chev--shut { transform: rotate(-90deg); }
 .at-app-nav__section--fold .at-icon-btn { flex: none; }
+/* A spinner says "busy": it keeps turning, slowly, even with calm motion. */
+@media (prefers-reduced-motion: reduce) { .at-spinner { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; } }
+:root[data-motion='reduced'] .at-spinner { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }

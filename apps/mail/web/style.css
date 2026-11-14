@@ -333,10 +333,36 @@
 .ml-flow__node:hover .ml-flow__bar { transform: scaleX(1.4); }
 .ml-flow__node--link { cursor: pointer; }
 .ml-flow__node--link:hover .ml-flow__label, .ml-flow__node--link:focus-visible .ml-flow__label { text-decoration: underline; }
-.ml-flow__label { font-size: 12.5px; fill: var(--at-on-surface); }
+.ml-flow__label { font-size: 12.5px; fill: var(--at-on-surface); paint-order: stroke; stroke: var(--at-surface-container-low); stroke-width: 4px; stroke-linejoin: round; }
 .ml-flow__count { fill: var(--at-on-surface-variant); }
-.ml-flow__tip { position: absolute; top: 0; right: 0; max-width: 60%; padding: 6px 10px; border-radius: var(--at-radius-s); background: var(--at-on-surface); color: var(--at-surface); font-size: 12.5px; pointer-events: none; animation: at-pop var(--at-fast) var(--at-ease); }
+.ml-flow__tip { position: absolute; top: 0; left: 0; max-width: min(320px, 70%); padding: 6px 10px; border-radius: var(--at-radius-s); background: var(--at-on-surface); color: var(--at-surface); font-size: 12.5px; pointer-events: none; animation: at-pop var(--at-fast) var(--at-ease); }
 .ml-flow__table-toggle { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--at-primary); font: inherit; font-size: 13px; cursor: pointer; }
 @keyframes ml-flow-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes ml-flow-run { to { stroke-dashoffset: -64; } }
 @media (prefers-reduced-motion: reduce) { .ml-flow__thread { animation: none; } }
+
+/* Motion (v4), Mail: rows arrive one after the other, the reader slides in, actions appear on hover. */
+.ml-messages > li { animation: at-enter 320ms var(--at-ease) backwards; }
+.ml-messages > li:nth-child(2) { animation-delay: 25ms; } .ml-messages > li:nth-child(3) { animation-delay: 50ms; } .ml-messages > li:nth-child(4) { animation-delay: 75ms; }
+.ml-messages > li:nth-child(5) { animation-delay: 100ms; } .ml-messages > li:nth-child(6) { animation-delay: 125ms; } .ml-messages > li:nth-child(7) { animation-delay: 150ms; }
+.ml-messages > li:nth-child(8) { animation-delay: 175ms; } .ml-messages > li:nth-child(n+9) { animation-delay: 200ms; }
+.ml-message { transition: background var(--at-fast), transform var(--at-medium) var(--at-spring), box-shadow var(--at-fast); }
+.ml-message:hover { transform: translateX(2px); }
+.ml-message--selected { box-shadow: inset 3px 0 0 var(--at-primary); }
+.ml-message__actions { transition: opacity var(--at-fast), transform var(--at-fast) var(--at-ease); }
+.ml-article { animation: ml-slide 360ms var(--at-ease) backwards; }
+.ml-article__content { animation: at-fade 420ms var(--at-ease) 80ms backwards; }
+.ml-chip { transition: background var(--at-fast), color var(--at-fast), transform var(--at-medium) var(--at-spring); }
+.ml-chip:active { transform: scale(0.94); }
+.ml-chip--on { animation: at-select var(--at-medium) var(--at-spring); }
+.ml-tag { animation: at-pop var(--at-medium) var(--at-spring) backwards; }
+.ml-st > * { animation: at-enter 400ms var(--at-ease) backwards; }
+.ml-st > :nth-child(3) { animation-delay: 60ms; } .ml-st > :nth-child(4) { animation-delay: 120ms; } .ml-st > :nth-child(n+5) { animation-delay: 180ms; }
+.ml-st__bar > span, .ml-st__seg { animation: safety-grow 700ms var(--at-ease) backwards; transform-origin: left; }
+.ml-st__days span { animation: ml-rise-bar 600ms var(--at-ease) backwards; transform-origin: bottom; }
+.ml-st__dot { animation: ml-pulse 2s ease-in-out infinite; }
+.ml-st__tile strong { animation: at-pop 500ms var(--at-spring) backwards; display: inline-block; }
+@keyframes ml-slide { from { opacity: 0; transform: translateX(24px); } }
+@keyframes ml-rise-bar { from { transform: scaleY(0); } }
+@keyframes ml-pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 20%, transparent); } }
+@keyframes safety-grow { from { transform: scaleX(0); } }

@@ -182,3 +182,13 @@
 .cal-appt__len { font-size: 12px; }
 .cal-appt-days { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .cal-appt-form__err { color: var(--at-error, #b3261e); margin: 0; font-size: 13px; }
+
+/* Motion (v4) */
+.cal-list__ev { animation: at-enter 320ms var(--at-ease) backwards; }
+.cal-list__ev:nth-child(2) { animation-delay: 25ms; } .cal-list__ev:nth-child(3) { animation-delay: 50ms; } .cal-list__ev:nth-child(4) { animation-delay: 75ms; } .cal-list__ev:nth-child(5) { animation-delay: 100ms; } .cal-list__ev:nth-child(6) { animation-delay: 125ms; } .cal-list__ev:nth-child(n+7) { animation-delay: 150ms; }
+.cal-ev, .cal-chip { animation: at-pop 300ms var(--at-ease) backwards; transition: transform var(--at-medium) var(--at-spring), box-shadow var(--at-fast); }
+.cal-ev:hover, .cal-chip:hover { transform: translateY(-1px); box-shadow: 0 3px 10px var(--at-shadow); }
+.cal-day__num--today, .cal-mini__day--today { animation: ml-today 2.4s ease-in-out infinite; }
+.cal-mini__day { transition: background var(--at-fast), transform var(--at-medium) var(--at-spring); }
+.cal-mini__day:hover { transform: scale(1.12); }
+@keyframes ml-today { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--at-primary) 22%, transparent); } }

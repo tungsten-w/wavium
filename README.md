@@ -69,6 +69,30 @@ working: DAV, OCS, login flows, OAuth2 and public links are unchanged
 > Wavium was called Atrium while it was built: the code, the containers and the
 > environment variables (`ATRIUM_*`) keep that name.
 
+## 🛡️ Is it safe to install?
+
+The same chart is in the app (Settings > Your data), next to the exact folders
+where your data lives. ✅ yes · 🟠 partly · ❌ no.
+
+| | **Wavium**<br><sub>self-hosted</sub> | **Nextcloud**<br><sub>self-hosted</sub> | **Proton**<br><sub>hosted, encrypted</sub> | **Google**<br><sub>Gmail, Drive</sub> | **Microsoft 365**<br><sub>Outlook, OneDrive</sub> |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Your data stays on a machine you choose | ✅<br><sub>Your server or PC</sub> | ✅<br><sub>Your server</sub> | ❌<br><sub>Proton’s servers (Switzerland)</sub> | ❌<br><sub>Google’s servers</sub> | ❌<br><sub>Microsoft’s servers</sub> |
+| Nobody else can read it | ✅<br><sub>Only whoever runs the server (you)</sub> | ✅<br><sub>Only whoever runs the server</sub> | 🟠<br><sub>Stored encrypted; mail from outside arrives readable</sub> | ❌<br><sub>Google can, and scans for its features</sub> | ❌<br><sub>Microsoft can</sub> |
+| You choose which AI sees your data | ✅<br><sub>Your provider, or local Ollama; off by default</sub> | ✅<br><sub>Local or chosen provider</sub> | 🟠<br><sub>Proton’s own AI</sub> | ❌<br><sub>Gemini, Google’s choice</sub> | ❌<br><sub>Copilot, Microsoft’s choice</sub> |
+| AI agents ask before acting | ✅<br><sub>Per-app permissions, approval before send, delete or share, undo</sub> | 🟠<br><sub>Assistant, no per-agent approvals</sub> | ✅<br><sub>No agents that act on their own</sub> | 🟠<br><sub>Agent features, few limits per app</sub> | 🟠<br><sub>Copilot agents, admin controls</sub> |
+| Open source: anyone can check the code | ✅<br><sub>AGPL</sub> | ✅<br><sub>AGPL</sub> | 🟠<br><sub>Apps open, servers not</sub> | ❌<br><sub>Closed</sub> | ❌<br><sub>Closed</sub> |
+| Proven: audits, years of use, a security team | ❌<br><sub>Young project, not audited yet</sub> | ✅<br><sub>Bug bounty, audits, millions of users</sub> | ✅<br><sub>Audited</sub> | ✅<br><sub>Large security team</sub> | ✅<br><sub>Large security team</sub> |
+| End-to-end encryption | ❌<br><sub>Not yet; encrypt the disk</sub> | 🟠<br><sub>For chosen folders</sub> | ✅<br><sub>Mail, Drive, Calendar</sub> | ❌<br><sub>Business plans only</sub> | 🟠<br><sub>S/MIME, business plans</sub> |
+| Security updates happen without you | 🟠<br><sub>You update the image (one command)</sub> | 🟠<br><sub>You update</sub> | ✅<br><sub>Done for you</sub> | ✅<br><sub>Done for you</sub> | ✅<br><sub>Done for you</sub> |
+| You can leave with everything | ✅<br><sub>Plain files, IMAP, CalDAV, CardDAV</sub> | ✅<br><sub>Plain files, standards</sub> | 🟠<br><sub>Export tools</sub> | 🟠<br><sub>Takeout</sub> | 🟠<br><sub>Export per app</sub> |
+
+**Safe to install, if you look after it.** For privacy, Wavium is safer than
+Google or Microsoft: your data never leaves your machine, and no company reads
+it or trains on it. For security, it is younger than Nextcloud, Proton or the
+big companies and not audited yet: keep it behind HTTPS (the install does),
+updated and backed up, with a strong password. Whoever gets into the machine
+gets the data: encrypt its disk and open no port but HTTPS.
+
 ## 🚀 Install it
 
 On a Linux server with Docker and a domain name pointing to it:
