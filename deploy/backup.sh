@@ -28,11 +28,14 @@ app=${ATRIUM_APP_SERVICE:-php}           # container with PHP (occ) and /var/www
 db=${ATRIUM_DB_SERVICE:-db}
 stop=${ATRIUM_STOP_SERVICES:-web cron php}  # what holds DB connections during a restore
 root=/var/www/html
+# User for occ and file work inside the app container (prod image: www-data; dev: the container's own).
+as=${ATRIUM_EXEC_USER:+-u $ATRIUM_EXEC_USER}
 
 die() { echo "backup: $*" >&2; exit 1; }
 say() { echo "backup: $*"; }
 c() { $compose "$@"; }
-occ() { c exec -T "$app" php occ "$@"; }
+# shellcheck disable=SC2086
+occ() { c exec -T $as "$app" php occ "$@"; }
 dbsh() { c exec -T "$db" sh -c "$1"; }
 
 maintenance_off() { occ maintenance:mode --off >/dev/null 2>&1 || true; }
@@ -53,14 +56,16 @@ backup)
 	dir=${2:-backups/$(date -u +%Y%m%dT%H%M%SZ)}
 	[ ! -e "$dir/MANIFEST" ] || die "$dir already holds a backup"
 	mkdir -p "$dir"
-	version=$(c exec -T "$app" php -r 'require "version.php"; echo implode(".", $OC_Version);' 2>/dev/null || echo unknown)
+	# shellcheck disable=SC2086
+	version=$(c exec -T $as "$app" php -r 'require "version.php"; echo implode(".", $OC_Version);' 2>/dev/null || echo unknown)
 	say "maintenance mode on"
 	occ maintenance:mode --on >/dev/null
 	trap maintenance_off EXIT
 	say "database -> $dir/db.dump"
 	dbsh 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' >"$dir/db.dump"
 	say "files -> $dir/files.tar.gz"
-	c exec -T "$app" sh -c "cd $root && set -- config/config.php data; [ -d custom_apps ] && set -- \"\$@\" custom_apps; tar -czf - \"\$@\"" >"$dir/files.tar.gz"
+	# shellcheck disable=SC2086
+	c exec -T $as "$app" sh -c "cd $root && set -- config/config.php data; [ -d custom_apps ] && set -- \"\$@\" custom_apps; tar -czf - \"\$@\"" >"$dir/files.tar.gz"
 	maintenance_off
 	trap - EXIT
 	{
@@ -90,12 +95,14 @@ restore)
 	say "files <- $dir/files.tar.gz"
 	# One-off container of the app image, without its entrypoint: the instance
 	# is stopped and nothing must try to install or upgrade now.
-	c run --rm -T --no-deps --entrypoint sh -v "$abs:/backup:ro" "$app" -c \
+	# shellcheck disable=SC2086
+	c run --rm -T --no-deps $as --entrypoint sh -v "$abs:/backup:ro" "$app" -c \
 		"cd $root && find data -mindepth 1 -maxdepth 1 -exec rm -rf {} + && tar -xzf /backup/files.tar.gz"
 	# The DB role Nextcloud uses is in the restored config.php (Nextcloud makes
 	# its own role with a random password at install): make the role match it,
 	# so a backup also restores onto a fresh stack.
-	creds=$(c run --rm -T --no-deps --entrypoint php "$app" -r \
+	# shellcheck disable=SC2086
+	creds=$(c run --rm -T --no-deps $as --entrypoint php -w "$root" "$app" -r \
 		'require "config/config.php"; echo base64_encode($CONFIG["dbuser"] ?? ""), " ", base64_encode($CONFIG["dbpassword"] ?? "");')
 	dbuser=$(echo "$creds" | awk '{print $1}' | base64 -d)
 	dbpass=$(echo "$creds" | awk '{print $2}' | base64 -d)

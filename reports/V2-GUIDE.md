@@ -80,6 +80,5 @@ Ensuite Settings > AI pour brancher une vraie IA.
 ## Limites connues
 
 - L'IA de démo est fictive : réponses simples, en partie en anglais.
-- Pas encore faits : filtres Sieve côté serveur, une sauvegarde dédiée à
-  l'installation `deploy/wavium` (les commandes sont dans son README), les
-  images publiées sur un registre (P6-2).
+- Pas encore faits : filtres Sieve côté serveur, les images publiées sur un
+  registre (P6-2).

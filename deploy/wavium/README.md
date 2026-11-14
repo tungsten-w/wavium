@@ -60,13 +60,14 @@ and `caddy-data` (certificates).
 
 ## Backups
 
-`make backup` / `make restore` at the repository root (P6-3) work on the dev
-stack. For this stack, while a Wavium-specific backup is not written yet:
+From `deploy/wavium` (the instance is in maintenance mode meanwhile):
 
 ```
-docker compose exec -T db pg_dump -U wavium -Fc wavium > wavium-db.dump
-docker run --rm -v wavium_html:/v -v "$PWD":/b alpine tar czf /b/wavium-html.tgz -C /v .
+./backup.sh backup                 # -> backups/<date>: database, files, config, checksums
+./backup.sh restore backups/<date> --yes
 ```
+
+Copy `backups/` to another machine. Restoring onto a fresh stack works too.
 
 ## Update
 
