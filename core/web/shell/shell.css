@@ -337,3 +337,17 @@ html, body, #atrium { height: 100%; }
 
 /* Wavium mark above the agent consent screen */
 .agent-connect__brand { color: var(--at-primary, #0b6aa8); margin-bottom: 4px; }
+
+/* Move from Google, Google sign-in (v2.1) */
+.gmove { display: flex; flex-direction: column; gap: 12px; }
+.gmove h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 17px; }
+.gmove p { margin: 0; line-height: 1.5; }
+.gmove__steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.gmove__step { display: flex; gap: 12px; align-items: flex-start; line-height: 1.5; }
+.gmove__n { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--at-on-primary, #fff); background: var(--at-primary, #0b6aa8); }
+.gmove__row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.gmove__row > .at-field { flex: 1 1 280px; }
+.gmove__uri { padding: 6px 10px; border-radius: var(--at-radius-s); background: var(--at-surface-container-high); word-break: break-all; }
+.gmove__done { display: flex; align-items: center; gap: 6px; color: var(--at-primary); }
+.gmove__note { font-size: 13px; }
+.gmove__status { display: flex; align-items: center; gap: 6px; font-weight: 500; }

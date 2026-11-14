@@ -19,6 +19,7 @@ import { Users } from './Users'
 import { Apps } from './Apps'
 import { AdminSharing, AdminTheming, Overview, PersonalSharing, Server } from './Admin'
 import { AdminSecurity, Delegation, Groupware, Notifications, Presets } from './Extra'
+import { AdminGoogle, MoveFromGoogle } from './Google'
 
 interface ReactSection { path: string, label: string, icon: string, admin?: boolean, hidden?: boolean, replaces?: string, Component: ComponentType<{ session: Session }> }
 
@@ -34,6 +35,7 @@ const SECTIONS: ReactSection[] = [
 	// The OAuth consent screen: reached from an app, not from the menu.
 	{ path: '/settings/user/agent-connect', label: 'Connect an agent', icon: 'agent', hidden: true, Component: AgentConnect },
 	{ path: '/settings/user/ai', label: 'AI providers', icon: 'plug', Component: Ai },
+	{ path: '/settings/user/move-from-google', label: 'Move from Google', icon: 'download', Component: MoveFromGoogle },
 	{ path: '/settings/admin/overview', label: 'Overview', icon: 'dashboard', admin: true, replaces: 'overview', Component: Overview },
 	{ path: '/settings/admin/server', label: 'Basic settings', icon: 'settings', admin: true, replaces: 'server', Component: Server },
 	{ path: '/settings/users', label: 'Accounts', icon: 'group', admin: true, Component: Users },
@@ -41,6 +43,7 @@ const SECTIONS: ReactSection[] = [
 	{ path: '/settings/admin/sharing', label: 'Sharing', icon: 'share', admin: true, replaces: 'sharing', Component: AdminSharing },
 	{ path: '/settings/admin/theming', label: 'Theming', icon: 'palette', admin: true, replaces: 'theming', Component: AdminTheming },
 	{ path: '/settings/admin/security', label: 'Security', icon: 'shield-lock', admin: true, replaces: 'security', Component: AdminSecurity },
+	{ path: '/settings/admin/google', label: 'Google sign-in', icon: 'key', admin: true, Component: AdminGoogle },
 	{ path: '/settings/admin/groupware', label: 'Groupware', icon: 'users-group', admin: true, replaces: 'groupware', Component: Groupware },
 	{ path: '/settings/admin/presets', label: 'Quick presets', icon: 'adjustments', admin: true, replaces: 'presets', Component: Presets },
 	{ path: '/settings/admin/admindelegation', label: 'Administration privileges', icon: 'user-shield', admin: true, replaces: 'admindelegation', Component: Delegation },
