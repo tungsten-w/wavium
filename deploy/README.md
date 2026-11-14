@@ -13,6 +13,7 @@ the server code. **Development does not use this folder's stack**: run
 | `atrium-entrypoint.sh` | Runs before the official entrypoint. If the image's build string differs from the installed one (same version number), it syncs the code into `/var/www/html`, switches off removed apps, runs `occ upgrade` and Atrium's core migrations, and clears theming's image cache. |
 | `gen-version.php` | Writes `version.php` in release format with channel `git` (no signature check, no updater nag) and build string `<date> <commit>`. |
 | `removed-apps` | Apps of the official release that Atrium does not ship. |
+| `wavium/` | **Generic install of Wavium** (P6-1): app, cron, PostgreSQL, Redis and Caddy (automatic HTTPS), everything from `.env`, a post-install hook (apps, cron, caches, no sample files). See `wavium/README.md`. |
 | `compose.yaml` | Production stack: app (Bun + FPM), cron, PostgreSQL 17, Redis 8, with CPU/RAM limits. Domain from `ATRIUM_DOMAIN`, secrets and `POSTGRES_*` in `../live/.env`, data in `../live/data` (override with `DATA_DIR`). Sits behind an existing reverse proxy (external network `NPM_NETWORK`). A generic setup with Caddy is planned (TASKS.md P6-1). |
 | `test/compose.yaml` | Test instance (`atrium-test`, `127.0.0.1:8091`) restored from a production dump: own DB/redis/volumes, no cron, Mail pointed at a local GreenMail server. |
 | `night/` | Containers for night runs of AI agents (`night.sh` at the repo root). |
