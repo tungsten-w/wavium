@@ -125,3 +125,14 @@ nothing for agents. Kept its route for the UI, added two internal ops for the
 agent tool (link frozen in the approval, re-checked before executing), and
 never executed against the demo list: its domain is real (rule A1), so the
 POST is covered by fakes only.
+
+### 2026-11-14 · P6-1 (sodium-7a)
+
+Generic install in `deploy/wavium/`, tested for real on localhost with three
+fresh installs; each run found something a config check could not:
+- Caddy refuses an empty global `email`;
+- Daily Todo was not enabled;
+- the installer gives the admin Nextcloud's sample files before any hook can
+  stop it.
+
+The post-install hook now handles the last two.

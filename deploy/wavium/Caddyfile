@@ -1,0 +1,29 @@
+# Wavium behind Caddy: automatic HTTPS for WAVIUM_DOMAIN (Let's Encrypt, or
+# Caddy's local CA for "localhost"). Bun in the app container serves everything.
+# To get Let's Encrypt notices, add a global block at the top:
+#   {
+#   	email you@example.org
+#   }
+
+{$WAVIUM_DOMAIN} {
+	encode zstd gzip
+	# Nextcloud clients find CalDAV/CardDAV here.
+	redir /.well-known/carddav /remote.php/dav/ 301
+	redir /.well-known/caldav /remote.php/dav/ 301
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		Referrer-Policy "no-referrer"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+	request_body {
+		max_size 10GB
+	}
+	reverse_proxy app:80 {
+		# Large uploads and long DAV syncs.
+		transport http {
+			read_timeout 1h
+			write_timeout 1h
+		}
+	}
+}
