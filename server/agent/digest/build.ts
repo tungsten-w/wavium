@@ -6,6 +6,8 @@
 // injected so tests need no PHP. A source that fails is left out and named in
 // `errors`; the digest is still built from the others.
 
+import { isLayout } from '../todo'
+
 /** Mail as listMessages() returns it (the fields the digest uses). */
 export interface MailRow {
 	message_key: string
@@ -180,7 +182,7 @@ export async function buildDigest(src: DigestSources, uid: string, opts: { now: 
 		.sort((a, b) => String(a.due).localeCompare(String(b.due)))
 	// Top-level open items; Daily Todo also lists today's events and tasks, shown above already.
 	const todo = todoRows
-		.filter((i) => !i.done && i.parent_id === null && (i.kind === 'item' || i.kind === 'routine'))
+		.filter((i) => !i.done && i.parent_id === null && (i.kind === 'item' || i.kind === 'routine') && !isLayout(i.title))
 		.map((i) => ({ item_id: i.item_id, title: i.title, kind: i.kind }))
 	const counts = {
 		reply: mail.filter((m) => m.reason === 'reply').length,
