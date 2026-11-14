@@ -72,3 +72,29 @@ One branch per task: `night/<ID>`; one report: `reports/<ID>.md`.
 - [~] (session B, 2026-11-13) P6-2 Images on GHCR (amd64 baseline + arm64), tagged
 - [x] P6-3 `make backup` / `make restore`, tested — branch ready: night/P6-3
 - [~] (session B, 2026-11-13) P6-4 Install guide + migration from an existing Nextcloud
+
+## Phase 7: v4
+
+Order: V4-1 first (small, makes the demo better), then Messages (V4-2..V4-7,
+ADR 0010, waits for the owner's go), the rest in any order.
+
+### v3 leftovers
+
+- [ ] V4-1 Demo polish: upload limit shown before uploading (Files, Mail attachments; IDEAS 3); the AI answers in the UI language (digest said "Aujourd'hui" on an English UI); Dashboard "Important mail" widget not empty on the demo
+
+### Messages: Google Messages in Wavium (ADR 0010)
+
+- [ ] V4-2 Sidecar `services/gmessages/` (Go, libgm pinned): pair (QR + Google account), conversations, messages, send, events over WebSocket; fake mode for tests and the demo
+- [ ] V4-3 Bun side: tables, sync from the sidecar, local copy kept forever, attachments in `Messages/`, encrypted pairing session — deps: V4-2
+- [ ] V4-4 Messages app (React): Settings > Messages > Link my phone (QR), conversation list, thread, send SMS/RCS, images, search, "phone offline" banner — deps: V4-3
+- [ ] V4-5 Agent tools and events `messages.*` (send = approval, one-time codes hidden from agents) — deps: V4-3
+- [ ] V4-6 Contacts: phone number → name and avatar; Messages in the cross-app search and the morning digest ("2 SMS need a reply") — deps: V4-3
+- [ ] V4-7 Demo: fake conversations for alice and bob, sidecar off — deps: V4-4
+
+### Ideas picked from reports/IDEAS.md
+
+- [ ] V4-8 Webhook test button in Settings > Agents (IDEAS 1)
+- [ ] V4-9 Agent tokens page: last use, IP, revoke in one click (IDEAS 2)
+- [ ] V4-10 "Why is this mail here?" with "wrong" button feeding the classifier (IDEAS 5)
+- [ ] V4-11 Quiet hours for agents, pings queued into the morning digest (IDEAS 8)
+- [ ] V4-12 `make test-e2e` in CI with screenshots per app (IDEAS 9)

@@ -34,6 +34,7 @@ Runs only as containers (`deploy/`). There is no bare-metal install.
 | [0007](0007-frontend-and-server.md) | React UIs, Bun server in front of PHP-FPM | accepted; built (`server/`, `core/web/`, `apps/*/web/`), in production since 2026-11-01 |
 | [0008](0008-client-compatibility.md) | What clients use and must keep working | accepted |
 | [0009](0009-agent-layer-mail-first.md) | Agent layer first slice: agents, approvals, events, mail tools | accepted (2026-11-08); built in TypeScript (`server/agent/`), in production since 2026-11-08 |
+| [0010](0010-messages-google-bridge.md) | Messages app linked to Google Messages (SMS, RCS) through a libgm sidecar | proposed (2026-11-14) |
 
 The phase checklist is `todo.md` at the repo root.
 
