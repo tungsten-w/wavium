@@ -73,7 +73,7 @@ working: DAV, OCS, login flows, OAuth2 and public links are unchanged
 On a Linux server with Docker and a domain name pointing to it:
 
 ```sh
-git clone <this repository> wavium && cd wavium
+git clone https://github.com/tungsten-w/wavium.git && cd wavium
 bash deploy/wavium/install.sh
 ```
 

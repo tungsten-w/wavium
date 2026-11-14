@@ -7,7 +7,7 @@ open.
 ## Quick install (one command)
 
 ```
-git clone <this repository> wavium && cd wavium
+git clone https://github.com/tungsten-w/wavium.git && cd wavium
 bash deploy/wavium/install.sh
 ```
 
