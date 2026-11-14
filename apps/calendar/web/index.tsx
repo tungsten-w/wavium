@@ -230,7 +230,7 @@ function Calendar() {
 				<form className="cal-caldlg" onSubmit={(e) => { e.preventDefault(); submitSub() }}>
 					<TextField label="Calendar address (https:// or webcal://)" autoFocus value={subDialog?.url ?? ''} onChange={(e) => setSubDialog((d) => d && { ...d, url: e.target.value })} />
 					<TextField label="Name (optional)" value={subDialog?.name ?? ''} onChange={(e) => setSubDialog((d) => d && { ...d, name: e.target.value })} />
-					<p className="at-muted" style={{ margin: 0 }}>Read-only; Atrium refreshes it regularly.</p>
+					<p className="at-muted" style={{ margin: 0 }}>Read-only; Wavium refreshes it regularly.</p>
 				</form>
 			</Dialog>
 		</AppLayout>
