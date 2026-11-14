@@ -157,6 +157,8 @@ export interface ComposeData {
 	draftId?: number
 	inReplyToMessageId?: string
 	sendAt?: number | null
+	/** P4-1c: HTML body; `body` is then its plain-text part. */
+	html?: string | null
 }
 
 async function mail<T>(path: string, opts: RequestOptions = {}): Promise<T> {
@@ -230,11 +232,11 @@ export const deleteAccount = (id: number) => mail(`/accounts/${id}`, { method: '
 export function saveDraft(data: ComposeData) {
 	return mail<{ id: number }>(`/accounts/${data.accountId}/draft`, { body: {
 		subject: data.subject,
-		body: data.body,
+		body: data.html ?? data.body,
 		to: data.to.map(formatAddress).join(', '),
 		cc: data.cc.map(formatAddress).join(', '),
 		bcc: data.bcc.map(formatAddress).join(', '),
-		isHtml: false,
+		isHtml: !!data.html,
 		draftId: data.draftId,
 	} })
 }
@@ -243,9 +245,9 @@ function outboxBody(data: ComposeData) {
 		accountId: data.accountId,
 		subject: data.subject,
 		bodyPlain: data.body,
-		bodyHtml: null,
-		editorBody: data.body,
-		isHtml: false,
+		bodyHtml: data.html ?? null,
+		editorBody: data.html ?? data.body,
+		isHtml: !!data.html,
 		smimeSign: false,
 		smimeEncrypt: false,
 		to: data.to,

@@ -289,3 +289,10 @@
 .ml-tags { display: flex; flex-direction: column; gap: 6px; min-width: min(320px, 75vw); }
 .ml-tags__new { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .ml-tags__new > .at-field { flex: 1; }
+
+/* HTML compose (P4-1c) */
+.ml-rich { display: flex; flex-direction: column; border: 1px solid var(--at-outline-variant); border-radius: var(--at-radius-m); overflow: hidden; }
+.ml-rich__bar { display: flex; align-items: center; gap: 2px; padding: 4px; border-bottom: 1px solid var(--at-outline-variant); background: var(--at-surface-container-low); }
+.ml-rich__btn { min-width: 32px; height: 32px; border: 0; border-radius: var(--at-radius-s); background: none; color: inherit; font: inherit; cursor: pointer; }
+.ml-rich__btn:hover { background: var(--at-surface-container-high); }
+.ml-rich__area { min-height: 240px; max-height: 50vh; overflow-y: auto; padding: 10px 12px; outline: none; line-height: 1.5; }

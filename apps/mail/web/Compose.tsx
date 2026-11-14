@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { Button, Dialog, Icon, IconButton, Select, TextArea, TextField, confirmDialog, toast } from '@atrium/ui'
 import { AddressField } from './AddressField'
+import { htmlToText, RichEditor, textToHtml } from './RichText'
 import { HttpError } from '@atrium/sdk'
 import { createOutbox, deleteOutbox, parseAddresses, saveDraft, sendOutbox, updateOutbox, uploadAttachment, type Account, type Attachment, type ComposeData } from './api'
 
@@ -18,6 +19,8 @@ export interface ComposerState {
 	outboxId?: number
 	inReplyToMessageId?: string
 	sendAt?: number | null
+	/** P4-1c: set when writing with formatting. */
+	html?: string | null
 }
 
 export const blankComposer = (accountId: number): ComposerState => ({ accountId, to: '', cc: '', bcc: '', subject: '', body: '', attachments: [] })
@@ -59,7 +62,8 @@ export function ComposeDialog({ initial, accounts, onClose, onDone, onPickDraft 
 	const data = (): ComposeData => ({
 		accountId: draft.accountId,
 		subject: draft.subject.trim(),
-		body: draft.body,
+		body: draft.html ? htmlToText(draft.html) : draft.body,
+		html: draft.html || null,
 		to: parseAddresses(draft.to),
 		cc: parseAddresses(draft.cc),
 		bcc: parseAddresses(draft.bcc),
@@ -138,7 +142,9 @@ export function ComposeDialog({ initial, accounts, onClose, onDone, onPickDraft 
 				<AddressField label="To" required autoFocus value={draft.to} onChange={(v) => patch({ to: v })} placeholder="name@example.org" />
 				{showCc && <div className="ml-composer__cc"><AddressField label="Cc" value={draft.cc} onChange={(v) => patch({ cc: v })} /><AddressField label="Bcc" value={draft.bcc} onChange={(v) => patch({ bcc: v })} /></div>}
 				<TextField label="Subject" value={draft.subject} onChange={(e) => patch({ subject: e.target.value })} />
-				<TextArea className="ml-composer__body" label="Message" rows={14} value={draft.body} onChange={(e) => patch({ body: e.target.value })} />
+				{draft.html != null
+					? <RichEditor label="Message" value={draft.html} onChange={(html) => patch({ html })} />
+					: <TextArea className="ml-composer__body" label="Message" rows={14} value={draft.body} onChange={(e) => patch({ body: e.target.value })} />}
 				{draft.attachments.length > 0 && <div className="ml-attachments ml-attachments--compose">
 					{draft.attachments.map((a) => <span className="ml-attachment" key={a.id}><Icon name="attachment" /><span>{a.fileName}</span><IconButton icon="close" label={`Remove ${a.fileName}`} onClick={() => patch({ attachments: draft.attachments.filter((x) => x !== a) })} /></span>)}
 				</div>}
@@ -146,6 +152,11 @@ export function ComposeDialog({ initial, accounts, onClose, onDone, onPickDraft 
 				<div className="ml-composer__footer">
 					<div className="ml-composer__tools">
 						<IconButton icon="attachment" label="Add attachments" onClick={() => fileInput.current?.click()} />
+						<Button variant={draft.html != null ? 'tonal' : 'text'} size="s" onClick={() => {
+							// Plain -> rich keeps the text; rich -> plain keeps its text version.
+							if (draft.html != null) patch({ body: htmlToText(draft.html), html: null })
+							else patch({ html: textToHtml(draft.body) })
+						}}>{draft.html != null ? 'Plain text' : 'Formatting'}</Button>
 						<input ref={fileInput} hidden type="file" multiple onChange={(e) => void attach(e.target.files)} />
 						<IconButton icon="schedule" label={later ? 'Send immediately' : 'Schedule send'} variant={later ? 'tonal' : 'standard'} onClick={() => setLater((v) => !v)} />
 						{draft.outboxId && <IconButton icon="delete" label="Delete outgoing message" disabled={busy !== null} onClick={() => void removeOutbox()} />}

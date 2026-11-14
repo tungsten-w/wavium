@@ -263,3 +263,24 @@ test('tags: chips in the list; Tags… adds one, creates a new one', async () =>
 	await waitFor(() => server.calls('PUT').filter((c) => c.path.includes('/messages/11/tags/')).length === 2)
 	delete (inbox[1] as { tags?: unknown }).tags
 })
+
+test('formatting: the message goes out as HTML with a plain-text part', async () => {
+	server
+		.on('POST', '/apps/mail/api/outbox', (req) => ({ id: 78, ...(req.body as object) }))
+		.on('POST', '/apps/mail/api/outbox/78', () => ({}))
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(container, 'Dinner on Friday?'))
+	await click(getButton(container, 'New message'))
+	const dialog = await waitFor(() => document.querySelector<HTMLElement>('.ml-composer'))
+	await type(getField(dialog, 'To'), 'bob@atrium.test')
+	await type(getField(dialog, 'Message'), 'Hello')
+	await click(getButton(dialog, 'Formatting'))
+	const area = await waitFor(() => dialog.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]'))
+	expect(area.innerHTML).toBe('Hello')
+	area.innerHTML = 'Hello <b>Bob</b>'
+	area.dispatchEvent(new InputEvent('input', { bubbles: true }))
+	await new Promise((r) => setTimeout(r, 20))
+	await click(getButton(dialog, 'Send'))
+	await waitFor(() => server.calls('POST', '/apps/mail/api/outbox/78').length === 1)
+	expect(server.calls('POST', '/apps/mail/api/outbox')[0].body).toMatchObject({ isHtml: true, bodyHtml: 'Hello <b>Bob</b>', bodyPlain: 'Hello Bob' })
+})
