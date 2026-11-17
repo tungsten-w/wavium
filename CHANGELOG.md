@@ -3,7 +3,38 @@
 Wavium (formerly Atrium) is a hard fork of Nextcloud 34.0.5. Versions are
 tagged in git (`v1`, `v2`, ...).
 
-## v4 (in progress)
+## v4
+
+- **Messages: your phone's texts in Wavium** (ADR 0010). Link your Android
+  phone with a QR code (or your Google account) and read, search and answer
+  SMS and RCS. Wavium keeps a copy of every text, even those deleted on the
+  phone; names come from Contacts; "phone offline" is said plainly. Agents
+  can read texts, and every text they write waits for your OK; one-time
+  codes stay hidden from them unless you allow one. Texts are in the header
+  search, and the morning digest says which ones wait for a reply. The link
+  runs in a small Go service (`services/gmessages`, libgm pinned): on with
+  `docker compose --profile messages up -d`; the dev stack runs a fake phone,
+  the public demo made-up conversations.
+- **Mail: "Why is this mail here?"** in plain words under each mail, and
+  **Wrong?** to fix it: the mail moves at once, and the next mails from that
+  sender are sorted the way you said.
+- **Agents**: a **Test** button for the doorbell (webhook); each token shows
+  when and from where it was last used, and revokes in one click; **quiet
+  hours** (no doorbell and no ping at night unless urgent, what waits is in
+  the morning digest).
+- **Demo polish**: a too-big file is refused before uploading (Files, Mail
+  attachments); the demo AI answers in your language; the Dashboard's
+  "Important mail" shows what the classifier calls important.
+- **More motion**: moving between apps slides the page, the light/dark
+  switch grows as a circle from your click, buttons ripple, notifications
+  arrive on a spring (all off with Calm or reduce-motion).
+- **Security check**: fixed a stored XSS in the note preview (a link in an
+  image's description could add script); stricter cleaning of pasted mail
+  HTML; the web server no longer serves UI sources, `services/` or
+  `reports/`; Permissions-Policy everywhere, CSP and COOP on the app page;
+  test tooling updated (no known vulnerable package left).
+- Tests: browser tests open every app (desktop and phone) with a screenshot
+  each, in CI.
 
 From friends' feedback on the v3 demo:
 

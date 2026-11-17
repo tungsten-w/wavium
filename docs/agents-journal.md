@@ -151,3 +151,14 @@ one task overwrote each other. Fixed with a per-task queue and proved by
 removing the queue and watching the browser test fail. Also: /tmp (tmpfs)
 filled up during the night; large scratch copies were moved, not deleted, to
 a scratch folder outside the repository.
+## 2026-11-17: v4 (one Claude session, solo, branch night/v4)
+
+The owner gave the go for Messages and asked for a finished, tested and
+checked v4 in one run, so the tasks shared one branch (one commit each).
+The security pass found a real stored XSS in the note preview that no test
+covered: the bare-URL linker also ran inside HTML attributes. Lesson: when a
+renderer escapes first and then adds tags with regexes, every later regex
+must skip tags. Two environment notes: Docker had run out of network
+address pools (many old stopped stacks; only their empty networks were
+removed), and the sandbox refused to download and run govulncheck, so that
+check is left to the owner.
