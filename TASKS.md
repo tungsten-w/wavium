@@ -97,7 +97,7 @@ ADR 0010, waits for the owner's go), the rest in any order.
 - [x] V4-9 Agent tokens page: last use, IP, revoke in one click (IDEAS 2) — night/v4
 - [x] V4-10 "Why is this mail here?" with "wrong" button feeding the classifier (IDEAS 5) — night/v4
 - [x] V4-11 Quiet hours for agents, pings queued into the morning digest (IDEAS 8) — night/v4
-- [ ] V4-12 `make test-e2e` in CI with screenshots per app (IDEAS 9)
+- [x] V4-12 `make test-e2e` in CI with screenshots per app (IDEAS 9) — night/v4
 
 ### Friends' feedback on v3 (2026-11-14)
 
