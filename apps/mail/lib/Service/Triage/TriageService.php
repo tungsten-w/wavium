@@ -848,6 +848,44 @@ class TriageService {
 	}
 
 	/**
+	 * Ids of the user's recent mail that Wavium calls important (same bar as the
+	 * morning digest): needs a reply or an action (>= 0.5), or urgent now/today;
+	 * never spam or suspicious, never in the excluded folders (junk, trash).
+	 * Newest first. Used by the Dashboard's "Important mail" widget (V4-1).
+	 *
+	 * @param int[] $excludeMailboxIds
+	 * @return int[]
+	 */
+	public function importantIds(string $userId, array $excludeMailboxIds, int $since, int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('m.id')->from('mail_messages', 'm')
+			->join('m', 'mail_mailboxes', 'mb', $qb->expr()->eq('mb.id', 'm.mailbox_id'))
+			->join('mb', 'mail_accounts', 'a', $qb->expr()->andX(
+				$qb->expr()->eq('a.id', 'mb.account_id'),
+				$qb->expr()->eq('a.user_id', $qb->createNamedParameter($userId)),
+			))
+			->join('a', 'mail_triage', 't', $qb->expr()->andX(
+				$qb->expr()->eq('t.account_id', 'a.id'),
+				$qb->expr()->eq('t.msg_hash', $qb->createFunction('MD5(m.message_id)')),
+			))
+			->where($qb->expr()->eq('m.flag_deleted', $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL)))
+			->andWhere($qb->expr()->gte('m.sent_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->orX(
+				$qb->expr()->gte('t.needs_reply', $qb->createNamedParameter(0.5, IQueryBuilder::PARAM_STR)),
+				$qb->expr()->gte('t.needs_action', $qb->createNamedParameter(0.5, IQueryBuilder::PARAM_STR)),
+				$qb->expr()->in('t.urgency', $qb->createNamedParameter(['now', 'today'], IQueryBuilder::PARAM_STR_ARRAY)),
+			))
+			->andWhere($qb->expr()->orX($qb->expr()->isNull('t.category'), $qb->expr()->neq('t.category', $qb->createNamedParameter('spam'))))
+			->andWhere($qb->expr()->orX($qb->expr()->isNull('t.suspicious'), $qb->expr()->lt('t.suspicious', $qb->createNamedParameter(0.6, IQueryBuilder::PARAM_STR))))
+			->orderBy('m.sent_at', 'DESC')
+			->setMaxResults(max(1, min(50, $limit)));
+		if ($excludeMailboxIds !== []) {
+			$qb->andWhere($qb->expr()->notIn('m.mailbox_id', $qb->createNamedParameter($excludeMailboxIds, IQueryBuilder::PARAM_INT_ARRAY)));
+		}
+		return array_map('intval', $qb->executeQuery()->fetchAll(\PDO::FETCH_COLUMN));
+	}
+
+	/**
 	 * Classifications for mail_messages ids (as listed in a folder).
 	 * @param int[] $dbIds
 	 * @return array<int, array<string, mixed>> db id => summary

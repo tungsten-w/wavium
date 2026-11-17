@@ -80,7 +80,7 @@ ADR 0010, waits for the owner's go), the rest in any order.
 
 ### v3 leftovers
 
-- [ ] V4-1 Demo polish: upload limit shown before uploading (Files, Mail attachments; IDEAS 3); the AI answers in the UI language (digest said "Aujourd'hui" on an English UI); Dashboard "Important mail" widget not empty on the demo
+- [x] V4-1 Demo polish: upload limit shown before uploading (Files, Mail attachments; IDEAS 3); the AI answers in the UI language (digest said "Aujourd'hui" on an English UI); Dashboard "Important mail" widget not empty on the demo — night/v4
 
 ### Messages: Google Messages in Wavium (ADR 0010) — done on night/v4 (Claude session, 2026-11-17)
 

@@ -32,10 +32,29 @@ test('rule, dates and reply', () => {
 	expect(demoReply('<thread>\nFrom: Bob Durand <bob@x>\nSubject: Dîner ?\n\nSalut, tu es libre ?\n</thread>')).toStartWith('Bonjour Bob,')
 })
 
-test('digest summary uses the headline', async () => {
+test('digest summary uses the headline, in the language asked (V4-1)', async () => {
 	const ai = createMockProvider({ defaultModel: 'demo' })
-	const r = await ai.complete({ system: 'You write the opening of a person\'s morning digest', messages: [{ role: 'user', content: '<digest>\n2 mails need a reply · 1 event\n\nMail:\n- x\n</digest>' }] })
-	expect(r.text).toBe('Aujourd\'hui : 2 mails need a reply · 1 event. Commence par les mails qui attendent une réponse.')
+	const digest = { messages: [{ role: 'user' as const, content: '<digest>\n2 mails need a reply · 1 event\n\nMail:\n- x\n</digest>' }] }
+	const fr = await ai.complete({ system: 'You write the opening of a person\'s morning digest: one or two short sentences, plain text, in French, ...', ...digest })
+	expect(fr.text).toBe('Aujourd\'hui : 2 mails need a reply · 1 event. Commence par les mails qui attendent une réponse.')
+	const en = await ai.complete({ system: 'You write the opening of a person\'s morning digest: one or two short sentences, plain text, in English, ...', ...digest })
+	expect(en.text).toBe('Today: 2 mails need a reply · 1 event. Start with the mail waiting for an answer.')
+})
+
+test('assistant answers in the language the person writes in (V4-1)', async () => {
+	const ai = createMockProvider({ defaultModel: 'demo' })
+	const tools = ['calendar_event_list'].map((name) => ({ name, description: '', inputSchema: { type: 'object' } }))
+	const sys = 'You are the assistant built into Wavium, working for Alice.'
+	const hello = await ai.complete({ system: sys, tools, toolChoice: 'auto', messages: [{ role: 'user', content: 'hello, what can you do?' }] })
+	expect(hello.text).toContain("I'm Wavium's demo AI")
+	const results = await ai.complete({ system: sys, tools, toolChoice: 'auto', messages: [
+		{ role: 'user', content: 'show my calendar' },
+		{ role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'calendar_event_list', input: {} }] },
+		{ role: 'user', content: [{ type: 'tool_result', toolCallId: 't1', content: JSON.stringify({ events: [{ start: '2026-11-18T09:00', title: 'Standup' }] }) }] },
+	] as never })
+	expect(results.text).toStartWith('Your calendar:')
+	const fr = await ai.complete({ system: sys, tools, toolChoice: 'auto', messages: [{ role: 'user', content: 'bonjour' }] })
+	expect(fr.text).toContain("Je suis l'IA de démo")
 })
 
 test('assistant: French intents call offered tools, results become short French lines', async () => {

@@ -307,3 +307,20 @@ export function relativeTime(d: Date | string | number): string {
 	if (abs < 86400 * 30) return rtf.format(Math.round(diff / 86400), 'day')
 	return formatDate(d)
 }
+
+// ---------------------------------------------------------------- upload limits (V4-1)
+
+let limitsCache: Promise<{ max_upload: number | null }> | null = null
+/** The server's largest upload in one request (bytes), or null for none. */
+export function uploadLimit(): Promise<number | null> {
+	limitsCache ??= fetch('/core/web/dist/limits.json', { cache: 'no-cache' })
+		.then((r) => (r.ok ? r.json() : { max_upload: null }))
+		.catch(() => { limitsCache = null; return { max_upload: null } })
+	return limitsCache.then((l) => l.max_upload ?? null)
+}
+
+/** Splits files into those that fit under `limit` and those that do not. */
+export function splitBySize<T extends { size: number }>(files: T[], limit: number | null): { ok: T[], tooBig: T[] } {
+	if (limit === null || limit < 0) return { ok: files, tooBig: [] }
+	return { ok: files.filter((f) => f.size <= limit), tooBig: files.filter((f) => f.size > limit) }
+}

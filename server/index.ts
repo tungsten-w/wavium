@@ -10,7 +10,7 @@ import type { FastCgiTarget } from './fastcgi'
 import { servePhp, type PhpTarget } from './php'
 import { isShellPage, route } from './routes'
 import { startAgentLayer, type AgentLayer } from './agent'
-import { loadLimits } from './limits'
+import { loadLimits, uiLimits } from './limits'
 import { demoInfo, demoRefusal, loadPublicDemo, refusalResponse } from './publicdemo'
 
 const docroot = (process.env.ATRIUM_DOCROOT ?? '/var/www/html').replace(/\/$/, '')
@@ -154,6 +154,12 @@ async function handle(req: Request, remote: string, received: Received): Promise
 	}
 	if (pathname === '/core/web/dist/apps.json' && (req.method === 'GET' || req.method === 'HEAD')) {
 		const res = new Response(req.method === 'HEAD' ? null : await appsIndex(), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' } })
+		securityHeaders(res.headers, url.pathname)
+		return res
+	}
+	// The upload limit, for the UI to refuse a too-big file before sending it (V4-1).
+	if (pathname === '/core/web/dist/limits.json' && (req.method === 'GET' || req.method === 'HEAD')) {
+		const res = new Response(req.method === 'HEAD' ? null : JSON.stringify(uiLimits(limits)), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' } })
 		securityHeaders(res.headers, url.pathname)
 		return res
 	}

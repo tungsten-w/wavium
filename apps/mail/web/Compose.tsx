@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { Button, Dialog, Icon, IconButton, Select, TextArea, TextField, confirmDialog, toast } from '@atrium/ui'
 import { AddressField } from './AddressField'
 import { htmlToText, RichEditor, textToHtml } from './RichText'
-import { HttpError } from '@atrium/sdk'
+import { formatBytes, HttpError, splitBySize, uploadLimit } from '@atrium/sdk'
 import { createOutbox, deleteOutbox, parseAddresses, saveDraft, sendOutbox, updateOutbox, uploadAttachment, type Account, type Attachment, type ComposeData } from './api'
 
 export interface ComposerState {
@@ -117,9 +117,16 @@ export function ComposeDialog({ initial, accounts, onClose, onDone, onPickDraft 
 
 	async function attach(files: FileList | null) {
 		if (!files) return
+		// A too-big file is refused here, not after a long upload ends in an error (V4-1).
+		const limit = await uploadLimit()
+		const { ok, tooBig } = splitBySize(Array.from(files), limit)
+		if (tooBig.length) toast.error(`${tooBig.map((f) => f.name).join(', ')}: too big (${formatBytes(tooBig[0].size)}; this server takes up to ${formatBytes(limit!)} per file). Share it from Files instead.`)
+		const total = [...draft.attachments.map((a) => (a as { size?: number }).size ?? 0), ...ok.map((f) => f.size)].reduce((a, b) => a + b, 0)
+		if (ok.length && total > 25 * 1024 * 1024) toast(`Heads-up: ${formatBytes(total)} of attachments. Many mail servers refuse more than 25 MB; a Files share link is safer.`)
+		if (!ok.length) { if (fileInput.current) fileInput.current.value = ''; return }
 		setBusy('draft')
 		try {
-			for (const file of Array.from(files)) {
+			for (const file of ok) {
 				const attachment = await uploadAttachment(draft.accountId, file)
 				setDraft((d) => ({ ...d, attachments: [...d.attachments, attachment] }))
 			}
