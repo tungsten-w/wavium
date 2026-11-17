@@ -3,7 +3,7 @@
 //
 // Theme = mode (per browser) + accent colour + wallpaper (both per user, stored by
 // the theming app, so classic pages in frames and other devices match).
-import { ocs, request, type Session } from '@atrium/sdk'
+import { ocs, request, type Session, withTransition } from '@atrium/sdk'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 type Theming = NonNullable<Session['capabilities']['theming']>
@@ -92,9 +92,12 @@ export function applyTheme(session: Session | null) {
 	if (name) document.title = name
 }
 
-export function setMode(mode: ThemeMode) {
-	write('atrium.theme', mode === 'system' ? null : mode)
-	applyTheme(null)
+export function setMode(mode: ThemeMode, origin?: { x: number, y: number }) {
+	// The new theme grows as a circle from where the person clicked (v4 animations).
+	withTransition(() => {
+		write('atrium.theme', mode === 'system' ? null : mode)
+		applyTheme(null)
+	}, { kind: 'theme', origin })
 }
 
 export const getAccent = () => state.accent

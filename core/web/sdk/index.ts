@@ -205,11 +205,46 @@ function refresh() {
 }
 if (typeof window !== 'undefined') window.addEventListener('popstate', refresh)
 
+/** Whether animations may run (system reduce-motion and Settings > Appearance > Animations > Calm say no). */
+export function motionAllowed(): boolean {
+	if (typeof document === 'undefined' || document.documentElement.dataset.motion === 'reduced') return false
+	return !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
+}
+
+type VtDocument = Document & { startViewTransition?: (update: () => void | Promise<void>) => { finished: Promise<void> } }
+
+/**
+ * Runs a DOM change as a View Transition when the browser has them and motion
+ * is allowed (v4 animations): the old view fades out as the new one comes in.
+ * `origin` (a click point) lets CSS start a circle from there (--vt-x/--vt-y).
+ */
+export function withTransition(update: () => void, opts: { kind?: string, origin?: { x: number, y: number } } = {}): void {
+	const doc = document as VtDocument
+	if (!doc.startViewTransition || !motionAllowed()) { update(); return }
+	const root = document.documentElement
+	if (opts.kind) root.dataset.vt = opts.kind
+	if (opts.origin) { root.style.setProperty('--vt-x', `${opts.origin.x}px`); root.style.setProperty('--vt-y', `${opts.origin.y}px`) }
+	try {
+		const t = doc.startViewTransition(() => new Promise<void>((done) => { update(); requestAnimationFrame(() => requestAnimationFrame(() => done())) }))
+		void t.finished.finally(() => { delete root.dataset.vt })
+	} catch {
+		delete root.dataset.vt
+		update()
+	}
+}
+
+const appOf = (path: string) => path.split('/').slice(0, 3).join('/')
+
 export function navigate(to: string, opts: { replace?: boolean } = {}) {
 	const url = new URL(to, location.href)
 	if (url.origin !== location.origin) { location.href = to; return }
-	history[opts.replace ? 'replaceState' : 'pushState'](null, '', url.pathname + url.search + url.hash)
-	refresh()
+	const go = () => {
+		history[opts.replace ? 'replaceState' : 'pushState'](null, '', url.pathname + url.search + url.hash)
+		refresh()
+	}
+	// Moving to another app slides the page; moves inside an app stay instant.
+	if (appOf(url.pathname) !== appOf(location.pathname) && !opts.replace) withTransition(go, { kind: 'app' })
+	else go()
 }
 export function useLocation(): Loc {
 	return useSyncExternalStore((cb) => { subs.add(cb); return () => subs.delete(cb) }, () => loc)

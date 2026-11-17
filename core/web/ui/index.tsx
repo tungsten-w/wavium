@@ -379,3 +379,31 @@ export function useDebounced<T>(value: T, ms = 250): T {
 	useEffect(() => { const t = setTimeout(() => setV(value), ms); return () => clearTimeout(t) }, [value, ms])
 	return v
 }
+
+/**
+ * Ripple (v4 animations): a soft circle grows from where a button is pressed.
+ * One listener for the whole page; nothing when motion is calm or reduced.
+ */
+export function installRipple(root: Document = document): () => void {
+	const onDown = (e: PointerEvent) => {
+		if (e.button !== 0) return
+		const el = (e.target as HTMLElement | null)?.closest?.('.at-btn, .at-icon-btn, .at-fab, .at-chip, .at-app-nav__item, .shell-app') as HTMLElement | null
+		if (!el || (el as HTMLButtonElement).disabled) return
+		const html = root.documentElement
+		if (html.dataset.motion === 'reduced' || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)) return
+		const r = el.getBoundingClientRect()
+		const size = Math.max(r.width, r.height) * 2
+		const dot = root.createElement('span')
+		dot.className = 'at-ripple'
+		dot.style.width = dot.style.height = `${size}px`
+		dot.style.left = `${e.clientX - r.left - size / 2}px`
+		dot.style.top = `${e.clientY - r.top - size / 2}px`
+		if (getComputedStyle(el).position === 'static') el.style.position = 'relative'
+		el.classList.add('at-ripple-host')
+		el.append(dot)
+		dot.addEventListener('animationend', () => dot.remove(), { once: true })
+		setTimeout(() => dot.remove(), 900)
+	}
+	root.addEventListener('pointerdown', onDown, { passive: true })
+	return () => root.removeEventListener('pointerdown', onDown)
+}

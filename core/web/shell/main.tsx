@@ -4,12 +4,13 @@
 // Shell entry: decides between the login page and the logged-in shell.
 import { createRoot } from 'react-dom/client'
 import { HttpError, loadSession, type Session } from '@atrium/sdk'
-import { Snackbars } from '@atrium/ui'
+import { installRipple, Snackbars } from '@atrium/ui'
 import { Login } from './Login'
 import { Shell } from './Shell'
 import { applyTheme } from './theme'
 import { loadAppIndex, type AppIndex } from './apps'
 
+installRipple()
 const root = createRoot(document.getElementById('atrium')!)
 
 function render(node: React.ReactNode) {
