@@ -205,6 +205,7 @@ function AgentCard({ agent: a, areas, onChange, onConnect, onDeleted }: {
 				<Switch label="Paused: every tool call is refused" checked={a.paused} disabled={busy} onChange={(e) => void run(() => api.update(a.uid, { paused: e.target.checked }))} />
 				<Switch label="Wake it up for new Curated mail and decisions (for agents that run all the time)" checked={a.wakes} disabled={busy} onChange={(e) => void run(() => api.update(a.uid, { wakes: e.target.checked }))} />
 				<Switch label="Notify me (ntfy) when it asks for approval" checked={a.notifyApprovals} disabled={busy} onChange={(e) => void run(() => api.update(a.uid, { notifyApprovals: e.target.checked }))} />
+				<QuietHours a={a} busy={busy} onSave={(quiet) => run(() => api.update(a.uid, { quiet }), quiet ? 'Quiet hours saved' : 'Quiet hours off')} />
 			</div>
 
 			<h3 style={{ marginTop: 20 }}>Doorbell</h3>
@@ -382,6 +383,29 @@ function ConnectGuides({ info }: { info: ConnectInfo }) {
 			<p style={{ fontSize: 14 }}>{g.intro}</p>
 			{g.steps.map((st) => <Copyable key={st.label} label={st.label} value={st.value} multiline={st.multiline} />)}
 			{g.note && <p className="at-muted" style={{ fontSize: 13 }}>{g.note}</p>}
+		</div>
+	)
+}
+
+/** Quiet hours (V4-11): no doorbell and no approval ping in this window, unless urgent "now". */
+function QuietHours({ a, busy, onSave }: { a: Agent, busy: boolean, onSave: (q: Agent['quiet']) => Promise<unknown> | void }) {
+	const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+	const [from, setFrom] = useState(a.quiet?.from ?? '22:00')
+	const [to, setTo] = useState(a.quiet?.to ?? '07:30')
+	useEffect(() => { setFrom(a.quiet?.from ?? '22:00'); setTo(a.quiet?.to ?? '07:30') }, [a.quiet?.from, a.quiet?.to])
+	const on = !!a.quiet
+	return (
+		<div className="agent-quiet">
+			<Switch label="Quiet hours: no doorbell and no ping at night (urgent mail still rings; what waits is in the morning digest)" checked={on} disabled={busy}
+				onChange={(e) => void onSave(e.target.checked ? { from, to, tz } : null)} />
+			{on && (
+				<div className="agent-quiet__times">
+					<label>From <input type="time" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+					<label>to <input type="time" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+					<span className="at-muted">{a.quiet?.tz ?? tz}</span>
+					<Button variant="tonal" size="s" disabled={busy || from === to || (from === a.quiet?.from && to === a.quiet?.to)} onClick={() => void onSave({ from, to, tz })}>Save</Button>
+				</div>
+			)}
 		</div>
 	)
 }

@@ -73,6 +73,7 @@ export class OwnerApi {
 			wakes: settings.wakes,
 			webhookUrl: settings.webhookUrl,
 			notifyApprovals: settings.notifyApprovals,
+			quiet: settings.quiet,
 			doorbellError: settings.doorbellError,
 			doorbellErrorAt: settings.doorbellErrorAt,
 			access,
@@ -179,6 +180,7 @@ export class OwnerApi {
 					if (typeof input.paused === 'boolean') patch.paused = input.paused
 					if (typeof input.wakes === 'boolean') patch.wakes = input.wakes
 					if (typeof input.notifyApprovals === 'boolean') patch.notifyApprovals = input.notifyApprovals
+					if (input.quiet !== undefined) patch.quiet = input.quiet as never
 					if (input.webhookUrl !== undefined) {
 						patch.webhookUrl = input.webhookUrl === null ? null : String(input.webhookUrl).trim()
 						patch.doorbellError = null

@@ -32,6 +32,8 @@ export interface DigestSources {
 	tasks(uid: string, before: Date): Promise<TaskRow[]>
 	/** Today's Daily Todo items. */
 	todo(uid: string): Promise<TodoRow[]>
+	/** Agent requests waiting for the person's OK (quiet hours hold their pings, V4-11). */
+	approvals?(uid: string): Promise<number>
 	/** Text conversations (Messages) whose last message waits for an answer. */
 	texts?(uid: string): Promise<TextRow[]>
 	/** Where the mail opens in Atrium (only for the mail the digest keeps). */
@@ -57,7 +59,7 @@ export interface Digest {
 	todo: DigestTodo[]
 	/** Texts (SMS/RCS) waiting for an answer (v4 Messages). */
 	texts: DigestText[]
-	counts: { reply: number, action: number, events: number, tasks: number, overdue: number, todo: number, texts: number }
+	counts: { reply: number, action: number, events: number, tasks: number, overdue: number, todo: number, texts: number, approvals?: number }
 	/** Sources that failed, with why. */
 	errors: Record<string, string>
 }
@@ -151,6 +153,7 @@ export function headline(d: Pick<Digest, 'counts' | 'events' | 'timezone'>): str
 	if (c.tasks) parts.push(`${plural(c.tasks, 'task')} due${c.overdue ? ` (${c.overdue} overdue)` : ''}`)
 	if (c.todo) parts.push(`${plural(c.todo, 'thing')} on today's list`)
 	if (c.texts) parts.push(`${plural(c.texts, 'text')} ${need(c.texts)} a reply`)
+	if (c.approvals) parts.push(`${plural(c.approvals, 'agent request')} ${c.approvals === 1 ? 'waits' : 'wait'} for your OK`)
 	return parts.length ? parts.join(' · ') : 'Nothing needs you today.'
 }
 
@@ -177,6 +180,7 @@ export async function buildDigest(src: DigestSources, uid: string, opts: { now: 
 		safe(errors, 'todo', () => src.todo(uid), []),
 	])
 	const textRows = src.texts ? await safe(errors, 'messages', () => src.texts!(uid), []) : []
+	const approvals = src.approvals ? await safe(errors, 'agents', () => src.approvals!(uid), 0) : 0
 	// Only texts of the last week; codes are not "waiting for a reply".
 	const texts = textRows
 		.filter((t) => !t.one_time_code && t.last_at > opts.now.getTime() - MAIL_DAYS * 86_400_000)
@@ -206,6 +210,7 @@ export async function buildDigest(src: DigestSources, uid: string, opts: { now: 
 		overdue: tasks.filter((t) => t.overdue).length,
 		todo: todo.length,
 		texts: texts.length,
+		...(approvals ? { approvals } : {}),
 	}
 	const d: Digest = { day, timezone: tz, generated_at: opts.now.toISOString(), headline: '', ai_summary: null, mail, events, tasks, todo, texts, counts, errors }
 	d.headline = headline(d)

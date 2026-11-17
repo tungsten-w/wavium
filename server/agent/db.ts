@@ -204,6 +204,13 @@ const MIGRATIONS: Migration[] = [
 				calls BIGINT NOT NULL DEFAULT 0)`)
 		},
 	},
+	{
+		// Quiet hours per agent (V4-11): JSON {from: "22:00", to: "07:00", tz: "Europe/Paris"} or NULL.
+		id: 4,
+		up: async (db) => {
+			await db.q(`ALTER TABLE ${db.t('atrium_agent_settings')} ADD COLUMN quiet TEXT`)
+		},
+	},
 ]
 
 export async function migrate(db: Db): Promise<void> {

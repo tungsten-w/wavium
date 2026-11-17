@@ -126,6 +126,10 @@ export function liveSources(core: Pick<LayerCore, 'db' | 'php'>): DigestSources 
 			const r = rows[0]
 			return r ? `/apps/mail/box/${Number(r.mailbox_id)}/thread/${Number(r.id)}` : null
 		},
+		async approvals(uid) {
+			const [r] = await core.db.q<{ n: unknown }>(`SELECT count(*) AS n FROM ${core.db.t('atrium_agent_approvals')} WHERE grantor_uid = $1 AND status = 'pending'`, [uid])
+			return Number(r?.n ?? 0)
+		},
 		async texts(uid) {
 			const store = new MessageStore(core.db)
 			const rows = await store.waiting(uid)

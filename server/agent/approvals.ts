@@ -5,7 +5,7 @@
 // frozen payload and returns pending_approval; the owner approves or rejects
 // in Atrium; an approved request runs the frozen payload through the tool's
 // normal execute path. Every status change is an approval.* event for the agent.
-import { getSettings } from './access'
+import { getSettings, isQuiet } from './access'
 import type { Db } from './db'
 import { num } from './db'
 import { enqueue, type Notifier } from './events'
@@ -84,7 +84,9 @@ export class Approvals implements ApprovalsApi {
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11)`,
 		[rid, ctx.agent.uid, ctx.grantor, tool.name, JSON.stringify(input), payload, sha256Hex(payload), prepared.summary.slice(0, 1000), prepared.ref ?? null, now, now + APPROVAL_TTL_SEC])
 		if (this.notifier) {
-			if ((await getSettings(this.db, ctx.agent.uid)).notifyApprovals) {
+			const st = await getSettings(this.db, ctx.agent.uid)
+			// Quiet hours (V4-11): no ping at night; the morning digest lists what waits.
+			if (st.notifyApprovals && !isQuiet(st.quiet)) {
 				await this.notifier.notify(`${ctx.agent.displayName} asks: ${tool.name}`, prepared.summary, { tags: ['robot'], click: `${this.ownerUrl}?request=${rid}` }).catch(() => {})
 			}
 		}

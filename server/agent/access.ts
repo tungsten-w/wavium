@@ -113,13 +113,40 @@ export interface AgentSettings {
 	notifyApprovals: boolean
 	doorbellError: string | null
 	doorbellErrorAt: number | null
+	/** No doorbell and no approval ping in this window, unless urgent (V4-11). */
+	quiet: QuietHours | null
+}
+
+export interface QuietHours { from: string, to: string, tz: string }
+
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
+
+export function validQuiet(q: unknown): QuietHours | null {
+	if (q === null || q === undefined) return null
+	const x = q as Record<string, unknown>
+	if (typeof x !== 'object' || typeof x.from !== 'string' || typeof x.to !== 'string' || !HHMM.test(x.from) || !HHMM.test(x.to) || x.from === x.to) {
+		throw new AgentError('invalid_input', 'quiet: {from: "HH:MM", to: "HH:MM", tz}, two different times')
+	}
+	const tz = typeof x.tz === 'string' && x.tz ? x.tz : 'UTC'
+	try { new Intl.DateTimeFormat('en', { timeZone: tz }) } catch { throw new AgentError('invalid_input', `quiet.tz: unknown time zone ${tz}`) }
+	return { from: x.from, to: x.to, tz }
+}
+
+/** Whether `at` falls in the quiet window (which may cross midnight). */
+export function isQuiet(q: QuietHours | null, at: Date = new Date()): boolean {
+	if (!q) return false
+	const parts = new Intl.DateTimeFormat('en-GB', { timeZone: q.tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(at)
+	const hh = parts.find((p) => p.type === 'hour')?.value ?? '00'
+	const mm = parts.find((p) => p.type === 'minute')?.value ?? '00'
+	const now = `${hh}:${mm}`
+	return q.from < q.to ? now >= q.from && now < q.to : now >= q.from || now < q.to
 }
 
 export async function getSettings(db: Db, uid: string): Promise<AgentSettings> {
 	const rows = await db.q<Record<string, unknown>>(`SELECT * FROM ${db.t('atrium_agent_settings')} WHERE uid = $1`, [uid])
 	const r = rows[0]
 	if (!r) {
-		return { uid, paused: false, wakes: false, webhookUrl: null, webhookSecret: null, notifyApprovals: true, doorbellError: null, doorbellErrorAt: null }
+		return { uid, paused: false, wakes: false, webhookUrl: null, webhookSecret: null, notifyApprovals: true, doorbellError: null, doorbellErrorAt: null, quiet: null }
 	}
 	return {
 		uid,
@@ -130,6 +157,7 @@ export async function getSettings(db: Db, uid: string): Promise<AgentSettings> {
 		notifyApprovals: bool(r.notify_approvals),
 		doorbellError: (r.doorbell_error as string | null) ?? null,
 		doorbellErrorAt: r.doorbell_error_at === null || r.doorbell_error_at === undefined ? null : num(r.doorbell_error_at),
+		quiet: (() => { try { return r.quiet ? validQuiet(JSON.parse(String(r.quiet))) : null } catch { return null } })(),
 	}
 }
 
@@ -160,12 +188,13 @@ export async function updateSettings(db: Db, uid: string, patch: Partial<Omit<Ag
 	}
 	if (next.webhookUrl === '') next.webhookUrl = null
 	if (!next.webhookSecret) next.webhookSecret = 'whsec_' + randomToken(24)
-	await db.q(`INSERT INTO ${db.t('atrium_agent_settings')} (uid, paused, wakes, webhook_url, webhook_secret, notify_approvals, doorbell_error, doorbell_error_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	if (patch.quiet !== undefined) next.quiet = validQuiet(patch.quiet)
+	await db.q(`INSERT INTO ${db.t('atrium_agent_settings')} (uid, paused, wakes, webhook_url, webhook_secret, notify_approvals, doorbell_error, doorbell_error_at, updated_at, quiet)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (uid) DO UPDATE SET paused = excluded.paused, wakes = excluded.wakes, webhook_url = excluded.webhook_url,
 			webhook_secret = excluded.webhook_secret, notify_approvals = excluded.notify_approvals,
-			doorbell_error = excluded.doorbell_error, doorbell_error_at = excluded.doorbell_error_at, updated_at = excluded.updated_at`,
+			doorbell_error = excluded.doorbell_error, doorbell_error_at = excluded.doorbell_error_at, updated_at = excluded.updated_at, quiet = excluded.quiet`,
 	[uid, next.paused ? 1 : 0, next.wakes ? 1 : 0, next.webhookUrl, next.webhookSecret, next.notifyApprovals ? 1 : 0,
-		next.doorbellError, next.doorbellErrorAt, nowSec()])
+		next.doorbellError, next.doorbellErrorAt, nowSec(), next.quiet ? JSON.stringify(next.quiet) : null])
 	return next
 }

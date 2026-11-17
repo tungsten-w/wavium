@@ -27,7 +27,7 @@ export const api = {
 	oauthFlow: (id: string) => owner<OAuthFlow>(`oauth/flows/${encodeURIComponent(id)}`),
 	oauthAnswer: (id: string, answer: 'approve' | 'deny', agent?: string) => owner<{ redirect: string }>(`oauth/flows/${encodeURIComponent(id)}/${answer}`, { method: 'POST', body: agent ? { agent } : {} }),
 	revokeApp: (uid: string, grantId: string) => owner(`agents/${encodeURIComponent(uid)}/oauth/${encodeURIComponent(grantId)}`, { method: 'DELETE' }),
-	update: (uid: string, body: Partial<Pick<Agent, 'displayName' | 'description' | 'paused' | 'wakes' | 'webhookUrl' | 'notifyApprovals'>>) =>
+	update: (uid: string, body: Partial<Pick<Agent, 'displayName' | 'description' | 'paused' | 'wakes' | 'webhookUrl' | 'notifyApprovals' | 'quiet'>>) =>
 		owner<Agent>(`agents/${encodeURIComponent(uid)}`, { method: 'PATCH', body }),
 	remove: (uid: string) => owner(`agents/${encodeURIComponent(uid)}`, { method: 'DELETE' }),
 	setAccess: (uid: string, body: { preset?: Preset, areas?: Record<string, Modes | null> }) => owner<Agent>(`agents/${encodeURIComponent(uid)}/access`, { method: 'PUT', body }),

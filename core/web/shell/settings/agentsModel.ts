@@ -25,6 +25,8 @@ export interface Agent {
 	wakes: boolean
 	webhookUrl: string | null
 	notifyApprovals: boolean
+	/** Quiet hours (V4-11): no doorbell or approval ping in this window, unless urgent. */
+	quiet?: { from: string, to: string, tz: string } | null
 	doorbellError: string | null
 	doorbellErrorAt: number | null
 	access: AccessMap

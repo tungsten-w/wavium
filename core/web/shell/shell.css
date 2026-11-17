@@ -487,3 +487,6 @@ button.safety__mark:hover, button.safety__mark:focus-visible { transform: scale(
 .agent-hook-test { font-size: 13px; margin: 6px 0 0; padding: 6px 10px; border-radius: 10px; animation: at-enter 300ms var(--at-ease) backwards; }
 .agent-hook-test--ok { background: color-mix(in srgb, #2e7d32 14%, transparent); }
 .agent-hook-test--bad { background: var(--at-error-container); }
+/* Settings > Agents > Quiet hours (V4-11) */
+.agent-quiet__times { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0 0 44px; animation: at-enter 280ms var(--at-ease) backwards; }
+.agent-quiet__times input[type=time] { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--at-outline-variant); background: var(--at-surface-container); color: inherit; }

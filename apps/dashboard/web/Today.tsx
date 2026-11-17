@@ -21,7 +21,7 @@ export interface Digest {
 	todo: Array<{ item_id: number, title: string, kind: string }>
 	/** v4: texts waiting for an answer (older digests have none). */
 	texts?: Array<{ conversation_id: string, name: string, text: string, at: string, link: string }>
-	counts: { reply: number, action: number, events: number, tasks: number, overdue: number, todo: number, texts?: number }
+	counts: { reply: number, action: number, events: number, tasks: number, overdue: number, todo: number, texts?: number, approvals?: number }
 	errors: Record<string, string>
 }
 export interface DigestSettings { enabled: boolean, time: string, notify: boolean, ai: boolean }
@@ -49,7 +49,7 @@ function time(iso: string | null, tz: string): string {
 	return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZone: tz })
 }
 
-const SOURCE: Record<string, string> = { mail: 'Mail', calendar: 'Calendar', tasks: 'Tasks', todo: 'Daily Todo', messages: 'Messages' }
+const SOURCE: Record<string, string> = { mail: 'Mail', calendar: 'Calendar', tasks: 'Tasks', todo: 'Daily Todo', messages: 'Messages', agents: 'Agents' }
 
 export function TodayCard() {
 	const [d, setD] = useState<Digest | null>(null)
@@ -81,6 +81,7 @@ export function TodayCard() {
 				<>
 					{d.ai_summary && <p className="dash-today__ai">{d.ai_summary}</p>}
 					<p className="dash-today__headline">{d.headline}</p>
+					{(d.counts.approvals ?? 0) > 0 && <p className="dash-today__waiting"><a href="/settings/user/agent-activity" onClick={linkHandler}>{d.counts.approvals} agent request{d.counts.approvals === 1 ? '' : 's'} wait{d.counts.approvals === 1 ? 's' : ''} for your OK ›</a></p>}
 					<div className="dash-today__cols">
 						{d.mail.length > 0 && (
 							<div>
