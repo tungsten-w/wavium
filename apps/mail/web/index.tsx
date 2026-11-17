@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appUrl, defineApp, formatBytes, formatDate, navigate, relativeTime, useApp, useAppPath, useLocation } from '@atrium/sdk'
-import { AppLayout, Avatar, Button, Dialog, EmptyState, Icon, IconButton, Menu, NavItem, NavSection, NavToggle, SearchBar, Select, Spinner, TextField, confirmDialog, toast } from '@atrium/ui'
+import { AppLayout, Avatar, Button, Dialog, EmptyState, Icon, IconButton, Menu, NavItem, NavSection, NavToggle, SearchBar, Select, Spinner, Switch, TextField, confirmDialog, toast } from '@atrium/ui'
 import { AccountSettings, AccountSetup } from './Account'
 import { ComposeDialog, blankComposer, type ComposerState } from './Compose'
 import { MailRules } from './Rules'
@@ -14,7 +14,7 @@ import { UnsubscribeBanner } from './Unsubscribe'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
 import { archiveTarget, kindBoxes, labelQuery, sortBoxes, type ViewKind } from './labels'
-import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, suggestReply, undoDelete, snoozeMessage, patchAccount, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
+import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, correctTriage, suggestReply, undoDelete, snoozeMessage, patchAccount, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
 import './style.css'
 
 const errorText = (e: unknown) => e instanceof Error ? e.message : String(e)
@@ -465,19 +465,71 @@ function TriageChips({ t }: { t?: Triage | null }) {
 	return <span className="ml-tags">{chips.map(([label, kind]) => <span key={label} className={`ml-tag ml-tag--${kind}`}>{label}</span>)}</span>
 }
 
-/** Under the sender in the reader: what the classifier said, or where the mail is in the queue. */
-function TriageLine({ t, busy }: { t?: Triage | null, busy: boolean }) {
+/** "Why is this mail here?" in plain words (V4-10), from what the classifier said. */
+export function whyHere(t: Triage, hides: string[]): string {
+	const pct = (v: number | null) => (v === null ? null : Math.round(v * 100))
+	const cat = categoryLabels[t.category!] ?? t.category
+	const sure = pct(t.categoryConfidence)
+	const parts: string[] = []
+	if (t.category === 'spam' || (t.suspicious ?? 0) >= 0.6) parts.push(`it looks like ${t.category === 'spam' ? 'spam' : 'a trick'}${pct(t.suspicious) !== null && t.suspicious! >= 0.6 ? ` (suspicious ${pct(t.suspicious)}%)` : ''}`)
+	else parts.push(`it is ${cat}${sure !== null && sure < 100 ? ` (${sure}% sure)` : ''}`)
+	if ((t.needsReply ?? 0) >= 0.5) parts.push(`it waits for your reply (${pct(t.needsReply)}%)`)
+	else if ((t.needsAction ?? 0) >= 0.5) parts.push(`it asks you to do something (${pct(t.needsAction)}%)`)
+	if (t.urgency === 'now' || t.urgency === 'today') parts.push(`it is urgent ${t.urgency === 'now' ? 'now' : 'today'}`)
+	const where = hides.includes(t.category!) ? 'Hidden from Curated' : 'In Curated'
+	return `${where}: ${parts.join(', ')}.`
+}
+
+/** Under the sender in the reader: why the mail is where it is, or where it is in the queue. */
+function TriageLine({ t, busy, dbId, onTriage }: { t?: Triage | null, busy: boolean, dbId: number, onTriage: (t: Triage | null) => void }) {
+	const [wrong, setWrong] = useState(false)
 	if (busy) return <p className="ml-triage"><Spinner small /> Classifying…</p>
 	if (!t || t.queue === undefined) return null
 	if (t.category) {
-		const pct = (v: number | null) => v === null ? null : Math.round(v * 100)
-		const bits = [categoryLabels[t.category] ?? t.category, t.urgency && `urgency: ${(urgencyLabels[t.urgency] ?? t.urgency).toLowerCase()}`,
-			pct(t.needsReply) !== null && `reply ${pct(t.needsReply)}%`, pct(t.needsAction) !== null && `action ${pct(t.needsAction)}%`].filter(Boolean)
-		return <p className="ml-triage"><Icon name="label" /> {bits.join(' · ')}{t.classifiedAt && <small> · classified {relativeTime(t.classifiedAt * 1000)}</small>}</p>
+		return <>
+			<p className="ml-triage ml-why"><Icon name="label" /> <span><strong>Why is this here?</strong> {whyHere(t, curatedHides)}{t.classifiedAt && <small> · classified {relativeTime(t.classifiedAt * 1000)}</small>}</span>
+				<Button variant="text" size="s" onClick={() => setWrong(true)}>Wrong?</Button></p>
+			<WrongDialog open={wrong} t={t} dbId={dbId} onClose={() => setWrong(false)} onDone={(next) => { setWrong(false); onTriage(next) }} />
+		</>
 	}
 	if (t.queue === 'pending') return <p className="ml-triage"><Icon name="schedule" /> Waiting to be classified{t.attempts ? ` (tried ${t.attempts}×: ${t.error ?? 'error'})` : ''}</p>
 	if (t.queue === 'parked') return <p className="ml-triage ml-triage--error"><Icon name="warning" /> Classification gave up: {t.error ?? 'unknown error'}. Use ⋮ › Reclassify to try again.</p>
 	return <p className="ml-triage"><Icon name="label" /> Not classified (only Inbox and Spam are classified automatically). Use ⋮ › Reclassify.</p>
+}
+
+/** "Wrong, it's …": fixes this mail now and teaches the classifier for this sender (V4-10). */
+function WrongDialog({ open, t, dbId, onClose, onDone }: { open: boolean, t: Triage, dbId: number, onClose: () => void, onDone: (t: Triage) => void }) {
+	const [category, setCategory] = useState(t.category ?? 'personal')
+	const [reply, setReply] = useState((t.needsReply ?? 0) >= 0.5)
+	const [busy, setBusy] = useState(false)
+	useEffect(() => { if (open) { setCategory(t.category ?? 'personal'); setReply((t.needsReply ?? 0) >= 0.5) } }, [open, t])
+	const save = async () => {
+		setBusy(true)
+		try {
+			const body: Record<string, unknown> = { db_id: dbId }
+			if (category !== t.category) body.category = category
+			if (reply !== ((t.needsReply ?? 0) >= 0.5)) body.needs_reply = reply
+			if (Object.keys(body).length === 1) { onClose(); return }
+			const r = await correctTriage(body)
+			toast(r.remembered ? `Fixed. Mail from ${r.sender} will be sorted this way from now on.` : 'Fixed for this mail.')
+			onDone({ ...t, category, categoryConfidence: 1, needsReply: reply ? 1 : 0, ...(category !== 'spam' ? { suspicious: 0 } : {}) })
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : String(e))
+		} finally {
+			setBusy(false)
+		}
+	}
+	return (
+		<Dialog open={open} onClose={onClose} title="Where should this mail go?" actions={<><Button variant="text" onClick={onClose}>Cancel</Button><Button busy={busy} onClick={() => void save()}>Fix it</Button></>}>
+			<p className="ml-why__hint">Wavium fixes this mail now and remembers it for the next mails from the same sender.</p>
+			<div className="ml-why__cats" role="radiogroup" aria-label="Category">
+				{filterCategories.map((c) => (
+					<button key={c} type="button" role="radio" aria-checked={c === category} className={`ml-chip ${c === category ? 'ml-chip--on' : ''}`} onClick={() => setCategory(c)}>{categoryLabels[c]}</button>
+				))}
+			</div>
+			<Switch label="It waits for my reply" checked={reply} onChange={(e) => setReply(e.target.checked)} />
+		</Dialog>
+	)
 }
 
 function MessageRow({ message, triage, selected, outgoing, onOpen, onFlag, onArchive }: { message: Message, triage?: Triage | null, selected: boolean, outgoing?: boolean, onOpen: () => void, onFlag: () => void, onArchive?: () => void }) {
@@ -563,7 +615,7 @@ function Reader({ id, message, triage, onTriage, boxes, moveTarget, setMoveTarge
 		{body && <div className="ml-article__content">
 			<h1>{subject}</h1>
 			<div className="ml-sender"><Avatar name={displayAddress(body.from[0])} size={44} /><div><strong>{displayAddress(body.from[0])}</strong>{body.from[0]?.email && <span className="ml-from" title="The address this mail really came from">{body.from[0].email}</span>}<span>to {body.to.map((a) => a.label || a.email).join(', ') || 'me'}</span></div><time>{messageDate(body.dateInt)}</time></div>
-			<TriageLine t={triage} busy={classifying} />
+			<TriageLine t={triage} busy={classifying} dbId={id} onTriage={onTriage} />
 			<SpoofBanner from={body.from[0]} />
 			<ExtractDialog dbId={body.databaseId} open={extractOpen} onClose={() => setExtractOpen(false)} />
 			{onTags && message && <TagsDialog message={message} open={tagsOpen} onClose={() => setTagsOpen(false)} onChange={onTags} />}

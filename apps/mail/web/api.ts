@@ -341,6 +341,15 @@ export interface TriageStatus {
 }
 export const triageStatus = () => mail<TriageStatus>('/triage/status')
 export const triageFor = (ids: number[]) => ids.length ? mail<Record<string, Triage>>(`/triage/messages?ids=${ids.join(',')}`) : Promise.resolve({} as Record<string, Triage>)
+/** "Why is this mail here?" > Wrong (V4-10): fix this mail and remember it for its sender. */
+export async function correctTriage(body: Record<string, unknown>): Promise<{ corrected: boolean, sender: string | null, remembered: boolean }> {
+	try {
+		return await request('/agent/v1/mail/triage-correct', { method: 'POST', body, headers: { 'OCS-APIRequest': 'true' } })
+	} catch (e) {
+		const msg = (e as { body?: { error?: { message?: string } } }).body?.error?.message
+		throw msg ? new Error(msg) : e
+	}
+}
 export const reclassify = (id: number) => mail<{ queued: boolean, classified: boolean, reason: string | null, triage: Triage | null }>(`/triage/messages/${id}/reclassify`, { method: 'POST' })
 export const setTriageEnabled = (enabled: boolean) => mail<{ enabled: boolean }>('/triage/enabled', { method: 'PUT', body: { enabled } })
 

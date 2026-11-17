@@ -23,6 +23,7 @@ import { AiSettings, AiSettingsError, type AiCaller } from '../ai/settings'
 import { handleTriage, TRIAGE_PATH } from '../ai/triage-route'
 import type { AiProvider } from '../ai/types'
 import { SqlUsageStore } from '../ai/usage-store'
+import { Corrections } from './mailcorrect'
 import type { AgentModule, LayerCore } from './index'
 import { internalHeaderValue } from './phpcall'
 import { AgentError } from './util'
@@ -54,6 +55,7 @@ export type { AiProvider }
 export { keyCipher, type KeyCipher } from '../ai/settings'
 
 export function aiModule(make?: (core: LayerCore) => AiSettings, makeBudget?: (core: LayerCore) => Budget): AiModule {
+	let corrections: Corrections | null = null
 	let store: AiSettings | null = null
 	let budget: Budget | null = null
 	const get = (core: LayerCore) => (store ??= make ? make(core) : new AiSettings(core.db, core.cfg.secret))
@@ -129,7 +131,11 @@ export function aiModule(make?: (core: LayerCore) => AiSettings, makeBudget?: (c
 			void get(core).migrate().catch((e) => console.error(`ai settings: ${(e as Error).message}`))
 		},
 		async route(core, req, _url, pathname) {
-			if (pathname === TRIAGE_PATH) return handleTriage({ settings: get(core), budget: getBudget(core), internal: internalCheck(core.cfg.secret) }, req)
+			if (pathname === TRIAGE_PATH) {
+				corrections ??= new Corrections(core.db)
+				const c = corrections
+				return handleTriage({ settings: get(core), budget: getBudget(core), internal: internalCheck(core.cfg.secret), hints: (uid, input) => c.hints(uid, input) }, req)
+			}
 			if (!pathname.startsWith('/agent/v1/ai/')) return null
 			try {
 				return await route(core, req, pathname.slice('/agent/v1/ai/'.length))

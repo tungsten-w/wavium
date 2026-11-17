@@ -101,11 +101,23 @@ export function triageTool(questions: TriageQuestion[]): ToolDef {
 	}
 }
 
-export function triageRequest(input: string, questions: TriageQuestion[]): AiRequest {
+/**
+ * The person's own corrections ("Why is this mail here?" > Wrong, V4-10), as
+ * short fixed sentences: only a checked address and a known category, never
+ * text from the mail, so a sender cannot write instructions into the prompt.
+ */
+export function hintsBlock(hints: string[] | undefined): string {
+	const need = '(?:needs|does not need) (?:a reply|an action)'
+	const shape = new RegExp(`^Mail from [a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,} (?:is [a-z_]+(?: and ${need})?|${need})\\.$`, 'i')
+	const ok = (hints ?? []).filter((h) => shape.test(h)).slice(0, 20)
+	return ok.length ? `\n\nThis person corrected earlier answers; follow them for mail from the same sender:\n${ok.map((h) => `- ${h}`).join('\n')}` : ''
+}
+
+export function triageRequest(input: string, questions: TriageQuestion[], hints?: string[]): AiRequest {
 	if (typeof input !== 'string' || input.trim() === '') throw bad('input is empty')
 	const text = input.length > MAX_INPUT_CHARS ? input.slice(0, MAX_INPUT_CHARS) + '\n[...truncated]' : input
 	return {
-		system: SYSTEM,
+		system: SYSTEM + hintsBlock(hints),
 		messages: [{ role: 'user', content: `<email>\n${text}\n</email>` }],
 		tools: [triageTool(questions)],
 		toolChoice: { name: TOOL_NAME },
@@ -173,8 +185,8 @@ export function toDecisions(res: AiResult, questions: TriageQuestion[], provider
  * request); a second bad answer is AiError('invalid'): TriageService counts an
  * attempt and parks the mail after five, it does not pause the pipeline.
  */
-export async function classify(ai: AiProvider, input: string, questions: TriageQuestion[], signal?: AbortSignal): Promise<Decisions> {
-	const req = { ...triageRequest(input, questions), signal }
+export async function classify(ai: AiProvider, input: string, questions: TriageQuestion[], signal?: AbortSignal, hints?: string[]): Promise<Decisions> {
+	const req = { ...triageRequest(input, questions, hints), signal }
 	let last: unknown
 	for (let attempt = 0; attempt < 2; attempt++) {
 		const res = await ai.complete(req)
