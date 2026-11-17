@@ -16,7 +16,9 @@ export interface Fs {
 }
 
 // Never served. Nextcloud's list plus repo-only dirs (dev containers serve the repo).
-const DENY_DIRS = /^\/(?:build|tests|config|lib|3rdparty|templates|data|memory|docs|deploy|live|server|node_modules|vendor-bin|resources|__tests__|__mocks__)(?:$|\/)/
+const DENY_DIRS = /^\/(?:build|tests|config|lib|3rdparty|templates|data|memory|docs|deploy|live|server|node_modules|vendor-bin|resources|__tests__|__mocks__|services|reports|contribute)(?:$|\/)/
+// React UI sources: only the built dist/ is for browsers (no TS sources, lockfiles, dependencies).
+const DENY_UI_SRC = /^\/(?:core\/web|(?:apps|custom_apps)\/[^/]+\/web)\/(?!dist\/)|\/node_modules\//
 const DENY_PREFIX = /^\/(?:\.(?!well-known\/)|autotest|occ|issue|indie|db_|console)/
 // Files PHP-FPM may run directly; any other *.php goes through index.php.
 const PHP_ENTRY = /^\/(?:index|remote|public|cron|core\/ajax\/update|status|ocs\/v[12]|ocs-provider\/index|ocm-provider\/index)\.php$/
@@ -41,7 +43,7 @@ export async function route(path: string, userAgent: string, fs: Fs): Promise<Ro
 	}
 	if (/^\/ocm-provider\/?$/.test(path)) return front(path)
 	if (path.startsWith('/remote/')) return { kind: 'php', script: '/remote.php', pathInfo: path.slice('/remote'.length) }
-	if (DENY_DIRS.test(path) || DENY_PREFIX.test(path)) return { kind: 'deny' }
+	if (DENY_DIRS.test(path) || DENY_PREFIX.test(path) || DENY_UI_SRC.test(path)) return { kind: 'deny' }
 	if (DENY_FILES.test(path) && !ALLOWED_TOP.has(path)) return { kind: 'deny' }
 
 	const php = path.match(/^(.+?\.php)(\/.*)?$/)
