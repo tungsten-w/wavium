@@ -19,7 +19,9 @@ export interface Digest {
 	events: Array<{ event_id: string, title: string, start: string | null, end: string | null, all_day: boolean, location: string | null }>
 	tasks: Array<{ task_id: string, title: string, due: string | null, overdue: boolean }>
 	todo: Array<{ item_id: number, title: string, kind: string }>
-	counts: { reply: number, action: number, events: number, tasks: number, overdue: number, todo: number }
+	/** v4: texts waiting for an answer (older digests have none). */
+	texts?: Array<{ conversation_id: string, name: string, text: string, at: string, link: string }>
+	counts: { reply: number, action: number, events: number, tasks: number, overdue: number, todo: number, texts?: number }
 	errors: Record<string, string>
 }
 export interface DigestSettings { enabled: boolean, time: string, notify: boolean, ai: boolean }
@@ -47,7 +49,7 @@ function time(iso: string | null, tz: string): string {
 	return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZone: tz })
 }
 
-const SOURCE: Record<string, string> = { mail: 'Mail', calendar: 'Calendar', tasks: 'Tasks', todo: 'Daily Todo' }
+const SOURCE: Record<string, string> = { mail: 'Mail', calendar: 'Calendar', tasks: 'Tasks', todo: 'Daily Todo', messages: 'Messages' }
 
 export function TodayCard() {
 	const [d, setD] = useState<Digest | null>(null)
@@ -90,6 +92,21 @@ export function TodayCard() {
 												<span className={`dash-today__tag dash-today__tag--${m.reason}`}>{m.reason === 'reply' ? 'Reply' : 'Act'}</span>
 												<span className="dash-today__what"><strong>{m.from}</strong> {m.subject}</span>
 												{(m.urgency === 'now' || m.urgency === 'today') && <span className="dash-today__urgent">{m.urgency === 'now' ? 'now' : 'today'}</span>}
+											</a>
+										</li>
+									))}
+								</ul>
+							</div>
+						)}
+						{(d.texts?.length ?? 0) > 0 && (
+							<div>
+								<h3>Texts</h3>
+								<ul className="dash-today__list">
+									{d.texts!.map((t) => (
+										<li key={t.conversation_id}>
+											<a href={t.link} onClick={linkHandler}>
+												<span className="dash-today__tag dash-today__tag--reply">Reply</span>
+												<span className="dash-today__what"><strong>{t.name}</strong> {t.text}</span>
 											</a>
 										</li>
 									))}

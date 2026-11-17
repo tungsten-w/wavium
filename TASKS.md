@@ -82,14 +82,14 @@ ADR 0010, waits for the owner's go), the rest in any order.
 
 - [ ] V4-1 Demo polish: upload limit shown before uploading (Files, Mail attachments; IDEAS 3); the AI answers in the UI language (digest said "Aujourd'hui" on an English UI); Dashboard "Important mail" widget not empty on the demo
 
-### Messages: Google Messages in Wavium (ADR 0010)
+### Messages: Google Messages in Wavium (ADR 0010) — done on night/v4 (Claude session, 2026-11-17)
 
-- [ ] V4-2 Sidecar `services/gmessages/` (Go, libgm pinned): pair (QR + Google account), conversations, messages, send, events over WebSocket; fake mode for tests and the demo
-- [ ] V4-3 Bun side: tables, sync from the sidecar, local copy kept forever, attachments in `Messages/`, encrypted pairing session — deps: V4-2
-- [ ] V4-4 Messages app (React): Settings > Messages > Link my phone (QR), conversation list, thread, send SMS/RCS, images, search, "phone offline" banner — deps: V4-3
-- [ ] V4-5 Agent tools and events `messages.*` (send = approval, one-time codes hidden from agents) — deps: V4-3
-- [ ] V4-6 Contacts: phone number → name and avatar; Messages in the cross-app search and the morning digest ("2 SMS need a reply") — deps: V4-3
-- [ ] V4-7 Demo: fake conversations for alice and bob, sidecar off — deps: V4-4
+- [x] V4-2 Sidecar `services/gmessages/` (Go, libgm pinned): pair (QR + Google account), conversations, messages, send, events over WebSocket; fake mode for tests and the demo
+- [x] V4-3 Bun side: tables, sync from the sidecar, local copy kept forever, attachments in `Messages/`, encrypted pairing session — deps: V4-2
+- [x] V4-4 Messages app (React): Settings > Messages > Link my phone (QR), conversation list, thread, send SMS/RCS, images, search, "phone offline" banner — deps: V4-3
+- [x] V4-5 Agent tools and events `messages.*` (send = approval, one-time codes hidden from agents) — deps: V4-3
+- [x] V4-6 Contacts: phone number → name and avatar; Messages in the cross-app search and the morning digest ("2 SMS need a reply") — deps: V4-3
+- [x] V4-7 Demo: fake conversations for alice and bob, sidecar off — deps: V4-4
 
 ### Ideas picked from reports/IDEAS.md
 

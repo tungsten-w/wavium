@@ -38,6 +38,9 @@ x-app: &app
     # Settings > Your data: where the data lives on this machine.
     ATRIUM_HOST_DATA: ${WAVIUM_HOST_DATA:-volume:${WAVIUM_PROJECT:-wavium}_html/data}
     ATRIUM_HOST_DB: ${WAVIUM_HOST_DB:-volume:${WAVIUM_PROJECT:-wavium}_db}
+    # Messages (ADR 0010): on with `--profile messages` and WAVIUM_GMESSAGES_SECRET.
+    ATRIUM_GMESSAGES_URL: ${WAVIUM_GMESSAGES_URL:-http://gmessages:8765}
+    ATRIUM_GMESSAGES_SECRET: ${WAVIUM_GMESSAGES_SECRET:-}
   volumes:
     - html:/var/www/html
     # Runs once after the first install: apps, cron, caches (official image hook).
@@ -103,6 +106,22 @@ services:
       retries: 10
     mem_limit: 256m
     networks: [backend]
+
+  # Google Messages link (services/gmessages), off unless `--profile messages`.
+  # Reaches Google (edge network) and only the app (backend); never published.
+  gmessages:
+    build: ../../services/gmessages
+    image: wavium-gmessages:local
+    profiles: [messages]
+    restart: unless-stopped
+    environment:
+      # 32+ characters (install.sh writes one); the service refuses to start without it.
+      GMESSAGES_SECRET: ${WAVIUM_GMESSAGES_SECRET:-}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    networks: [backend, edge]
 
   caddy:
     image: caddy:2.10.2-alpine

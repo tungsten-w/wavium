@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!--
+  - SPDX-FileCopyrightText: 2026 Wavium contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+	<id>messages</id>
+	<name>Messages</name>
+	<summary>Your phone's SMS and RCS in Wavium, through Google Messages</summary>
+	<description><![CDATA[Link your Android phone (QR code or Google account) and read, search and answer your texts from Wavium. Wavium keeps its own copy of every message. Agents can read texts and, with your approval, answer; one-time codes stay hidden from them. The UI is the React app in web/, the server side lives in server/agent/messages (Bun) and services/gmessages (Go sidecar). See docs/architecture/0010-messages-google-bridge.md.]]></description>
+	<version>1.0.0</version>
+	<licence>agpl</licence>
+	<author>Wavium contributors</author>
+	<namespace>Messages</namespace>
+	<category>social</category>
+	<dependencies>
+		<nextcloud min-version="34" max-version="34"/>
+	</dependencies>
+	<scopes>
+		<scope area="messages" actions="read,write,send"/>
+	</scopes>
+	<navigations>
+		<navigation>
+			<id>messages</id>
+			<name>Messages</name>
+			<route>messages.page.index</route>
+			<icon>app.svg</icon>
+			<order>12</order>
+		</navigation>
+	</navigations>
+</info>

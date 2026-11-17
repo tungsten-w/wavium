@@ -50,6 +50,8 @@ export interface AiModule extends AgentModule {
 }
 
 export type { AiProvider }
+/** Sealing with the instance secret, for other modules' secrets (Messages pairing sessions). */
+export { keyCipher, type KeyCipher } from '../ai/settings'
 
 export function aiModule(make?: (core: LayerCore) => AiSettings, makeBudget?: (core: LayerCore) => Budget): AiModule {
 	let store: AiSettings | null = null

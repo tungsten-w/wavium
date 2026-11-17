@@ -21,6 +21,7 @@ import type { AgentModule, LayerCore } from '../index'
 import { listMessages, rowsForKey } from '../mail/read'
 import { itemView, type RawDay } from '../todo'
 import { AgentError } from '../util'
+import { MessageStore } from '../messages/store'
 import { buildDigest, type Digest, digestText, type DigestSources, localDay, localParts, validTimezone, type MailRow } from './build'
 
 export interface DigestSettings { enabled: boolean, time: string, notify: boolean, ai: boolean }
@@ -124,6 +125,16 @@ export function liveSources(core: Pick<LayerCore, 'db' | 'php'>): DigestSources 
 			const { rows } = await rowsForKey(core.db, uid, key)
 			const r = rows[0]
 			return r ? `/apps/mail/box/${Number(r.mailbox_id)}/thread/${Number(r.id)}` : null
+		},
+		async texts(uid) {
+			const store = new MessageStore(core.db)
+			const rows = await store.waiting(uid)
+			const codes = new Set<string>()
+			for (const c of rows) {
+				const [last] = (await store.messages(uid, c.id, { limit: 1 }))
+				if (last?.one_time_code) codes.add(c.id)
+			}
+			return rows.map((c) => ({ conversation_id: c.id, name: c.name, last_text: c.last_text ?? '', last_at: c.last_at, one_time_code: codes.has(c.id) }))
 		},
 		async todo(uid) {
 			const day = await core.php.app<RawDay>('POST', 'apps/daily_todo/api/atrium-agent', { body: { op: 'day', uid, args: { date: 'today' } } })

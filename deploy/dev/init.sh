@@ -85,7 +85,7 @@ if ! installed; then
 	setsys mail_from_address --value=atrium
 	setsys mail_domain --value=atrium.test
 	occ background:cron >/dev/null
-	for app in mail calendar contacts tasks notes daily_todo activity dashboard; do
+	for app in mail calendar contacts tasks notes daily_todo activity dashboard messages; do
 		occ app:enable "$app" >/dev/null 2>&1 || log "app $app not enabled"
 	done
 	if [ "${ATRIUM_DEMO:-1}" = 1 ]; then
@@ -100,6 +100,9 @@ else
 		occ upgrade --no-interaction || true
 		occ maintenance:mode --off >/dev/null 2>&1 || true
 	fi
+	# Apps added after the instance was installed (Messages, v4).
+	# Never installed = no installed_version (an app the admin disabled stays off).
+	[ -n "$(occ config:app:get messages installed_version 2>/dev/null)" ] || occ app:enable messages >/dev/null 2>&1 || log "app messages not enabled"
 fi
 
 touch /tmp/atrium-ready

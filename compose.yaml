@@ -44,6 +44,9 @@ x-env: &env
   ATRIUM_HOST_DB: ${ATRIUM_HOST_DB:-volume:${COMPOSE_PROJECT_NAME:-atrium-dev}_db}
   # Where PHP reaches the Bun server (Mail triage -> AI layer, P2-4).
   ATRIUM_SERVER_URL: ${ATRIUM_SERVER_URL:-http://web:8080}
+  # Messages (v4, ADR 0010): the Google Messages sidecar. Dev runs its fake phone.
+  ATRIUM_GMESSAGES_URL: ${ATRIUM_GMESSAGES_URL:-http://gmessages:8765}
+  ATRIUM_GMESSAGES_SECRET: ${ATRIUM_GMESSAGES_SECRET:-dev-only-gmessages-secret-0123456789}
   HOME: /tmp
 
 x-user: &user "${ATRIUM_UID:-1000}:${ATRIUM_GID:-1000}"
@@ -144,6 +147,16 @@ services:
       interval: 5s
       start_period: 600s
       retries: 3
+
+  # Google Messages sidecar (services/gmessages). Dev: fake phone in memory
+  # (GMESSAGES_FAKE=1), never Google. Only the web container talks to it.
+  gmessages:
+    build:
+      context: services/gmessages
+    image: wavium-gmessages:dev
+    environment:
+      GMESSAGES_SECRET: ${ATRIUM_GMESSAGES_SECRET:-dev-only-gmessages-secret-0123456789}
+      GMESSAGES_FAKE: ${GMESSAGES_FAKE:-1}
 
   # Toolchains for make test / make lint (profile "tools", run on demand).
   bun:
