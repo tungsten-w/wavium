@@ -479,3 +479,11 @@ button.safety__mark:hover, button.safety__mark:focus-visible { transform: scale(
 @keyframes wv-write { from { clip-path: inset(0 100% 0 0); opacity: 0.3; } }
 @keyframes wv-hop { 40% { transform: translateY(-4px) scale(1.1); } }
 @keyframes wv-bars { 50% { height: 90%; } }
+
+/* Settings > Agents > Tokens: where a token was last used from (V4-9). */
+.agent-token__from { font-size: 12px; margin-top: 2px; }
+.agent-token__from code { font-size: 11px; padding: 1px 4px; border-radius: 4px; background: var(--at-surface-container-high); }
+/* Settings > Agents > Doorbell > Test (V4-8) */
+.agent-hook-test { font-size: 13px; margin: 6px 0 0; padding: 6px 10px; border-radius: 10px; animation: at-enter 300ms var(--at-ease) backwards; }
+.agent-hook-test--ok { background: color-mix(in srgb, #2e7d32 14%, transparent); }
+.agent-hook-test--bad { background: var(--at-error-container); }

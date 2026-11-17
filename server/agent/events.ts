@@ -222,6 +222,41 @@ const BACKOFF_SEC = [5, 15, 60, 300, 900]
  * Signed, coalesced doorbell: at most one POST in flight per agent; a ring
  * during a flight is merged into one follow-up. Body {agent, cursor, wake}.
  */
+export interface DoorbellTest { ok: boolean, status: number | null, ms: number, message: string }
+
+/**
+ * Settings > Agents > "Test the webhook" (V4-8): one signed POST, with the
+ * same guards as a real doorbell (public address checked now, no redirects,
+ * 10 s), and a plain-words answer. Not retried, nothing stored.
+ */
+export async function testDoorbell(db: Db, agent: string, fetcher: typeof fetch, policy: WebhookPolicy = webhookPolicy()): Promise<DoorbellTest> {
+	const settings = await getSettings(db, agent)
+	if (!settings.webhookUrl) return { ok: false, status: null, ms: 0, message: 'No webhook URL is set for this agent.' }
+	if (!settings.webhookSecret) return { ok: false, status: null, ms: 0, message: 'This agent has no webhook secret yet: create one first.' }
+	const body = JSON.stringify({ agent, cursor: formatCursor(await maxEventId(db)), wake: false, test: true })
+	const ts = nowSec()
+	const started = performance.now()
+	try {
+		await assertPublicWebhook(settings.webhookUrl, policy)
+		const res = await fetcher(settings.webhookUrl, {
+			method: 'POST', redirect: 'manual', body, signal: AbortSignal.timeout(10_000),
+			headers: { 'Content-Type': 'application/json', 'X-Atrium-Timestamp': String(ts), 'X-Atrium-Signature': Doorbell.sign(settings.webhookSecret, ts, body), 'X-Atrium-Test': '1' },
+		})
+		await res.body?.cancel().catch(() => {})
+		const ms = Math.round(performance.now() - started)
+		const st = res.status
+		if (st >= 200 && st < 300) return { ok: true, status: st, ms, message: `It works: the agent answered ${st} in ${ms} ms.` }
+		if (st >= 300 && st < 400) return { ok: false, status: st, ms, message: `Redirected (${st}): redirects are not followed, put the final URL.` }
+		if (st === 401 || st === 403) return { ok: false, status: st, ms, message: `Refused (${st}): the agent does not accept the signature. Check the webhook secret, and the clock of the agent's machine.` }
+		return { ok: false, status: st, ms, message: `The agent answered ${st}.` }
+	} catch (e) {
+		const ms = Math.round(performance.now() - started)
+		if (e instanceof BlockedWebhook) return { ok: false, status: null, ms, message: `Not sent: ${e.message}` }
+		const timeout = (e as Error).name === 'TimeoutError'
+		return { ok: false, status: null, ms, message: timeout ? 'No answer within 10 seconds.' : `Could not reach it (${(e as Error).message}).` }
+	}
+}
+
 export class Doorbell {
 	private state = new Map<string, { inFlight: boolean, pending: { cursor: string, wake: boolean } | null, attempt: number }>()
 

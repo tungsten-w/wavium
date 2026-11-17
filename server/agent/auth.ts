@@ -22,6 +22,8 @@ export interface Caller {
 	/** The request used an agent token (not a password or a full app password). */
 	agentToken: boolean
 	owner: string | null
+	/** Id of the token used (agent tokens and app passwords), when PHP says. */
+	tokenId?: number | null
 }
 
 const TTL_MS = 60_000
@@ -43,6 +45,9 @@ export class Auth {
 	private cache = new Map<string, { at: number, caller: Caller | null }>()
 	private fp: { at: number, value: string | null } = { at: 0, value: null }
 	private fpPending: Promise<boolean> | null = null
+
+	/** Called after each authenticated agent request (token use log). */
+	onAgent?: (caller: Caller, req: Request) => void
 
 	/** `fingerprint`: see authFingerprint; without it, answers live 5 s. */
 	constructor(private php: PhpCaller, private fingerprint?: () => Promise<string>, private now: () => number = Date.now) {}
@@ -90,6 +95,7 @@ export class Auth {
 		if (!caller) throw new AgentError('auth', 'Invalid or revoked token')
 		if (!caller.isAgent) throw new AgentError('forbidden', `${caller.uid} is not an agent account`)
 		if (!caller.agentToken) throw new AgentError('forbidden', 'Use an agent token from Settings > Agents, not a password or a full app password')
+		this.onAgent?.(caller, req)
 		return caller
 	}
 
@@ -118,5 +124,44 @@ export class Auth {
 	/** Forget cached answers (after revoking a token). */
 	clear(): void {
 		this.cache.clear()
+	}
+}
+
+const PRIVATE = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|f[cd][0-9a-f]{2}:|fe80:)/i
+
+/**
+ * The client's address: the peer, or, when the peer is a proxy on a private
+ * network (Caddy, Docker), the address that proxy appended to X-Forwarded-For
+ * (the last entry; earlier ones are whatever the client sent).
+ */
+export function clientIp(peer: string, forwardedFor: string | null): string {
+	if (!forwardedFor || !PRIVATE.test(peer)) return peer
+	const last = forwardedFor.split(',').map((s) => s.trim()).filter(Boolean).pop()
+	return last && /^[0-9a-f.:]{2,45}$/i.test(last) ? last : peer
+}
+
+/** Remembers the last use of each agent token (at most one write per token every 30 s). */
+export class TokenUse {
+	private recent = new Map<number, number>()
+	constructor(private db: Db, private now: () => number = Date.now) {}
+
+	async record(caller: Caller, ip: string, userAgent: string | null): Promise<void> {
+		const id = caller.tokenId
+		if (!id || !Number.isFinite(id)) return
+		const t = this.now()
+		const prev = this.recent.get(id)
+		if (prev && t - prev < 30_000) return
+		this.recent.set(id, t)
+		if (this.recent.size > 5000) this.recent.clear()
+		await this.db.q(`INSERT INTO ${this.db.t('atrium_agent_token_use')} (token_id, agent_uid, last_ip, last_at, user_agent, calls) VALUES ($1, $2, $3, $4, $5, 1)
+			ON CONFLICT (token_id) DO UPDATE SET agent_uid = excluded.agent_uid, last_ip = excluded.last_ip, last_at = excluded.last_at, user_agent = excluded.user_agent,
+				calls = ${this.db.t('atrium_agent_token_use')}.calls + 1`,
+		[id, caller.uid, ip.slice(0, 64), Math.floor(t / 1000), userAgent ? userAgent.slice(0, 200) : null])
+	}
+
+	async forAgent(agent: string): Promise<Map<number, { ip: string, at: number, userAgent: string | null }>> {
+		const rows = await this.db.q<{ token_id: unknown, last_ip: string, last_at: unknown, user_agent: string | null }>(
+			`SELECT token_id, last_ip, last_at, user_agent FROM ${this.db.t('atrium_agent_token_use')} WHERE agent_uid = $1`, [agent])
+		return new Map(rows.map((r) => [Number(r.token_id), { ip: r.last_ip, at: Number(r.last_at), userAgent: r.user_agent }]))
 	}
 }

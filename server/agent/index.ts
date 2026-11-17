@@ -10,12 +10,12 @@
 import type { PhpTarget } from '../php'
 import { grantorsFor, modeOf } from './access'
 import { Approvals } from './approvals'
-import { Auth, authFingerprint, type Caller } from './auth'
+import { Auth, authFingerprint, type Caller, clientIp, TokenUse } from './auth'
 import type { WebhookPolicy } from './netguard'
 import { baseTools } from './base-tools'
 import { loadNcConfig, type NcConfig } from './config'
 import { connect, type Db, migrate } from './db'
-import { EventLog, type Notifier } from './events'
+import { EventLog, type Notifier, testDoorbell } from './events'
 import { Journal } from './journal'
 import { OAuth } from './oauth'
 import { handleMcp } from './mcp'
@@ -94,7 +94,15 @@ export async function createLayer(opts: { cfg: NcConfig, db: Db, php: PhpCaller,
 	}, opts.fetcher)
 	const journal = new Journal(db, registry)
 	journal.ctxFor = approvals.ctxFor
-	const owner = new OwnerApi(db, php, auth, approvals, cfg.baseUrl, registry, journal, oauth)
+	// Settings > Agents > Tokens: last use and address of each agent token.
+	const tokenUse = new TokenUse(db)
+	const remotes = new WeakMap<Request, string>()
+	auth.onAgent = (caller, req) => {
+		void tokenUse.record(caller, clientIp(remotes.get(req) ?? 'unknown', req.headers.get('x-forwarded-for')), req.headers.get('user-agent'))
+			.catch((e) => console.error(`agent token use: ${(e as Error).message}`))
+	}
+	const owner = new OwnerApi(db, php, auth, approvals, cfg.baseUrl, registry, journal, oauth, tokenUse,
+		(agent) => testDoorbell(db, agent, opts.fetcher ?? fetch, opts.webhookPolicy))
 
 	async function visibleTools(caller: Caller): Promise<Tool[]> {
 		const readable = new Set<string>()
@@ -147,7 +155,8 @@ export async function createLayer(opts: { cfg: NcConfig, db: Db, php: PhpCaller,
 
 	return {
 		core,
-		async handle(req, url, pathname) {
+		async handle(req, url, pathname, remote) {
+			remotes.set(req, remote)
 			try {
 				const res = await route(req, url, pathname)
 				res.headers.set('Cache-Control', 'no-store')

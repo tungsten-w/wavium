@@ -13,7 +13,7 @@ export const ACTIONS: Action[] = ['read', 'write', 'send', 'delete', 'share']
 export const actionLabels: Record<Action, string> = { read: 'Read', write: 'Write', send: 'Send', delete: 'Delete', share: 'Share' }
 export const modeLabels: Record<Mode, string> = { off: 'Off', allowed: 'Allowed', approval: 'Ask me' }
 
-export interface AgentToken { id: number, name: string, lastActivity: number }
+export interface AgentToken { id: number, name: string, lastActivity: number, lastIp?: string | null, lastUserAgent?: string | null }
 export interface Agent {
 	uid: string
 	displayName: string
