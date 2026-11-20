@@ -230,6 +230,23 @@ class TriageAiBackendTest extends MailDbTestCase {
 		$this->assertSame(0, (int)$this->queueRow()['attempts'], 'pipeline problems never count against the mail');
 	}
 
+	public function testAnAiAddedAfterNoAiIsUsedOnTheNextRunNotTenMinutesLater(): void {
+		// The previous run found no AI and paused for 10 minutes...
+		$this->config->setValueString('mail', TriageService::STATE_KEY, json_encode(['state' => 'not_configured', 'pausedUntil' => time() + 600]));
+		// ...then the owner added one in Settings > AI.
+		$this->replies = [[200, $this->decisions()]];
+		$t = $this->service();
+		$t->classify(time() + 5);
+		$this->assertNotEmpty($this->calls, 'the run asks the AI again at once');
+		$this->assertSame('done', $this->queueRow()['status']);
+
+		// Other pauses (budget, rate limit...) still hold.
+		$this->config->setValueString('mail', TriageService::STATE_KEY, json_encode(['state' => 'budget_exhausted', 'pausedUntil' => time() + 600]));
+		$this->calls = [];
+		$this->assertSame(0, $this->service()->classify(time() + 5));
+		$this->assertCount(0, $this->calls);
+	}
+
 	public function testUnreachableServerIsTransient(): void {
 		$client = $this->createMock(IClient::class);
 		$client->method('post')->willThrowException(new \RuntimeException('Connection refused'));
