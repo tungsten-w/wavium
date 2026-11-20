@@ -137,6 +137,40 @@ class TriageServiceTest extends MailDbTestCase {
 		$this->assertSame([], $this->triage->idsByLabel('someone-else', [$inbox->getId()], [], false, null, 50));
 	}
 
+	public function testImportantIdsUseTheDigestBarAndSkipSpamJunkAndOthers(): void {
+		$inbox = $this->mailbox('INBOX');
+		$junk = $this->mailbox('Junk');
+		$reply = $this->serverMail($inbox, 1, '<r@t>');
+		$act = $this->serverMail($inbox, 2, '<a@t>');
+		$urgent = $this->serverMail($inbox, 3, '<u@t>');
+		$this->serverMail($inbox, 4, '<plain@t>');
+		$this->serverMail($inbox, 5, '<spam@t>');
+		$this->serverMail($inbox, 6, '<phish@t>');
+		$this->serverMail($junk, 7, '<j@t>');
+		$this->serverMail($inbox, 8, '<unclassified@t>');
+		$set = function (string $id, array $cols): void {
+			$this->classify($id, $cols['category'] ?? 'personal');
+			foreach ($cols as $k => $v) {
+				if ($k !== 'category') {
+					$this->db->executeStatement("UPDATE *PREFIX*mail_triage SET $k = ? WHERE account_id = ? AND msg_hash = ?", [$v, $this->row->getId(), md5($id)]);
+				}
+			}
+		};
+		$set('<r@t>', ['needs_reply' => 0.9]);
+		$set('<a@t>', ['needs_action' => 0.5]);
+		$set('<u@t>', ['urgency' => 'today']);
+		$set('<plain@t>', ['needs_reply' => 0.2, 'urgency' => 'later']);
+		$set('<spam@t>', ['category' => 'spam', 'needs_reply' => 0.9]);
+		$set('<phish@t>', ['needs_reply' => 0.9, 'suspicious' => 0.8]);
+		$set('<j@t>', ['needs_reply' => 0.9]);
+
+		$uid = $this->row->getUserId();
+		$this->assertSame([$urgent->getId(), $act->getId(), $reply->getId()], $this->triage->importantIds($uid, [$junk->getId()], 0, 10));
+		$this->assertCount(2, $this->triage->importantIds($uid, [$junk->getId()], 0, 2));
+		$this->assertSame([], $this->triage->importantIds('someone-else', [], 0, 10));
+		$this->assertSame([], $this->triage->importantIds($uid, [$junk->getId()], 2000000000, 10), 'only recent mail');
+	}
+
 	public function testClassificationFollowsTheMailAcrossFoldersByMessageId(): void {
 		$all = $this->mailbox('[Gmail]/All Mail');
 		$inbox = $this->mailbox('INBOX');

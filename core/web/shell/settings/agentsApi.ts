@@ -27,10 +27,11 @@ export const api = {
 	oauthFlow: (id: string) => owner<OAuthFlow>(`oauth/flows/${encodeURIComponent(id)}`),
 	oauthAnswer: (id: string, answer: 'approve' | 'deny', agent?: string) => owner<{ redirect: string }>(`oauth/flows/${encodeURIComponent(id)}/${answer}`, { method: 'POST', body: agent ? { agent } : {} }),
 	revokeApp: (uid: string, grantId: string) => owner(`agents/${encodeURIComponent(uid)}/oauth/${encodeURIComponent(grantId)}`, { method: 'DELETE' }),
-	update: (uid: string, body: Partial<Pick<Agent, 'displayName' | 'description' | 'paused' | 'wakes' | 'webhookUrl' | 'notifyApprovals'>>) =>
+	update: (uid: string, body: Partial<Pick<Agent, 'displayName' | 'description' | 'paused' | 'wakes' | 'webhookUrl' | 'notifyApprovals' | 'quiet'>>) =>
 		owner<Agent>(`agents/${encodeURIComponent(uid)}`, { method: 'PATCH', body }),
 	remove: (uid: string) => owner(`agents/${encodeURIComponent(uid)}`, { method: 'DELETE' }),
 	setAccess: (uid: string, body: { preset?: Preset, areas?: Record<string, Modes | null> }) => owner<Agent>(`agents/${encodeURIComponent(uid)}/access`, { method: 'PUT', body }),
+	testWebhook: (uid: string) => owner<{ ok: boolean, status: number | null, ms: number, message: string }>(`agents/${encodeURIComponent(uid)}/webhook-test`, { method: 'POST', body: {} }),
 	newSecret: (uid: string) => owner<{ webhookSecret: string }>(`agents/${encodeURIComponent(uid)}/webhook-secret`, { method: 'POST', body: {} }),
 	newToken: (uid: string, name: string) => owner<{ id: number, name: string, connect: ConnectInfo }>(`agents/${encodeURIComponent(uid)}/tokens`, { method: 'POST', body: { name } }),
 	revokeToken: (uid: string, id: number) => owner(`agents/${encodeURIComponent(uid)}/tokens/${id}`, { method: 'DELETE' }),

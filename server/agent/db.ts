@@ -191,6 +191,26 @@ const MIGRATIONS: Migration[] = [
 			await db.q(`CREATE INDEX IF NOT EXISTS ${db.t('atrium_agent_mailkeys_thr')} ON ${T} (account_id, thread_hash)`)
 		},
 	},
+	{
+		// Settings > Agents > Tokens: when and from where each agent token was last used (V4-9).
+		id: 3,
+		up: async (db) => {
+			await db.q(`CREATE TABLE IF NOT EXISTS ${db.t('atrium_agent_token_use')} (
+				token_id BIGINT PRIMARY KEY,
+				agent_uid VARCHAR(64) NOT NULL,
+				last_ip VARCHAR(64) NOT NULL,
+				last_at BIGINT NOT NULL,
+				user_agent VARCHAR(200),
+				calls BIGINT NOT NULL DEFAULT 0)`)
+		},
+	},
+	{
+		// Quiet hours per agent (V4-11): JSON {from: "22:00", to: "07:00", tz: "Europe/Paris"} or NULL.
+		id: 4,
+		up: async (db) => {
+			await db.q(`ALTER TABLE ${db.t('atrium_agent_settings')} ADD COLUMN quiet TEXT`)
+		},
+	},
 ]
 
 export async function migrate(db: Db): Promise<void> {

@@ -5,7 +5,7 @@
 // atrium_agent_event_queue; one writer here moves rows into atrium_agent_events
 // in order, so a cursor (the log id) never skips a row that committed late.
 // Agents read with events_since; agents with a webhook get a signed doorbell.
-import { type AccessMap, getSettings, grantorsFor, modeOf } from './access'
+import { type AccessMap, getSettings, grantorsFor, isQuiet, modeOf } from './access'
 import { type Db, getMeta, num, setMeta } from './db'
 import { assertPublicWebhook, BlockedWebhook, type WebhookPolicy, webhookPolicy } from './netguard'
 import { AgentError, hmacHex, iso, nowSec, ulid } from './util'
@@ -156,13 +156,19 @@ export class EventLog {
 		this.doorbell = new Doorbell(db, notifier, fetcher, policy)
 	}
 
+	private quietTimer: ReturnType<typeof setInterval> | null = null
+
 	start(intervalMs = 1000): void {
 		this.timer = setInterval(() => { void this.tick() }, intervalMs)
+		// Rings held during quiet hours go out when the window ends (V4-11).
+		this.quietTimer = setInterval(() => { void this.doorbell.releaseHeld().catch((e) => console.error(`agent quiet hours: ${(e as Error).message}`)) }, 60_000)
 	}
 
 	stop(): void {
 		if (this.timer) clearInterval(this.timer)
+		if (this.quietTimer) clearInterval(this.quietTimer)
 		this.timer = null
+		this.quietTimer = null
 	}
 
 	/** Move queued rows into the log (oldest first); returns how many moved. */
@@ -171,6 +177,7 @@ export class EventLog {
 		const E = this.db.t('atrium_agent_events')
 		const rows = await this.db.q<Record<string, unknown>>(`SELECT * FROM ${Q} ORDER BY id LIMIT $1`, [batch])
 		const ring = new Map<string, boolean>()
+		const urgent = new Set<string>()
 		for (const r of rows) {
 			const dedupe = (r.dedupe_key as string | null) ?? `q:${num(r.id)}`
 			const inserted = await this.db.q<{ id: number | string }>(`INSERT INTO ${E} (event_id, dedupe_key, app, area, type, grantor_uid, agent_uid, wake_hint, data, occurred_at)
@@ -178,13 +185,15 @@ export class EventLog {
 			['evt_' + ulid(num(r.created_at) * 1000), dedupe, r.app, r.area, r.type, r.grantor_uid, r.agent_uid, num(r.wake_hint), r.data, num(r.created_at)])
 			await this.db.q(`DELETE FROM ${Q} WHERE id = $1`, [r.id])
 			if (!inserted.length) continue
+			const isUrgent = urgentEvent(r.data)
 			for (const agent of await audience(this.db, r as never)) {
 				ring.set(agent, (ring.get(agent) ?? false) || num(r.wake_hint) === 1)
+				if (isUrgent) urgent.add(agent)
 			}
 		}
 		if (ring.size) {
 			const cursor = formatCursor(await maxEventId(this.db))
-			for (const [agent, hint] of ring) void this.doorbell.ring(agent, cursor, hint)
+			for (const [agent, hint] of ring) void this.doorbell.ring(agent, cursor, hint, urgent.has(agent))
 		}
 		return rows.length
 	}
@@ -222,8 +231,56 @@ const BACKOFF_SEC = [5, 15, 60, 300, 900]
  * Signed, coalesced doorbell: at most one POST in flight per agent; a ring
  * during a flight is merged into one follow-up. Body {agent, cursor, wake}.
  */
+export interface DoorbellTest { ok: boolean, status: number | null, ms: number, message: string }
+
+/**
+ * Settings > Agents > "Test the webhook" (V4-8): one signed POST, with the
+ * same guards as a real doorbell (public address checked now, no redirects,
+ * 10 s), and a plain-words answer. Not retried, nothing stored.
+ */
+export async function testDoorbell(db: Db, agent: string, fetcher: typeof fetch, policy: WebhookPolicy = webhookPolicy()): Promise<DoorbellTest> {
+	const settings = await getSettings(db, agent)
+	if (!settings.webhookUrl) return { ok: false, status: null, ms: 0, message: 'No webhook URL is set for this agent.' }
+	if (!settings.webhookSecret) return { ok: false, status: null, ms: 0, message: 'This agent has no webhook secret yet: create one first.' }
+	const body = JSON.stringify({ agent, cursor: formatCursor(await maxEventId(db)), wake: false, test: true })
+	const ts = nowSec()
+	const started = performance.now()
+	try {
+		await assertPublicWebhook(settings.webhookUrl, policy)
+		const res = await fetcher(settings.webhookUrl, {
+			method: 'POST', redirect: 'manual', body, signal: AbortSignal.timeout(10_000),
+			headers: { 'Content-Type': 'application/json', 'X-Atrium-Timestamp': String(ts), 'X-Atrium-Signature': Doorbell.sign(settings.webhookSecret, ts, body), 'X-Atrium-Test': '1' },
+		})
+		await res.body?.cancel().catch(() => {})
+		const ms = Math.round(performance.now() - started)
+		const st = res.status
+		if (st >= 200 && st < 300) return { ok: true, status: st, ms, message: `It works: the agent answered ${st} in ${ms} ms.` }
+		if (st >= 300 && st < 400) return { ok: false, status: st, ms, message: `Redirected (${st}): redirects are not followed, put the final URL.` }
+		if (st === 401 || st === 403) return { ok: false, status: st, ms, message: `Refused (${st}): the agent does not accept the signature. Check the webhook secret, and the clock of the agent's machine.` }
+		return { ok: false, status: st, ms, message: `The agent answered ${st}.` }
+	} catch (e) {
+		const ms = Math.round(performance.now() - started)
+		if (e instanceof BlockedWebhook) return { ok: false, status: null, ms, message: `Not sent: ${e.message}` }
+		const timeout = (e as Error).name === 'TimeoutError'
+		return { ok: false, status: null, ms, message: timeout ? 'No answer within 10 seconds.' : `Could not reach it (${(e as Error).message}).` }
+	}
+}
+
+/** An event that may ring through quiet hours: mail urgent "now", or marked urgent. */
+export function urgentEvent(data: unknown): boolean {
+	try {
+		const d = (typeof data === 'string' ? JSON.parse(data) : data) as Record<string, unknown> | null
+		return !!d && (d.urgency === 'now' || d.urgent === true || (d.triage as Record<string, unknown> | undefined)?.urgency === 'now')
+	} catch {
+		return false
+	}
+}
+
 export class Doorbell {
 	private state = new Map<string, { inFlight: boolean, pending: { cursor: string, wake: boolean } | null, attempt: number }>()
+	/** Rings held by quiet hours: the newest cursor per agent, sent when the window ends. */
+	private held = new Map<string, { cursor: string, wake: boolean }>()
+	now: () => Date = () => new Date()
 
 	constructor(private db: Db, private notifier: Notifier | null, private fetcher: typeof fetch, private policy: WebhookPolicy = webhookPolicy()) {}
 
@@ -231,15 +288,36 @@ export class Doorbell {
 		return 'sha256=' + hmacHex(secret, `${timestamp}.${body}`)
 	}
 
-	async ring(agent: string, cursor: string, hint: boolean): Promise<void> {
+	async ring(agent: string, cursor: string, hint: boolean, urgent = false): Promise<void> {
 		const settings = await getSettings(this.db, agent)
 		if (settings.paused || !settings.webhookUrl || !settings.webhookSecret) return
 		const wake = settings.wakes && hint
+		if (!urgent && isQuiet(settings.quiet, this.now())) {
+			const h = this.held.get(agent)
+			this.held.set(agent, { cursor, wake: wake || (h?.wake ?? false) })
+			return
+		}
+		this.held.delete(agent)
 		const s = this.state.get(agent) ?? { inFlight: false, pending: null, attempt: 0 }
 		this.state.set(agent, s)
 		s.pending = { cursor, wake: wake || (s.pending?.wake ?? false) }
 		if (s.inFlight) return
 		await this.flush(agent)
+	}
+
+	/** Agents whose ring waits for the end of their quiet hours. */
+	heldFor(agent: string): { cursor: string, wake: boolean } | undefined {
+		return this.held.get(agent)
+	}
+
+	/** Sends the held rings of agents whose quiet hours are over. */
+	async releaseHeld(): Promise<void> {
+		for (const [agent, h] of [...this.held]) {
+			const settings = await getSettings(this.db, agent)
+			if (isQuiet(settings.quiet, this.now())) continue
+			this.held.delete(agent)
+			await this.ring(agent, h.cursor, h.wake, true)
+		}
 	}
 
 	/** For tests: resolves when nothing is in flight or pending. */

@@ -69,6 +69,16 @@ Open `https://<your domain>` and log in as the admin. Then:
 | `db` | PostgreSQL 17 |
 | `redis` | Redis 8: cache and locks |
 | `caddy` | HTTPS in front: automatic certificate, HTTP → HTTPS |
+| `gmessages` | Optional (profile `messages`): the link to Google Messages for SMS/RCS |
+
+**Messages (texts from an Android phone).** Off by default. To turn it on:
+`docker compose --profile messages up -d --build`. The installer writes
+`WAVIUM_GMESSAGES_SECRET` (32+ characters) in `.env`; without it the service
+refuses to start and the Messages app says it is not set up. The service only
+talks to Google and to `app`; the pairing session is stored sealed in the
+database, never on disk in the container. Each person then links their phone
+in Messages > Link my phone. The link is not an official Google API
+(docs/architecture/0010-messages-google-bridge.md).
 
 The database and Redis sit on an internal network with no internet access.
 Data lives in Docker volumes: `html` (code, config, files), `db`, `redis`

@@ -492,3 +492,31 @@ input, textarea, select, [contenteditable="true"], .at-selectable {
 /* A spinner says "busy": it keeps turning, slowly, even with calm motion. */
 @media (prefers-reduced-motion: reduce) { .at-spinner { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; } }
 :root[data-motion='reduced'] .at-spinner { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
+
+/*
+ * Motion, part 2 (v4): moving between apps slides the page (View Transitions,
+ * the header stays put), the light/dark switch grows as a circle from the
+ * click, buttons ripple from the press, notifications arrive on a spring.
+ * Same rules as above: opacity/transform/clip-path only, nothing when calm.
+ */
+.at-ripple-host { overflow: hidden; isolation: isolate; }
+.at-ripple { position: absolute; border-radius: 50%; pointer-events: none; background: currentColor; opacity: 0; transform: scale(0); z-index: -1; animation: at-ripple 560ms var(--at-ease) forwards; }
+@keyframes at-ripple { 0% { opacity: 0.18; transform: scale(0); } 100% { opacity: 0; transform: scale(1); } }
+
+.shell-header { view-transition-name: shell-header; }
+:root[data-vt='app']::view-transition-old(root) { animation: at-vt-out 160ms var(--at-ease) both; }
+:root[data-vt='app']::view-transition-new(root) { animation: at-vt-in 280ms var(--at-ease) both; }
+@keyframes at-vt-out { to { opacity: 0; transform: translateY(-6px) scale(0.995); } }
+@keyframes at-vt-in { from { opacity: 0; transform: translateY(10px); } }
+:root[data-vt='theme']::view-transition-old(root) { animation: none; }
+:root[data-vt='theme']::view-transition-new(root) { animation: at-vt-circle 520ms var(--at-ease) both; }
+@keyframes at-vt-circle { from { clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 0)); } to { clip-path: circle(150vmax at var(--vt-x, 50%) var(--vt-y, 0)); } }
+
+.at-snackbar { animation: at-snack-in 420ms var(--at-spring) backwards; }
+@keyframes at-snack-in { from { opacity: 0; transform: translateY(24px) scale(0.92); } }
+.at-switch input:active::before { width: 28px; }
+.at-check input:checked::before { animation: at-pop 260ms var(--at-spring); }
+
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } .at-ripple { display: none; } }
+:root[data-motion='reduced']::view-transition-old(*), :root[data-motion='reduced']::view-transition-new(*) { animation: none !important; }
+:root[data-motion='reduced'] .at-ripple { display: none; }

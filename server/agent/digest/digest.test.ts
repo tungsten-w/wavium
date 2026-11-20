@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import type { AiProvider } from '../ai'
 import { type Db, wrap } from '../db'
-import { buildDigest, type DigestSources, headline, localDay, localMidnight, type MailRow, pickMail, validTimezone } from './build'
+import { buildDigest, type DigestSources, digestText, headline, localDay, localMidnight, type MailRow, pickMail, validTimezone } from './build'
 import { aiSummary, DigestService, DigestStore } from './index'
 
 /** A tiny scripted provider (the agent layer reaches server/ai only through agent/ai.ts). */
@@ -91,7 +91,7 @@ describe('build', () => {
 		expect(d.tasks).toEqual([{ task_id: 't/1', title: 'Pay rent', due: '2026-11-12', overdue: true }, { task_id: 't/2', title: 'Call bank', due: '2026-11-13T17:00:00Z', overdue: false }])
 		expect(d.todo).toEqual([{ item_id: 1, title: 'Groceries', kind: 'item' }])
 		expect(d.mail.map((m) => [m.message_key, m.reason, m.link])).toEqual([['a', 'reply', '/apps/mail/box/1/thread/7'], ['b', 'action', null]])
-		expect(d.counts).toEqual({ reply: 1, action: 1, events: 3, tasks: 2, overdue: 1, todo: 1 })
+		expect(d.counts).toEqual({ reply: 1, action: 1, events: 3, tasks: 2, overdue: 1, todo: 1, texts: 0 })
 		expect(d.headline).toBe('1 mail needs a reply, 1 needs an action · 3 events, the first at 09:30 · 2 tasks due (1 overdue) · 1 thing on today\'s list')
 		expect(d.errors).toEqual({})
 	})
@@ -125,10 +125,31 @@ describe('build', () => {
 	})
 
 	test('headline grammar', () => {
-		const h = (c: Partial<Record<string, number>>) => headline({ counts: { reply: 0, action: 0, events: 0, tasks: 0, overdue: 0, todo: 0, ...c }, events: [], timezone: 'UTC' })
+		const h = (c: Partial<Record<string, number>>) => headline({ counts: { reply: 0, action: 0, events: 0, tasks: 0, overdue: 0, todo: 0, texts: 0, ...c }, events: [], timezone: 'UTC' })
 		expect(h({ reply: 2 })).toBe('2 mails need a reply')
 		expect(h({ action: 1 })).toBe('1 mail needs an action')
 		expect(h({ events: 1, tasks: 1 })).toBe('1 event · 1 task due')
+		expect(h({ texts: 2 })).toBe('2 texts need a reply')
+	})
+
+	test('texts waiting for a reply (Messages): recent ones, never one-time codes', async () => {
+		const now = new Date('2026-11-17T08:00:00Z')
+		const src = {
+			mail: async () => [], events: async () => [], tasks: async () => [], todo: async () => [],
+			texts: async () => [
+				{ conversation_id: 'c1', name: 'Léa', last_text: 'On se voit demain ?', last_at: now.getTime() - 3_600_000 },
+				{ conversation_id: 'c2', name: 'BANK', last_text: 'code 482913', last_at: now.getTime() - 60_000, one_time_code: true },
+				{ conversation_id: 'c3', name: 'Old', last_text: 'hello', last_at: now.getTime() - 30 * 86_400_000 },
+			],
+		}
+		const d = await buildDigest(src, 'alice', { now, timezone: 'Europe/Paris' })
+		expect(d.texts.map((t) => t.conversation_id)).toEqual(['c1'])
+		expect(d.texts[0].link).toBe('/apps/messages/c1')
+		expect(d.counts.texts).toBe(1)
+		expect(d.headline).toBe('1 text needs a reply')
+		expect(digestText(d)).toContain('Léa: On se voit demain ?')
+		const broken = await buildDigest({ ...src, texts: async () => { throw new Error('no table') } }, 'alice', { now, timezone: 'UTC' })
+		expect(broken.errors.messages).toBe('no table')
 	})
 })
 

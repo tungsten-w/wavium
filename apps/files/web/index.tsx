@@ -5,7 +5,7 @@
 //   /files?dir=/a/b               folder          /files/<fileid>?dir=..&openfile=true   viewer
 //   /favorites /recent /sharingin /sharingout /trashbin /search?q=
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { defineApp, formatBytes, formatDate, navigate, relativeTime, useApp, useAppPath, useQuery } from '@atrium/sdk'
+import { defineApp, formatBytes, formatDate, navigate, relativeTime, splitBySize, useApp, useAppPath, useQuery } from '@atrium/sdk'
 import { AppLayout, Button, Checkbox, Dialog, EmptyState, Icon, IconButton, Menu, NavItem, NavSection, NavToggle, Progress, SearchBar, Spinner, TextField, confirmDialog, toast, type MenuEntry } from '@atrium/ui'
 import {
 	copy, downloadUrl, emptyTrash, favorites, freeName, join, listDir, listTrash, mkdir, move, parentOf, purgeTrash, quota, recent, remove, restoreTrash,
@@ -193,6 +193,14 @@ function Files() {
 	/** Upload files (with relative paths for dropped folders) into `target`. */
 	async function uploadAll(items: { file: File, rel: string }[], target = dir) {
 		if (!items.length) return
+		// Refuse what cannot fit before sending it (V4-1): bigger than the free space left.
+		const free = usage && usage.free >= 0 ? usage.free : null
+		const { ok, tooBig } = splitBySize(items.map((i) => ({ ...i, size: i.file.size })), free)
+		if (tooBig.length) {
+			toast.error(`${tooBig.length === 1 ? `"${tooBig[0].file.name}" (${formatBytes(tooBig[0].size)})` : `${tooBig.length} files`} would not fit: ${formatBytes(free ?? 0)} left in your storage.`)
+			items = ok
+			if (!items.length) return
+		}
 		const existing = new Set((nodes ?? []).map((n) => n.name))
 		let policy: 'replace' | 'keep' | 'skip' | null = null
 		const madeDirs = new Set<string>()

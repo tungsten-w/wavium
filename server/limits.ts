@@ -52,3 +52,12 @@ export function loadLimits(env: Record<string, string | undefined> = process.env
 		phpTimeout: seconds('ATRIUM_PHP_TIMEOUT', env.ATRIUM_PHP_TIMEOUT, 0, true),
 	}
 }
+
+/**
+ * What the UI needs to know (GET /core/web/dist/limits.json): the largest
+ * single request (a mail attachment, a small file upload), null when there is
+ * none. Files above 10 MB go in chunks, so for Files the quota matters more.
+ */
+export function uiLimits(l: Limits): { max_upload: number | null } {
+	return { max_upload: l.maxBody >= Number.MAX_SAFE_INTEGER ? null : l.maxBody }
+}

@@ -24,6 +24,20 @@ jobs:
         run: make up
       - name: Test
         run: make test
+      # V4-12: browser tests, one screenshot per app (desktop and phone).
+      - name: End-to-end
+        run: make test-e2e
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: tests/e2e/results/
+          if-no-files-found: ignore
+          retention-days: 14
+      # The Google Messages sidecar (Go): vet and tests, in the pinned Go image.
+      - name: Messages sidecar
+        run: docker run --rm -v "$PWD/services/gmessages:/src" -w /src golang:1.27.2-alpine sh -c 'go vet ./... && go test ./...'
       - name: Logs on failure
         if: failure()
         run: docker compose logs --tail=200

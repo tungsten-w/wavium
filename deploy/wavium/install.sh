@@ -80,6 +80,8 @@ WAVIUM_HTTPS_PORT=$https
 WAVIUM_PUBLIC_PORT_SUFFIX=$suffix
 WAVIUM_PROJECT=${WAVIUM_PROJECT:-wavium}
 WAVIUM_TIMEZONE=$(cat /etc/timezone 2>/dev/null || echo Europe/Paris)
+# Messages (SMS/RCS through Google Messages): docker compose --profile messages up -d
+WAVIUM_GMESSAGES_SECRET=$(secret)$(secret)
 EOF
 		umask "$old_umask"
 		ok "Wrote $env_file (random passwords)"

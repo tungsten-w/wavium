@@ -65,3 +65,9 @@ test('Bun enforces the limits the way server/index.ts expects', async () => {
 		srv.stop(true)
 	}
 }, 30000)
+
+test('the UI learns the upload limit (V4-1)', async () => {
+	const { loadLimits, uiLimits } = await import('./limits')
+	expect(uiLimits(loadLimits({ ATRIUM_MAX_BODY: '25M' }))).toEqual({ max_upload: 25 * 1024 * 1024 })
+	expect(uiLimits(loadLimits({ ATRIUM_MAX_BODY: '0' }))).toEqual({ max_upload: null })
+})

@@ -35,6 +35,8 @@ export interface TriageDeps {
 	/** True when the request carries the internal header. */
 	internal: (req: Request) => boolean
 	now?: () => number
+	/** The person's corrections, as fixed sentences (see hintsBlock). */
+	hints?: (uid: string, input: string) => Promise<string[]>
 }
 
 const json = (status: number, body: Record<string, unknown>) => Response.json(body, { status })
@@ -77,7 +79,8 @@ export async function handleTriage(deps: TriageDeps, req: Request): Promise<Resp
 	const ai = deps.budget.wrap(withModel(raw, route.model), { user: uid, task: 'triage' })
 	try {
 		const label = (route.provider as { label?: string }).label || route.provider.id
-		return json(200, { ...await classify(ai, body.input, questions, req.signal), providerLabel: label, route: { model: route.model, modelFrom: route.modelFrom } })
+		const hints = deps.hints ? await deps.hints(uid, body.input).catch(() => []) : []
+		return json(200, { ...await classify(ai, body.input, questions, req.signal, hints), providerLabel: label, route: { model: route.model, modelFrom: route.modelFrom } })
 	} catch (e) {
 		if (e instanceof AiError) {
 			const { status, body: b } = errorStatus(e, now())

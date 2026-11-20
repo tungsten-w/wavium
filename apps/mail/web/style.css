@@ -366,3 +366,14 @@
 @keyframes ml-rise-bar { from { transform: scaleY(0); } }
 @keyframes ml-pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 20%, transparent); } }
 @keyframes safety-grow { from { transform: scaleX(0); } }
+
+/* "Why is this here?" (V4-10) */
+.ml-why { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ml-why > span { flex: 1; min-width: 200px; }
+.ml-why strong { font-weight: 600; }
+.ml-why__hint { margin: 0 0 12px; color: var(--at-on-surface-variant); font-size: 14px; }
+.ml-why__cats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.ml-why__cats .ml-chip { animation: at-enter 260ms var(--at-ease) backwards; }
+.ml-why__cats .ml-chip:nth-child(2n) { animation-delay: 30ms; }
+.ml-why__cats .ml-chip:nth-child(3n) { animation-delay: 60ms; }
+.ml-why__cats .ml-chip--on { animation: at-select 260ms var(--at-ease); }

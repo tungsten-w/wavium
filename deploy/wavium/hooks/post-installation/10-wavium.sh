@@ -3,7 +3,7 @@
 # Wavium's apps and the settings a fresh server needs.
 set -eu
 occ() { php /var/www/html/occ "$@"; }
-for app in mail calendar contacts tasks notes daily_todo activity dashboard; do
+for app in mail calendar contacts tasks notes daily_todo activity dashboard messages; do
 	occ app:enable "$app" >/dev/null 2>&1 || echo "Wavium: app $app not enabled"
 done
 occ background:cron

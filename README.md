@@ -58,6 +58,14 @@
 <td><b>🧠 Your choice of AI.</b> Anthropic, OpenAI, Mistral, any OpenAI-compatible service or a local Ollama. Keys are encrypted, budgets keep costs down, a small model does the sorting.</td>
 <td><b>🚚 Leaving Google is easy.</b> Gmail (app password or Sign in with Google), Google Calendar, Contacts and Drive, step by step, in about 15 minutes.</td>
 </tr>
+<tr>
+<td><img src="core/img/tutorial/10-messages.png" alt="Messages: texts from the phone"></td>
+<td></td>
+</tr>
+<tr>
+<td><b>📱 Your phone's texts.</b> Link your Android phone (QR code, through Google Messages) and read, search and answer SMS and RCS in Wavium, with a copy of every text. Agents may read them; what they write waits for your OK, and one-time codes stay hidden from them.</td>
+<td></td>
+</tr>
 </table>
 
 Under the hood, Wavium is a hard fork of [Nextcloud](https://nextcloud.com) 34.0.5 with a new

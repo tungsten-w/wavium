@@ -21,6 +21,9 @@ export interface EventRow { event_id: string, title: string, start: string | nul
 export interface TaskRow { task_id: string, title: string, due: string | null, done: boolean }
 export interface TodoRow { item_id: number, title: string, kind: string, done: boolean, parent_id: number | null }
 
+export interface TextRow { conversation_id: string, name: string, last_text: string, last_at: number, one_time_code?: boolean }
+export interface DigestText { conversation_id: string, name: string, text: string, at: string, link: string }
+
 export interface DigestSources {
 	/** Inbox mail since `since` (unix s) that needs a reply or an action, curated (no ads, spam...). */
 	mail(uid: string, since: number): Promise<MailRow[]>
@@ -29,6 +32,10 @@ export interface DigestSources {
 	tasks(uid: string, before: Date): Promise<TaskRow[]>
 	/** Today's Daily Todo items. */
 	todo(uid: string): Promise<TodoRow[]>
+	/** Agent requests waiting for the person's OK (quiet hours hold their pings, V4-11). */
+	approvals?(uid: string): Promise<number>
+	/** Text conversations (Messages) whose last message waits for an answer. */
+	texts?(uid: string): Promise<TextRow[]>
 	/** Where the mail opens in Atrium (only for the mail the digest keeps). */
 	mailLink?(uid: string, messageKey: string): Promise<string | null>
 }
@@ -50,7 +57,9 @@ export interface Digest {
 	events: DigestEvent[]
 	tasks: DigestTask[]
 	todo: DigestTodo[]
-	counts: { reply: number, action: number, events: number, tasks: number, overdue: number, todo: number }
+	/** Texts (SMS/RCS) waiting for an answer (v4 Messages). */
+	texts: DigestText[]
+	counts: { reply: number, action: number, events: number, tasks: number, overdue: number, todo: number, texts: number, approvals?: number }
 	/** Sources that failed, with why. */
 	errors: Record<string, string>
 }
@@ -143,6 +152,8 @@ export function headline(d: Pick<Digest, 'counts' | 'events' | 'timezone'>): str
 	}
 	if (c.tasks) parts.push(`${plural(c.tasks, 'task')} due${c.overdue ? ` (${c.overdue} overdue)` : ''}`)
 	if (c.todo) parts.push(`${plural(c.todo, 'thing')} on today's list`)
+	if (c.texts) parts.push(`${plural(c.texts, 'text')} ${need(c.texts)} a reply`)
+	if (c.approvals) parts.push(`${plural(c.approvals, 'agent request')} ${c.approvals === 1 ? 'waits' : 'wait'} for your OK`)
 	return parts.length ? parts.join(' · ') : 'Nothing needs you today.'
 }
 
@@ -168,6 +179,13 @@ export async function buildDigest(src: DigestSources, uid: string, opts: { now: 
 		safe(errors, 'tasks', () => src.tasks(uid, end), []),
 		safe(errors, 'todo', () => src.todo(uid), []),
 	])
+	const textRows = src.texts ? await safe(errors, 'messages', () => src.texts!(uid), []) : []
+	const approvals = src.approvals ? await safe(errors, 'agents', () => src.approvals!(uid), 0) : 0
+	// Only texts of the last week; codes are not "waiting for a reply".
+	const texts = textRows
+		.filter((t) => !t.one_time_code && t.last_at > opts.now.getTime() - MAIL_DAYS * 86_400_000)
+		.slice(0, 10)
+		.map((t) => ({ conversation_id: t.conversation_id, name: t.name, text: t.last_text.slice(0, 140), at: new Date(t.last_at).toISOString(), link: `/apps/messages/${encodeURIComponent(t.conversation_id)}` }))
 	const mail = pickMail(mailRows)
 	if (src.mailLink) {
 		await Promise.all(mail.map(async (m) => { m.link = await src.mailLink!(uid, m.message_key).catch(() => null) }))
@@ -191,8 +209,10 @@ export async function buildDigest(src: DigestSources, uid: string, opts: { now: 
 		tasks: tasks.length,
 		overdue: tasks.filter((t) => t.overdue).length,
 		todo: todo.length,
+		texts: texts.length,
+		...(approvals ? { approvals } : {}),
 	}
-	const d: Digest = { day, timezone: tz, generated_at: opts.now.toISOString(), headline: '', ai_summary: null, mail, events, tasks, todo, counts, errors }
+	const d: Digest = { day, timezone: tz, generated_at: opts.now.toISOString(), headline: '', ai_summary: null, mail, events, tasks, todo, texts, counts, errors }
 	d.headline = headline(d)
 	return d
 }
@@ -216,6 +236,10 @@ export function digestText(d: Digest, max = 3000): string {
 	if (d.tasks.length) {
 		lines.push('', 'Tasks:')
 		for (const t of d.tasks) lines.push(`- ${t.title}${t.overdue ? ' (overdue)' : ''}`)
+	}
+	if (d.texts?.length) {
+		lines.push('', 'Texts waiting:')
+		for (const t of d.texts) lines.push(`- ${t.name}: ${t.text}`)
 	}
 	if (d.todo.length) {
 		lines.push('', 'Today list:')

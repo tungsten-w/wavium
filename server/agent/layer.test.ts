@@ -33,7 +33,7 @@ test('config.php parsing', () => {
 test('migrations are idempotent', async () => {
 	await migrate(db)
 	const rows = await db.q<{ v: string }>(`SELECT v FROM oc_atrium_agent_meta WHERE k = 'schema'`)
-	expect(rows[0].v).toBe('2')
+	expect(rows[0].v).toBe('4')
 })
 
 test('schema validation', () => {

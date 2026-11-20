@@ -57,7 +57,7 @@ class AtriumAgentController extends OCSController {
 	/**
 	 * Who is calling (for the agent layer)
 	 *
-	 * @return DataResponse<Http::STATUS_OK, array{uid: string, displayName: string, isAgent: bool, agentToken: bool, owner: ?string}, array{}>|DataResponse<Http::STATUS_UNAUTHORIZED, array{}, array{}>
+	 * @return DataResponse<Http::STATUS_OK, array{uid: string, displayName: string, isAgent: bool, agentToken: bool, owner: ?string, tokenId: ?int}, array{}>|DataResponse<Http::STATUS_UNAUTHORIZED, array{}, array{}>
 	 *
 	 * 200: Caller returned
 	 * 401: Not logged in
@@ -72,12 +72,23 @@ class AtriumAgentController extends OCSController {
 		}
 		$uid = $user->getUID();
 		$agent = $this->agentManager->getAgent($uid);
+		// Which token: Settings > Agents shows when and from where each one was last used.
+		$tokenId = null;
+		$appPassword = \OCP\Server::get(\OCP\ISession::class)->get('app_password');
+		if (is_string($appPassword) && $appPassword !== '') {
+			try {
+				$tokenId = $this->tokenProvider->getToken($appPassword)->getId();
+			} catch (\Throwable) {
+				$tokenId = null;
+			}
+		}
 		return new DataResponse([
 			'uid' => $uid,
 			'displayName' => $user->getDisplayName(),
 			'isAgent' => $agent !== null,
 			'agentToken' => $this->scopeContext->isAgent(),
 			'owner' => $agent?->getOwnerUid(),
+			'tokenId' => $tokenId,
 		]);
 	}
 

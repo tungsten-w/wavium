@@ -23,6 +23,24 @@ export interface RenderOptions {
 	resolveImage?: (src: string) => string
 }
 
+/**
+ * Bare URLs -> links, only in text: never inside a tag (an image's alt, a
+ * link's href) nor inside a link already made. Linking inside an attribute
+ * would close its quotes and let the note add attributes (onerror=...).
+ */
+function autolink(html: string): string {
+	let inAnchor = 0
+	return html.split(/(<[^>]*>)/).map((part) => {
+		if (part.startsWith('<')) {
+			if (/^<a[\s>]/i.test(part)) inAnchor++
+			else if (/^<\/a>/i.test(part)) inAnchor = Math.max(0, inAnchor - 1)
+			return part
+		}
+		if (inAnchor) return part
+		return part.replace(/(^|[\s(])(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, (_, pre: string, url: string) => `${pre}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
+	}).join('')
+}
+
 function inline(text: string, opts: RenderOptions): string {
 	// Code spans first, so their content is not formatted.
 	const codes: string[] = []
@@ -39,7 +57,7 @@ function inline(text: string, opts: RenderOptions): string {
 		const ok = safeUrl(href.replace(/&amp;/g, '&'))
 		return ok ? `<a href="${esc(ok)}" target="_blank" rel="noopener noreferrer">${label}</a>` : m
 	})
-	s = s.replace(/(^|[\s(])(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, (_, pre: string, url: string) => `${pre}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
+	s = autolink(s)
 	s = s.replace(/\*\*([^*]+)\*\*|__([^_]+)__/g, (_, a?: string, b?: string) => `<strong>${a ?? b}</strong>`)
 	s = s.replace(/(^|[^*\w])\*([^*\s][^*]*)\*(?!\*)|(^|[^_\w])_([^_\s][^_]*)_(?![_\w])/g, (_, p1?: string, a?: string, p2?: string, b?: string) => `${p1 ?? p2 ?? ''}<em>${a ?? b}</em>`)
 	s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>')

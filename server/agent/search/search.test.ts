@@ -35,6 +35,7 @@ const outputs: Record<string, unknown> = {
 	notes_note_list: { notes: [{ id: 12, title: 'Budget ideas', excerpt: 'cut costs', modified: '2026-11-12T00:00:00Z' }], total: 1, next_cursor: null, categories: [] },
 	calendar_event_list: { events: [{ event_id: 'personal/e1.ics', title: 'Budget review', location: 'Room 2', start: '2026-11-20T09:00:00Z' }], truncated: false },
 	task_list: { tasks: [{ task_id: 'personal/t1.ics', title: 'Send budget', status: 'needs-action', due: '2026-11-15', start: null }], truncated: false },
+	messages_search: { results: [{ message_id: 'x1', conversation_id: 'c1', conversation_name: 'Léa', from: 'Léa', text: 'Le budget du voyage ?', at: '2026-11-14T10:00:00.000Z' }] },
 }
 
 const stub = (name: string, area: string): Tool => ({
@@ -54,7 +55,7 @@ beforeEach(async () => {
 	registry = new Registry()
 	registry.add(
 		stub('mail_message_list', 'mail'), stub('files_search', 'files'), stub('contacts_contact_list', 'contacts'),
-		stub('notes_note_list', 'notes'), stub('calendar_event_list', 'calendar'), stub('task_list', 'calendar'),
+		stub('notes_note_list', 'notes'), stub('calendar_event_list', 'calendar'), stub('task_list', 'calendar'), stub('messages_search', 'messages'),
 		searchTool(() => registry, undefined, () => NOW),
 	)
 	const approvals = new Approvals(db, null, 'https://x/settings/agents')
@@ -68,7 +69,7 @@ const search = (input: Record<string, unknown>) => callTool(registry, base, 'sea
 test('no grant: nothing queried, every app skipped', async () => {
 	const r = await search({ query: 'budget' })
 	expect(r.results).toEqual([])
-	expect(r.skipped.map((s: { app: string, reason: string }) => `${s.app}:${s.reason}`)).toEqual(['mail:no read access', 'files:no read access', 'contacts:no read access', 'notes:no read access', 'calendar:no read access', 'tasks:no read access'])
+	expect(r.skipped.map((s: { app: string, reason: string }) => `${s.app}:${s.reason}`)).toEqual(['mail:no read access', 'files:no read access', 'contacts:no read access', 'notes:no read access', 'calendar:no read access', 'tasks:no read access', 'messages:no read access'])
 	expect(calls).toEqual([])
 })
 
@@ -84,12 +85,12 @@ test('only readable apps are queried; hits carry the call that opens them', asyn
 		{ app: 'mail', kind: 'message', id: 'm1', title: 'Budget 2027', snippet: 'Bob bob@example.org: see attached', date: '2026-11-10T08:00:00Z', open: { tool: 'mail_message_get', input: { message_key: 'm1' } } },
 		{ app: 'notes', kind: 'note', id: 12, title: 'Budget ideas', snippet: 'cut costs', date: '2026-11-12T00:00:00Z', open: { tool: 'notes_note_get', input: { id: 12 } } },
 	])
-	expect(r.skipped.map((s: { app: string }) => s.app)).toEqual(['files', 'contacts', 'calendar', 'tasks'])
+	expect(r.skipped.map((s: { app: string }) => s.app)).toEqual(['files', 'contacts', 'calendar', 'tasks', 'messages'])
 	expect(r.errors).toEqual([])
 })
 
 test('every app mapped; inputs fit each tool; calendar window is one year around now', async () => {
-	for (const a of ['mail', 'files', 'contacts', 'notes', 'calendar']) await grant(a)
+	for (const a of ['mail', 'files', 'contacts', 'notes', 'calendar', 'messages']) await grant(a)
 	const r = await search({ query: 'budget' })
 	expect(r.skipped).toEqual([])
 	const byApp = (app: string) => r.results.filter((h: { app: string }) => h.app === app)
@@ -105,6 +106,7 @@ test('every app mapped; inputs fit each tool; calendar window is one year around
 	expect(input('task_list')).toEqual({ query: 'budget', limit: 5, status: 'all' })
 	expect(input('files_search')).toEqual({ query: 'budget', limit: 5 })
 	expect(input('contacts_contact_list')).toEqual({ query: 'budget', limit: 5 })
+	expect(byApp('messages')[0]).toMatchObject({ kind: 'text', id: 'x1', title: 'Léa', snippet: 'Le budget du voyage ?', open: { tool: 'messages_message_list', input: { conversation_id: 'c1' } } })
 })
 
 test('apps filter, per-app limit, failing app reported without hiding the others', async () => {

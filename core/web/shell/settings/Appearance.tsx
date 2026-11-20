@@ -35,9 +35,9 @@ export function Appearance({ session: _session }: { session: Session }) {
 	const [wallpaper, setW] = useState(getWallpaper())
 	const custom = !COLORS.includes(current) && current !== serverColor
 
-	function pickMode(m: ThemeMode) {
+	function pickMode(m: ThemeMode, origin?: { x: number, y: number }) {
 		setM(m)
-		setMode(m)
+		setMode(m, origin)
 		// Classic pages follow the theming app's per-user theme.
 		void ocs(`apps/theming/api/v1/theme/${THEMING_IDS[m]}/enable`, { method: 'PUT' }).catch(() => {})
 	}
@@ -60,7 +60,7 @@ export function Appearance({ session: _session }: { session: Session }) {
 				<h3>Theme</h3>
 				<div className="theme-options">
 					{MODES.map((m) => (
-						<button key={m.id} type="button" className={'theme-option' + (mode === m.id ? ' theme-option--active' : '')} onClick={() => pickMode(m.id)} aria-pressed={mode === m.id}>
+						<button key={m.id} type="button" className={'theme-option' + (mode === m.id ? ' theme-option--active' : '')} onClick={(e) => pickMode(m.id, { x: e.clientX, y: e.clientY })} aria-pressed={mode === m.id}>
 							<span className="swatch" style={{ background: m.bg }} />
 							<span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{mode === m.id && <Icon name="check" />}{m.label}</span>
 						</button>

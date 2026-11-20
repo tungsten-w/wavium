@@ -6,11 +6,12 @@
 //   GET search/providers/<id>/search?term=&limit= -> { name, entries: [{ title, subline, resourceUrl, thumbnailUrl, icon }] }
 // Providers are queried in parallel; groups appear as their answers arrive.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { navigate, ocs } from '@atrium/sdk'
+import { navigate, ocs, request } from '@atrium/sdk'
 import { Icon, Spinner, cx } from '@atrium/ui'
 
 interface Provider { id: string, name: string, icon: string, order: number, inAppSearch: boolean }
 interface Entry { title: string, subline: string, resourceUrl: string, thumbnailUrl: string, icon: string, rounded?: boolean }
+interface MessageHit { conversation_id: string, conversation_name: string, sender_name: string, sender_number: string, text: string, one_time_code: boolean }
 interface Group { id: string, name: string, icon: string, order: number, entries: Entry[] }
 
 let providerCache: Promise<Provider[]> | null = null
@@ -59,6 +60,18 @@ export function Search() {
 					.catch(() => {})
 					.finally(() => { if (!ctl.signal.aborted) setPending((n) => n - 1) })
 			}
+			// Texts kept by Wavium (Messages, v4): not a Nextcloud provider, asked directly.
+			request<{ results: MessageHit[] }>(`/agent/v1/messages/search?q=${encodeURIComponent(q)}`, { signal: ctl.signal })
+				.then((r) => {
+					if (ctl.signal.aborted || !r?.results?.length) return
+					const entries = r.results.slice(0, 5).map((m) => ({
+						title: m.conversation_name || m.sender_name || m.sender_number || 'Message',
+						subline: m.one_time_code ? 'One-time code' : m.text.slice(0, 120),
+						resourceUrl: `/apps/messages/${encodeURIComponent(m.conversation_id)}`, thumbnailUrl: '', icon: 'icon-comment',
+					}))
+					setGroups((g) => [...g, { id: 'wavium-messages', name: 'Messages', icon: 'icon-comment', order: 15, entries }].sort((a, b) => a.order - b.order))
+				})
+				.catch(() => {})
 		}, 300)
 		return () => { clearTimeout(timer); ctl.abort() }
 	}, [term])

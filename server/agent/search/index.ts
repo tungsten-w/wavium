@@ -99,6 +99,14 @@ export const SOURCES: Source[] = [
 			snippet: s(t.status), date: s(t.due ?? t.start), open: { tool: 'task_get', input: { task_id: t.task_id } },
 		})),
 	},
+	{
+		app: 'messages', area: 'messages', tool: 'messages_search',
+		input: (q, limit) => ({ query: q, limit: Math.min(limit, 50) }),
+		hits: (o) => (o.results as Row[] ?? []).map((m) => ({
+			app: 'messages', kind: 'text', id: String(m.message_id), title: String(m.conversation_name || m.from || 'Message'),
+			snippet: s(m.text), date: s(m.at), open: { tool: 'messages_message_list', input: { conversation_id: m.conversation_id } },
+		})),
+	},
 ]
 
 export const APPS = SOURCES.map((x) => x.app)

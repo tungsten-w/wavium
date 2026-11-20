@@ -25,13 +25,24 @@ export function htmlToText(html: string): string {
 	return (doc.body.textContent ?? '').replace(/\n{3,}/g, '\n\n').trim()
 }
 
-/** Removes scripts, event handlers and javascript: links from pasted HTML. */
+/** URL attributes that a browser follows or loads. */
+const URL_ATTRS = new Set(['href', 'src', 'xlink:href', 'action', 'formaction', 'srcset', 'background', 'poster', 'data', 'cite', 'ping'])
+
+/** Only web, mail and phone links survive; browsers ignore tabs, newlines and controls in "java\tscript:". */
+export function safeHref(value: string): boolean {
+	const v = value.replace(/[\u0000-\u0020\u007f-\u009f]/g, '').toLowerCase()
+	return !/^[a-z][a-z0-9+.-]*:/.test(v) || /^(https?|mailto|tel):/.test(v)
+}
+
+/** Removes scripts, event handlers, dangerous elements and non-web links from pasted HTML. */
 export function cleanHtml(html: string): string {
 	const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html')
-	doc.querySelectorAll('script, style, iframe, object, embed, form').forEach((el) => el.remove())
+	doc.querySelectorAll('script, style, iframe, frame, frameset, object, embed, form, input, button, textarea, select, svg, math, meta, link, base, template, noscript, audio, video, source, track').forEach((el) => el.remove())
 	doc.querySelectorAll('*').forEach((el) => {
 		for (const attr of Array.from(el.attributes)) {
-			if (/^on/i.test(attr.name) || (attr.name === 'href' && /^\s*javascript:/i.test(attr.value))) el.removeAttribute(attr.name)
+			const name = attr.name.toLowerCase()
+			if (name.startsWith('on') || name === 'style' && /expression|url\s*\(/i.test(attr.value)) el.removeAttribute(attr.name)
+			else if (URL_ATTRS.has(name) && (!(name === 'href' || name === 'src') || !safeHref(attr.value))) el.removeAttribute(attr.name)
 		}
 	})
 	return doc.body.firstElementChild?.innerHTML ?? ''

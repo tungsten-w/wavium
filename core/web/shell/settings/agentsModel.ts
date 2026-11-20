@@ -13,7 +13,7 @@ export const ACTIONS: Action[] = ['read', 'write', 'send', 'delete', 'share']
 export const actionLabels: Record<Action, string> = { read: 'Read', write: 'Write', send: 'Send', delete: 'Delete', share: 'Share' }
 export const modeLabels: Record<Mode, string> = { off: 'Off', allowed: 'Allowed', approval: 'Ask me' }
 
-export interface AgentToken { id: number, name: string, lastActivity: number }
+export interface AgentToken { id: number, name: string, lastActivity: number, lastIp?: string | null, lastUserAgent?: string | null }
 export interface Agent {
 	uid: string
 	displayName: string
@@ -25,6 +25,8 @@ export interface Agent {
 	wakes: boolean
 	webhookUrl: string | null
 	notifyApprovals: boolean
+	/** Quiet hours (V4-11): no doorbell or approval ping in this window, unless urgent. */
+	quiet?: { from: string, to: string, tz: string } | null
 	doorbellError: string | null
 	doorbellErrorAt: number | null
 	access: AccessMap

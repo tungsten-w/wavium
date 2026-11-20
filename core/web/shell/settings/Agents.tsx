@@ -155,6 +155,12 @@ function AgentCard({ agent: a, areas, onChange, onConnect, onDeleted }: {
 	const [showAll, setShowAll] = useState(false)
 	const [secret, setSecret] = useState<string | null>(null)
 	useEffect(() => setWebhook(a.webhookUrl ?? ''), [a.webhookUrl])
+	const [test, setTest] = useState<{ ok: boolean, message: string } | 'busy' | null>(null)
+	useEffect(() => setTest(null), [a.webhookUrl])
+	const testHook = async () => {
+		setTest('busy')
+		try { setTest(await api.testWebhook(a.uid)) } catch (e) { setTest({ ok: false, message: errText(e) }) }
+	}
 
 	const run = async (fn: () => Promise<Agent | void>, done?: string) => {
 		setBusy(true)
@@ -199,6 +205,7 @@ function AgentCard({ agent: a, areas, onChange, onConnect, onDeleted }: {
 				<Switch label="Paused: every tool call is refused" checked={a.paused} disabled={busy} onChange={(e) => void run(() => api.update(a.uid, { paused: e.target.checked }))} />
 				<Switch label="Wake it up for new Curated mail and decisions (for agents that run all the time)" checked={a.wakes} disabled={busy} onChange={(e) => void run(() => api.update(a.uid, { wakes: e.target.checked }))} />
 				<Switch label="Notify me (ntfy) when it asks for approval" checked={a.notifyApprovals} disabled={busy} onChange={(e) => void run(() => api.update(a.uid, { notifyApprovals: e.target.checked }))} />
+				<QuietHours a={a} busy={busy} onSave={(quiet) => run(() => api.update(a.uid, { quiet }), quiet ? 'Quiet hours saved' : 'Quiet hours off')} />
 			</div>
 
 			<h3 style={{ marginTop: 20 }}>Doorbell</h3>
@@ -210,7 +217,9 @@ function AgentCard({ agent: a, areas, onChange, onConnect, onDeleted }: {
 					if (!(await confirmDialog('Make a new webhook secret? The agent must get the new one, or its doorbell stops being accepted.', { confirm: 'New secret' }))) return
 					try { setSecret((await api.newSecret(a.uid)).webhookSecret) } catch (e) { toast.error(errText(e)) }
 				}}>New secret</Button>
+				<Button variant="text" icon="send" disabled={busy || !a.webhookUrl || webhook.trim() !== (a.webhookUrl ?? '') || test === 'busy'} busy={test === 'busy'} onClick={() => void testHook()}>Test</Button>
 			</form>
+			{test && test !== 'busy' && <p className={`agent-hook-test agent-hook-test--${test.ok ? 'ok' : 'bad'}`} role="status">{test.ok ? '✓' : '✕'} {test.message}</p>}
 			{a.doorbellError && <p style={{ color: 'var(--at-error)', fontSize: 13 }}>Doorbell problem {a.doorbellErrorAt ? relativeTime(a.doorbellErrorAt * 1000) : ''}: {a.doorbellError}</p>}
 
 			<h3 style={{ marginTop: 20 }}>Access</h3>
@@ -255,11 +264,15 @@ function AgentCard({ agent: a, areas, onChange, onConnect, onDeleted }: {
 					{a.tokens.map((t) => (
 						<tr key={t.id}>
 							<td>{t.name}</td>
-							<td className="at-muted">{t.lastActivity ? `used ${relativeTime(t.lastActivity * 1000)}` : 'never used'}</td>
-							<td style={{ textAlign: 'right' }}><IconButton icon="delete" label={`Revoke ${t.name}`} disabled={busy} onClick={async () => {
-								if (!(await confirmDialog(`Revoke the token "${t.name}"? Whatever uses it stops working.`, { confirm: 'Revoke', danger: true }))) return
-								await run(async () => { await api.revokeToken(a.uid, t.id); onChange({ ...a, tokens: a.tokens.filter((x) => x.id !== t.id) }) }, 'Token revoked')
-							}} /></td>
+							<td className="at-muted">{t.lastActivity ? `used ${relativeTime(t.lastActivity * 1000)}` : 'never used'}
+								{t.lastIp && <div className="agent-token__from" title={t.lastUserAgent ?? undefined}>from <code>{t.lastIp}</code>{t.lastUserAgent ? ` · ${t.lastUserAgent.split(/[\s/]/)[0]}` : ''}</div>}</td>
+							<td style={{ textAlign: 'right' }}>
+								{/* One click: undo is "create a new token", so no confirm step (V4-9). */}
+								<Button variant="tonal" size="s" icon="delete" disabled={busy} aria-label={`Revoke ${t.name}`} onClick={() => run(async () => {
+									await api.revokeToken(a.uid, t.id)
+									onChange({ ...a, tokens: a.tokens.filter((x) => x.id !== t.id) })
+								}, `Token "${t.name}" revoked: whatever used it is cut off now`)}>Revoke</Button>
+							</td>
 						</tr>
 					))}
 				</tbody>
@@ -370,6 +383,29 @@ function ConnectGuides({ info }: { info: ConnectInfo }) {
 			<p style={{ fontSize: 14 }}>{g.intro}</p>
 			{g.steps.map((st) => <Copyable key={st.label} label={st.label} value={st.value} multiline={st.multiline} />)}
 			{g.note && <p className="at-muted" style={{ fontSize: 13 }}>{g.note}</p>}
+		</div>
+	)
+}
+
+/** Quiet hours (V4-11): no doorbell and no approval ping in this window, unless urgent "now". */
+function QuietHours({ a, busy, onSave }: { a: Agent, busy: boolean, onSave: (q: Agent['quiet']) => Promise<unknown> | void }) {
+	const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+	const [from, setFrom] = useState(a.quiet?.from ?? '22:00')
+	const [to, setTo] = useState(a.quiet?.to ?? '07:30')
+	useEffect(() => { setFrom(a.quiet?.from ?? '22:00'); setTo(a.quiet?.to ?? '07:30') }, [a.quiet?.from, a.quiet?.to])
+	const on = !!a.quiet
+	return (
+		<div className="agent-quiet">
+			<Switch label="Quiet hours: no doorbell and no ping at night (urgent mail still rings; what waits is in the morning digest)" checked={on} disabled={busy}
+				onChange={(e) => void onSave(e.target.checked ? { from, to, tz } : null)} />
+			{on && (
+				<div className="agent-quiet__times">
+					<label>From <input type="time" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+					<label>to <input type="time" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+					<span className="at-muted">{a.quiet?.tz ?? tz}</span>
+					<Button variant="tonal" size="s" disabled={busy || from === to || (from === a.quiet?.from && to === a.quiet?.to)} onClick={() => void onSave({ from, to, tz })}>Save</Button>
+				</div>
+			)}
 		</div>
 	)
 }

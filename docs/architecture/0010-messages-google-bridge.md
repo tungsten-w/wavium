@@ -1,6 +1,6 @@
 # 0010: Messages app, linked to Google Messages (SMS and RCS)
 
-Status: proposed (2026-11-14). Waits for the owner's go.
+Status: accepted (owner's go 2026-11-17), built in v4 (branch `night/v4`).
 
 ## Goal
 
@@ -57,3 +57,18 @@ whole Matrix bridge.
 - Only one web session at a time on some phones: pairing Wavium may log out
   messages.google.com/web in a browser.
 - Public demo: the sidecar is off; a fake conversation set is seeded instead.
+
+## As built (v4, 2026-11-17)
+
+- Sidecar `services/gmessages/` (Go 1.27, libgm `go.mau.fi/mautrix-gmessages`
+  v0.2610.0 pinned in `go.mod`/`go.sum`). Events go to Bun as a
+  Server-Sent Events stream (`GET /v1/events`) instead of a WebSocket: same
+  job, no extra Go dependency. `GMESSAGES_FAKE=1` = an in-memory phone (dev, e2e).
+- The sidecar keeps nothing on disk: Bun stores the pairing session sealed
+  (AES-256-GCM, instance secret, the user id as associated data) in
+  `atrium_msg_links` and hands it back when the sidecar (re)starts.
+- Pictures are kept in `atrium_msg_media` (database), not yet in `Messages/`
+  in Files (left to do).
+- Dev stack: the fake phone always runs. Production (`deploy/wavium`):
+  `docker compose --profile messages up -d`, secret `WAVIUM_GMESSAGES_SECRET`.
+  Public demo: sidecar off, made-up conversations for alice and bob.

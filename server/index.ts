@@ -10,7 +10,7 @@ import type { FastCgiTarget } from './fastcgi'
 import { servePhp, type PhpTarget } from './php'
 import { isShellPage, route } from './routes'
 import { startAgentLayer, type AgentLayer } from './agent'
-import { loadLimits } from './limits'
+import { loadLimits, uiLimits } from './limits'
 import { demoInfo, demoRefusal, loadPublicDemo, refusalResponse } from './publicdemo'
 
 const docroot = (process.env.ATRIUM_DOCROOT ?? '/var/www/html').replace(/\/$/, '')
@@ -77,6 +77,19 @@ function securityHeaders(h: Headers, pathname: string) {
 	h.set('X-Frame-Options', 'SAMEORIGIN')
 	h.set('X-Permitted-Cross-Domain-Policies', 'none')
 	h.set('X-Robots-Tag', 'noindex, nofollow')
+	// Nothing in Wavium uses these (location: the weather widget, Wavium only); a page tricked into asking gets a no.
+	h.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=(), usb=(), serial=(), bluetooth=(), hid=()')
+}
+
+/**
+ * The React shell: framing only by Wavium itself, no <base> or plugin tricks,
+ * forms only to Wavium, and a window of its own (no opener handle for others).
+ * Scripts are not restricted here: the import map is inline (see SHELL_INDEX).
+ */
+export const SHELL_CSP = "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'"
+function shellHeaders(h: Headers) {
+	h.set('Content-Security-Policy', SHELL_CSP)
+	h.set('Cross-Origin-Opener-Policy', 'same-origin')
 }
 
 const longCache = /\.(css|js|mjs|svg|gif|png|jpg|jpeg|webp|ico|wasm|tflite|map)$/
@@ -144,6 +157,12 @@ async function handle(req: Request, remote: string, received: Received): Promise
 		securityHeaders(res.headers, url.pathname)
 		return res
 	}
+	// The upload limit, for the UI to refuse a too-big file before sending it (V4-1).
+	if (pathname === '/core/web/dist/limits.json' && (req.method === 'GET' || req.method === 'HEAD')) {
+		const res = new Response(req.method === 'HEAD' ? null : JSON.stringify(uiLimits(limits)), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' } })
+		securityHeaders(res.headers, url.pathname)
+		return res
+	}
 	if (pathname === '/core/web/dist/demo.json' && (req.method === 'GET' || req.method === 'HEAD')) {
 		const res = new Response(req.method === 'HEAD' ? null : JSON.stringify(demoInfo(publicDemo)), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' } })
 		securityHeaders(res.headers, url.pathname)
@@ -171,6 +190,7 @@ async function handle(req: Request, remote: string, received: Received): Promise
 		if (await shell.exists()) {
 			const res = new Response(req.method === 'HEAD' ? null : shell, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } })
 			securityHeaders(res.headers, url.pathname)
+			shellHeaders(res.headers)
 			return res
 		}
 	}

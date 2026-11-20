@@ -80,24 +80,24 @@ ADR 0010, waits for the owner's go), the rest in any order.
 
 ### v3 leftovers
 
-- [ ] V4-1 Demo polish: upload limit shown before uploading (Files, Mail attachments; IDEAS 3); the AI answers in the UI language (digest said "Aujourd'hui" on an English UI); Dashboard "Important mail" widget not empty on the demo
+- [x] V4-1 Demo polish: upload limit shown before uploading (Files, Mail attachments; IDEAS 3); the AI answers in the UI language (digest said "Aujourd'hui" on an English UI); Dashboard "Important mail" widget not empty on the demo — night/v4
 
-### Messages: Google Messages in Wavium (ADR 0010)
+### Messages: Google Messages in Wavium (ADR 0010) — done on night/v4 (Claude session, 2026-11-17)
 
-- [ ] V4-2 Sidecar `services/gmessages/` (Go, libgm pinned): pair (QR + Google account), conversations, messages, send, events over WebSocket; fake mode for tests and the demo
-- [ ] V4-3 Bun side: tables, sync from the sidecar, local copy kept forever, attachments in `Messages/`, encrypted pairing session — deps: V4-2
-- [ ] V4-4 Messages app (React): Settings > Messages > Link my phone (QR), conversation list, thread, send SMS/RCS, images, search, "phone offline" banner — deps: V4-3
-- [ ] V4-5 Agent tools and events `messages.*` (send = approval, one-time codes hidden from agents) — deps: V4-3
-- [ ] V4-6 Contacts: phone number → name and avatar; Messages in the cross-app search and the morning digest ("2 SMS need a reply") — deps: V4-3
-- [ ] V4-7 Demo: fake conversations for alice and bob, sidecar off — deps: V4-4
+- [x] V4-2 Sidecar `services/gmessages/` (Go, libgm pinned): pair (QR + Google account), conversations, messages, send, events over WebSocket; fake mode for tests and the demo
+- [x] V4-3 Bun side: tables, sync from the sidecar, local copy kept forever, attachments in `Messages/`, encrypted pairing session — deps: V4-2
+- [x] V4-4 Messages app (React): Settings > Messages > Link my phone (QR), conversation list, thread, send SMS/RCS, images, search, "phone offline" banner — deps: V4-3
+- [x] V4-5 Agent tools and events `messages.*` (send = approval, one-time codes hidden from agents) — deps: V4-3
+- [x] V4-6 Contacts: phone number → name and avatar; Messages in the cross-app search and the morning digest ("2 SMS need a reply") — deps: V4-3
+- [x] V4-7 Demo: fake conversations for alice and bob, sidecar off — deps: V4-4
 
 ### Ideas picked from reports/IDEAS.md
 
-- [ ] V4-8 Webhook test button in Settings > Agents (IDEAS 1)
-- [ ] V4-9 Agent tokens page: last use, IP, revoke in one click (IDEAS 2)
-- [ ] V4-10 "Why is this mail here?" with "wrong" button feeding the classifier (IDEAS 5)
-- [ ] V4-11 Quiet hours for agents, pings queued into the morning digest (IDEAS 8)
-- [ ] V4-12 `make test-e2e` in CI with screenshots per app (IDEAS 9)
+- [x] V4-8 Webhook test button in Settings > Agents (IDEAS 1) — night/v4
+- [x] V4-9 Agent tokens page: last use, IP, revoke in one click (IDEAS 2) — night/v4
+- [x] V4-10 "Why is this mail here?" with "wrong" button feeding the classifier (IDEAS 5) — night/v4
+- [x] V4-11 Quiet hours for agents, pings queued into the morning digest (IDEAS 8) — night/v4
+- [x] V4-12 `make test-e2e` in CI with screenshots per app (IDEAS 9) — night/v4
 
 ### Friends' feedback on v3 (2026-11-14)
 

@@ -12,7 +12,8 @@ import { type Approvals, view as approvalView } from './approvals'
 import type { Journal } from './journal'
 import { timeline } from './timeline'
 import type { OAuth } from './oauth'
-import type { Auth, Caller } from './auth'
+import type { DoorbellTest } from './events'
+import type { Auth, Caller, TokenUse } from './auth'
 import type { Db } from './db'
 import type { PhpCaller } from './phpcall'
 import type { Registry } from './tools'
@@ -30,7 +31,8 @@ interface TokenRow { id: number, name: string, lastActivity: number, agent: bool
 export class OwnerApi {
 	private areasCache: { at: number, areas: Record<string, Action[]> } | null = null
 
-	constructor(private db: Db, private php: PhpCaller, private auth: Auth, private approvals: Approvals, private baseUrl: string, private registry?: Registry, private journal?: Journal, private oauth?: OAuth) {}
+	constructor(private db: Db, private php: PhpCaller, private auth: Auth, private approvals: Approvals, private baseUrl: string, private registry?: Registry, private journal?: Journal, private oauth?: OAuth, private tokenUse?: TokenUse, private webhookTest?: (agent: string) => Promise<DoorbellTest>) {}
+	private lastTest = new Map<string, number>()
 
 	/** Agent tools per area (areas without tools still grant the app's own API through token scopes). */
 	toolCounts(): Record<string, number> {
@@ -59,10 +61,11 @@ export class OwnerApi {
 	}
 
 	private async describe(agent: AgentRow) {
-		const [settings, access, tokens] = await Promise.all([
+		const [settings, access, tokens, uses] = await Promise.all([
 			getSettings(this.db, agent.uid),
 			getAccess(this.db, agent.uid, agent.owner),
 			this.php.ocs<{ tokens: TokenRow[] }>('GET', `core/atrium/agent/internal/agents/${encodeURIComponent(agent.uid)}/tokens`),
+			this.tokenUse ? this.tokenUse.forAgent(agent.uid).catch(() => new Map()) : Promise.resolve(new Map()),
 		])
 		return {
 			...agent,
@@ -70,10 +73,14 @@ export class OwnerApi {
 			wakes: settings.wakes,
 			webhookUrl: settings.webhookUrl,
 			notifyApprovals: settings.notifyApprovals,
+			quiet: settings.quiet,
 			doorbellError: settings.doorbellError,
 			doorbellErrorAt: settings.doorbellErrorAt,
 			access,
-			tokens: tokens.tokens.filter((t) => t.agent),
+			tokens: tokens.tokens.filter((t) => t.agent).map((t) => {
+				const u = uses.get(t.id)
+				return u ? { ...t, lastIp: u.ip, lastUserAgent: u.userAgent, lastActivity: Math.max(t.lastActivity, u.at) } : { ...t, lastIp: null, lastUserAgent: null }
+			}),
 			connectedApps: this.oauth ? await this.oauth.grants(agent.uid) : [],
 		}
 	}
@@ -173,6 +180,7 @@ export class OwnerApi {
 					if (typeof input.paused === 'boolean') patch.paused = input.paused
 					if (typeof input.wakes === 'boolean') patch.wakes = input.wakes
 					if (typeof input.notifyApprovals === 'boolean') patch.notifyApprovals = input.notifyApprovals
+					if (input.quiet !== undefined) patch.quiet = input.quiet as never
 					if (input.webhookUrl !== undefined) {
 						patch.webhookUrl = input.webhookUrl === null ? null : String(input.webhookUrl).trim()
 						patch.doorbellError = null
@@ -203,6 +211,13 @@ export class OwnerApi {
 				if (input.areas && typeof input.areas === 'object') await this.setAccessMap(agent.uid, owner.uid, input.areas as Record<string, unknown>)
 				await this.syncTokenScopes(agent.uid, owner.uid)
 				return Response.json(await this.describe(agent))
+			}
+			if (c === 'webhook-test' && m === 'POST' && this.webhookTest) {
+				// One test at a time per agent: the button is not a way to flood someone's server.
+				const last = this.lastTest.get(agent.uid) ?? 0
+				if (Date.now() - last < 5000) throw new AgentError('conflict', 'Wait a few seconds before testing again')
+				this.lastTest.set(agent.uid, Date.now())
+				return Response.json(await this.webhookTest(agent.uid))
 			}
 			if (c === 'webhook-secret' && m === 'POST') {
 				const s = await updateSettings(this.db, agent.uid, { webhookSecret: 'whsec_' + randomToken(24), doorbellError: null, doorbellErrorAt: null })

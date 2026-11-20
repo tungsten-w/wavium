@@ -18,6 +18,7 @@ node_modules/
 # ignore all apps except core ones
 /apps*/*
 !/apps/daily_todo
+!/apps/messages
 !/apps/contacts
 !/apps/calendar
 !/apps/tasks

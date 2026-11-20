@@ -101,3 +101,12 @@ shield-check
 file-pencil
 trash-x
 mail-forward
+message
+message-circle
+messages
+qrcode
+device-mobile-off
+brand-google
+unlink
+mood-smile
+message-2-code

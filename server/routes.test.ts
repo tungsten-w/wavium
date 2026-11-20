@@ -38,12 +38,17 @@ test('front controller (pretty URLs)', async () => {
 
 test('static', async () => {
 	expect(await r('/core/js/main.js')).toEqual({ kind: 'static', path: '/core/js/main.js' })
+	expect((await r('/core/web/dist/shell.js')).kind).not.toBe('deny')
+	expect((await r('/apps/messages/web/dist/index.js')).kind).not.toBe('deny')
 	expect(await r('/robots.txt')).toEqual({ kind: 'static', path: '/robots.txt' })
 })
 
 test('denied', async () => {
 	for (const p of ['/data/admin/files/x', '/config/config.php', '/lib/base.php', '/3rdparty/x', '/occ', '/.git/config',
-		'/.htaccess', '/console.php', '/memory/INDEX.md', '/live/.env', '/todo.md', '/composer.json', '/build/x', '/templates']) {
+		'/.htaccess', '/console.php', '/memory/INDEX.md', '/live/.env', '/todo.md', '/composer.json', '/build/x', '/templates',
+		// v4 security check: sidecar sources, reports, UI sources and dependencies
+		'/services/gmessages/go.mod', '/reports/V3.md', '/apps/messages/web/index.tsx', '/apps/messages/web/bun.lock', '/core/web/package.json',
+		'/apps/notes/web/node_modules/@codemirror/state/package.json', '/custom_apps/x/web/api.ts', '/core/web/shell/Login.tsx']) {
 		expect(await r(p)).toEqual({ kind: 'deny' })
 	}
 })
