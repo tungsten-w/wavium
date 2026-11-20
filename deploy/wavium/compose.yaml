@@ -128,9 +128,17 @@ services:
     restart: unless-stopped
     environment:
       WAVIUM_DOMAIN: ${WAVIUM_DOMAIN}
+      # "internal" for a local-network install (IP or no public DNS): Caddy's
+      # own CA. Default "acme" = Let's Encrypt. See Caddyfile.
+      WAVIUM_TLS_ISSUER: ${WAVIUM_TLS_ISSUER:-acme}
+      # Caddy listens on these and builds its redirects from them, so the
+      # published port and the container port must be the same number.
+      WAVIUM_HTTP_PORT: ${WAVIUM_HTTP_PORT:-80}
+      WAVIUM_HTTPS_PORT: ${WAVIUM_HTTPS_PORT:-443}
+      WAVIUM_PUBLIC_PORT_SUFFIX: ${WAVIUM_PUBLIC_PORT_SUFFIX:-}
     ports:
-      - "${WAVIUM_BIND:-0.0.0.0}:${WAVIUM_HTTP_PORT:-80}:80"
-      - "${WAVIUM_BIND:-0.0.0.0}:${WAVIUM_HTTPS_PORT:-443}:443"
+      - "${WAVIUM_BIND:-0.0.0.0}:${WAVIUM_HTTP_PORT:-80}:${WAVIUM_HTTP_PORT:-80}"
+      - "${WAVIUM_BIND:-0.0.0.0}:${WAVIUM_HTTPS_PORT:-443}:${WAVIUM_HTTPS_PORT:-443}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

@@ -7,12 +7,18 @@ ARG BASE=nextcloud:34.0.5-fpm@sha256:88a938ba385807e6ad91584eeafbc026eaaa4c4c795
 
 FROM ${BASE} AS release
 
-# Bun, baseline build: the host CPU has no AVX (stock Bun dies with SIGILL).
+# Bun, per build architecture. On amd64 take the baseline build: the host CPU
+# has no AVX (stock Bun dies with SIGILL). arm64 has a single build.
 FROM debian:bookworm-slim AS bun
 ARG BUN_VERSION=1.4.4
 RUN set -eu; apt-get update; apt-get install -y --no-install-recommends ca-certificates curl unzip; \
-    curl -fsSL -o /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64-baseline.zip"; \
-    unzip -q /tmp/bun.zip -d /tmp; mv /tmp/bun-linux-x64-baseline/bun /usr/local/bin/bun; /usr/local/bin/bun --version
+    case "$(dpkg --print-architecture)" in \
+      amd64) slice=x64-baseline ;; \
+      arm64) slice=aarch64 ;; \
+      *) echo "no Bun build for $(dpkg --print-architecture)" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL -o /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${slice}.zip"; \
+    unzip -q /tmp/bun.zip -d /tmp; mv "/tmp/bun-linux-${slice}/bun" /usr/local/bin/bun; /usr/local/bin/bun --version
 # React frontend: core/web (shell, @atrium/ui, @atrium/sdk, vendored React) and
 # every apps/<id>/web, built with Bun into their dist/ dirs (gitignored, so the
 # exported tree has none). Bind-mounted apps (daily_todo) build on the host.
