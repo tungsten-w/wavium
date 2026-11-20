@@ -6,7 +6,7 @@
 // you save it. Saved rules run on new mail without AI (/agent/v1/rules).
 import { useCallback, useEffect, useState } from 'react'
 import { HttpError, request, relativeTime } from '@atrium/sdk'
-import { Button, Card, IconButton, NavToggle, Spinner, Switch, TextField, toast } from '@atrium/ui'
+import { Button, Card, IconButton, NavToggle, Select, Spinner, Switch, TextField, toast } from '@atrium/ui'
 
 export interface RuleView {
 	id: number
@@ -22,6 +22,7 @@ interface Proposal {
 	rule: Omit<RuleView, 'id' | 'enabled' | 'description'> & { source_text: string }
 	description: string
 	preview: { scanned: number, count: number, sample: Array<{ subject: string, from: string | null }> }
+	all_accounts?: boolean
 }
 interface Overview {
 	rules: RuleView[]
@@ -42,12 +43,13 @@ const errText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 export function MailRules() {
 	const [data, setData] = useState<Overview | null>(null)
 	const [text, setText] = useState('')
-	const [account, setAccount] = useState<number | null>(null)
+	// An account id, or 'all': one rule on every account (the folder is matched in each).
+	const [account, setAccount] = useState<number | 'all' | null>(null)
 	const [proposal, setProposal] = useState<Proposal | null>(null)
 	const [busy, setBusy] = useState(false)
 
 	const load = useCallback(() => {
-		api<Overview>('').then((d) => { setData(d); setAccount((a) => a ?? d.accounts[0]?.id ?? null) }, (e) => toast.error(errText(e)))
+		api<Overview>('').then((d) => { setData(d); setAccount((a) => a ?? (d.accounts.length > 1 ? 'all' : d.accounts[0]?.id ?? null)) }, (e) => toast.error(errText(e)))
 	}, [])
 	useEffect(() => { load() }, [load])
 
@@ -55,20 +57,32 @@ export function MailRules() {
 		if (!text.trim()) return
 		setBusy(true)
 		setProposal(null)
-		try { setProposal(await api<Proposal>('/propose', { method: 'POST', body: { text, ...(account !== null ? { account } : {}) } })) } catch (e) { toast.error(errText(e)) } finally { setBusy(false) }
+		const scope = account === 'all' ? { all_accounts: true } : account !== null ? { account } : {}
+		try { setProposal(await api<Proposal>('/propose', { method: 'POST', body: { text, ...scope } })) } catch (e) { toast.error(errText(e)) } finally { setBusy(false) }
 	}
 
 	async function save(applyNow: boolean) {
 		if (!proposal) return
 		setBusy(true)
 		try {
-			const r = await api<RuleView>('', { method: 'POST', body: proposal.rule })
-			if (applyNow) {
-				const { applied } = await api<{ applied: number }>(`/${r.id}/apply`, { method: 'POST' })
-				toast(`Rule saved; ${applied} mail${applied === 1 ? '' : 's'} filed`)
+			let saved: RuleView[]
+			let skipped: Array<{ email: string, reason: string }> = []
+			if (proposal.all_accounts) {
+				const r = await api<{ rules: RuleView[], skipped: Array<{ email: string, reason: string }> }>('', { method: 'POST', body: { ...proposal.rule, all_accounts: true } })
+				saved = r.rules
+				skipped = r.skipped
 			} else {
-				toast('Rule saved: it applies to new mail')
+				saved = [await api<RuleView>('', { method: 'POST', body: proposal.rule })]
 			}
+			const where = saved.length > 1 ? ` on ${saved.length} accounts` : ''
+			if (applyNow) {
+				let applied = 0
+				for (const r of saved) applied += (await api<{ applied: number }>(`/${r.id}/apply`, { method: 'POST' })).applied
+				toast(`Rule saved${where}; ${applied} mail${applied === 1 ? '' : 's'} filed`)
+			} else {
+				toast(`Rule saved${where}: it applies to new mail`)
+			}
+			if (skipped.length) toast.error(`Not added for ${skipped.map((x) => `${x.email} (${x.reason})`).join(', ')}`)
 			setProposal(null)
 			setText('')
 			load()
@@ -97,9 +111,10 @@ export function MailRules() {
 				<form className="ml-rules__ask" onSubmit={(e) => { e.preventDefault(); void propose() }}>
 					<TextField label="Describe it in your own words" placeholder="e.g. invoices from EDF go to Admin, marked read" value={text} onChange={(e) => setText(e.target.value)} />
 					{data && data.accounts.length > 1 && (
-						<select aria-label="Account" value={account ?? ''} onChange={(e) => setAccount(Number(e.target.value))}>
+						<Select label="Account" value={String(account ?? '')} onChange={(e) => setAccount(e.target.value === 'all' ? 'all' : Number(e.target.value))}>
+							<option value="all">All my accounts</option>
 							{data.accounts.map((a) => <option key={a.id} value={a.id}>{a.email}</option>)}
-						</select>
+						</Select>
 					)}
 					<Button type="submit" icon="robot" busy={busy && !proposal} disabled={!text.trim()}>Propose</Button>
 				</form>
@@ -107,7 +122,7 @@ export function MailRules() {
 					<div className="ml-rules__proposal" aria-label="Proposed rule">
 						<p><strong>{proposal.rule.name}</strong>: {proposal.description}</p>
 						<p className="ml-st__muted">
-							{proposal.preview.count === 0 ? `No mail in the last ${proposal.preview.scanned} of your inbox matches yet.` : `Matches ${proposal.preview.count} of the last ${proposal.preview.scanned} mails in your inbox, e.g.:`}
+							{proposal.preview.count === 0 ? `No mail in the last ${proposal.preview.scanned} of your ${proposal.all_accounts ? 'inboxes' : 'inbox'} matches yet.` : `Matches ${proposal.preview.count} of the last ${proposal.preview.scanned} mails in your ${proposal.all_accounts ? 'inboxes' : 'inbox'}, e.g.:`}
 						</p>
 						{proposal.preview.sample.length > 0 && <ul>{proposal.preview.sample.map((s, i) => <li key={i}>{s.subject} <small>{s.from}</small></li>)}</ul>}
 						<div className="ml-rules__actions">
@@ -128,7 +143,7 @@ export function MailRules() {
 						{data.rules.map((r) => (
 							<li key={r.id} data-rule={r.id}>
 								<Switch checked={r.enabled} label={r.name} onChange={(e) => void toggle(r, e.target.checked)} />
-								<span className="ml-rules__desc">{r.description}</span>
+								<span className="ml-rules__desc">{r.description}{data.accounts.length > 1 && <small> · {data.accounts.find((a) => a.id === r.account)?.email ?? `account ${r.account}`}</small>}</span>
 								<Button variant="text" onClick={() => void apply(r)}>Apply now</Button>
 								<IconButton icon="delete" label={`Delete rule ${r.name}`} onClick={() => void remove(r)} />
 							</li>
