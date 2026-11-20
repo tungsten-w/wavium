@@ -151,3 +151,11 @@ one task overwrote each other. Fixed with a per-task queue and proved by
 removing the queue and watching the browser test fail. Also: /tmp (tmpfs)
 filled up during the night; large scratch copies were moved, not deleted, to
 a scratch folder outside the repository.
+## 2026-11-20: V4-17 (Claude session, solo)
+
+Asked to make the mail side "100 % operational" for daily use. Using the app
+on a fresh stack found five bugs no existing test covered (no way to add a
+second account from Mail, one-letter usernames for unknown providers, edits
+wiping passwords and Google sign-in, triage paused after the AI was added,
+filed mail invisible in its folder). Every new test was run against the old
+code first and failed. Real Gmail/Orange servers were not touched (rule A1).
