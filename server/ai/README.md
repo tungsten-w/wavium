@@ -20,7 +20,7 @@ format. Configured providers live in `settings.ts` (Settings > AI, P2-2).
 ```ts
 import { AiError, createProvider } from './index'
 
-const ai = createProvider({ kind: 'anthropic', apiKey, defaultModel: 'claude-sonnet-4-5' })
+const ai = createProvider({ kind: 'anthropic', apiKey, defaultModel: 'claude-sonnet-5-5' })
 
 // One answer.
 const res = await ai.complete({ messages: [{ role: 'user', content: 'Hello' }], maxTokens: 200 })
@@ -117,7 +117,7 @@ const budget = new Budget(new SqlUsageStore(db), () => ({
 		{ provider: 'claude', monthlyCost: 20 },      // $20 a month on that provider
 		{ monthlyTokens: 5_000_000 },                 // everything together
 	],
-	prices: { 'claude:claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1 } }, // USD / M tokens
+	prices: { 'claude:claude-haiku-5-5': { input: 0.1, output: 0.5, cacheRead: 0.01 } }, // USD / M tokens
 }))
 const ai = budget.wrap(createProvider(cfg), { user: 'alice', task: 'triage' })
 // same AiProvider interface; a refused call throws BudgetBlocked (code 'budget', .until, .reason)

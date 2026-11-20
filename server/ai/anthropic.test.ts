@@ -176,3 +176,68 @@ test('anthropic: listModels on an unexpected shape is unavailable, not a TypeErr
 	const { p } = provider(jsonRes({ models: 'nope' }))
 	expect(await p.listModels().catch((e) => e)).toMatchObject({ name: 'AiError', code: 'unavailable' })
 })
+
+// Current Claude models (Opus 4.7+, every 5.x) refuse temperature and forced tool choice, and think by default.
+import { anthropicBody, currentClaude } from './anthropic'
+
+test('currentClaude: which model ids are the current generation', () => {
+	for (const m of ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-sonnet-5', 'claude-fable-5-2', 'claude-opus-4-7', 'claude-opus-4-8', 'anthropic.claude-opus-5-5'])
+		expect(currentClaude(m)).toBe(true)
+	for (const m of ['claude-haiku-4-5', 'claude-sonnet-4-5', 'claude-sonnet-4-5-20250929', 'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-opus-4-1', 'gpt-4.1', 'llama3'])
+		expect(currentClaude(m)).toBe(false)
+})
+
+test('current Claude: no temperature, forced tool becomes auto with only that tool, low effort, room for thinking', () => {
+	const two = [...tools, { name: 'other', description: 'x', inputSchema: { type: 'object' } }]
+	const req = { system: 'Sort mail.', messages: [{ role: 'user' as const, content: 'hi' }], tools: two, toolChoice: { name: 'search_mail' }, temperature: 0, maxTokens: 300 }
+	const b = anthropicBody(req, 'claude-haiku-5-5', false) as Record<string, any>
+	expect(b.temperature).toBeUndefined()
+	expect(b.tool_choice).toEqual({ type: 'auto' })
+	expect(b.tools.map((t: { name: string }) => t.name)).toEqual(['search_mail'])
+	expect(b.system).toBe('Sort mail.\n\nAnswer only by calling the search_mail tool.')
+	expect(b.output_config).toEqual({ effort: 'low' })
+	expect(b.max_tokens).toBe(4096)
+	// Older models keep the exact request as before.
+	const old = anthropicBody(req, 'claude-haiku-4-5', false) as Record<string, any>
+	expect(old).toMatchObject({ temperature: 0, tool_choice: { type: 'tool', name: 'search_mail' }, max_tokens: 300, system: 'Sort mail.' })
+	expect(old.tools).toHaveLength(2)
+	expect(old.output_config).toBeUndefined()
+})
+
+test('current Claude: thinking blocks come back in replay and are sent back first, unchanged', async () => {
+	const think = { type: 'thinking', thinking: '', signature: 'sig-abc' }
+	const { p, calls } = provider(
+		jsonRes({ model: 'claude-sonnet-5-5', content: [think, { type: 'tool_use', id: 'toolu_1', name: 'search_mail', input: { q: 'x' } }], stop_reason: 'tool_use', usage: { input_tokens: 5, output_tokens: 5 } }),
+		jsonRes({ model: 'claude-sonnet-5-5', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn', usage: { input_tokens: 5, output_tokens: 1 } }),
+	)
+	const messages: AiMessage[] = [{ role: 'user', content: 'Any?' }]
+	const r1 = await p.complete({ messages, tools, model: 'claude-sonnet-5-5' })
+	expect(r1.replay).toEqual([{ type: 'opaque', provider: 'anthropic', data: think }])
+	messages.push(
+		{ role: 'assistant', content: [...r1.replay!, ...r1.toolCalls.map((c) => ({ type: 'tool_call' as const, ...c }))] },
+		{ role: 'user', content: [{ type: 'tool_result', toolCallId: 'toolu_1', content: '0' }] },
+	)
+	await p.complete({ messages, tools, model: 'claude-sonnet-5-5' })
+	expect(calls[1].body.messages[1].content[0]).toEqual(think)
+	expect(calls[1].body.messages[1].content[1]).toMatchObject({ type: 'tool_use', id: 'toolu_1' })
+})
+
+test('current Claude, streaming: thinking rebuilt from its deltas with its signature', async () => {
+	const body = sse([
+		['message_start', { type: 'message_start', message: { model: 'claude-sonnet-5-5', usage: { input_tokens: 3, output_tokens: 1 } } }],
+		['content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '', signature: '' } }],
+		['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'Look up' } }],
+		['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'SIG' } }],
+		['content_block_stop', { type: 'content_block_stop', index: 0 }],
+		['content_block_start', { type: 'content_block_start', index: 1, content_block: { type: 'tool_use', id: 'toolu_9', name: 'search_mail', input: {} } }],
+		['content_block_delta', { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"q":"a"}' } }],
+		['content_block_stop', { type: 'content_block_stop', index: 1 }],
+		['message_delta', { type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 9 } }],
+		['message_stop', { type: 'message_stop' }],
+	])
+	const { p } = provider(sseRes(body))
+	const evs = await collect(p.stream({ messages: [{ role: 'user', content: 'x' }], tools, model: 'claude-sonnet-5-5' }))
+	const done = evs.find((e) => e.type === 'done') as Extract<AiStreamEvent, { type: 'done' }>
+	expect(done.result.replay).toEqual([{ type: 'opaque', provider: 'anthropic', data: { type: 'thinking', thinking: 'Look up', signature: 'SIG' } }])
+	expect(done.result.toolCalls).toEqual([{ id: 'toolu_9', name: 'search_mail', input: { q: 'a' } }])
+})

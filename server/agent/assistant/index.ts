@@ -124,7 +124,7 @@ export async function runChat(core: LayerCore, provider: AiProvider, agent: Agen
 	const base = core.baseCtx({ uid: agent.uid, displayName: agent.displayName, owner: agent.owner })
 	for (let step = 1; step <= MAX_STEPS; step++) {
 		if (opts.signal?.aborted) return
-		let result: { text: string, toolCalls: Array<{ id: string, name: string, input: unknown }> } | null = null
+		let result: { text: string, toolCalls: Array<{ id: string, name: string, input: unknown }>, replay?: Block[] } | null = null
 		try {
 			for await (const ev of provider.stream({ system: systemPrompt(userName, opts.now ?? new Date()), messages: convo, tools: defs, toolChoice: 'auto', maxTokens: 2000, signal: opts.signal })) {
 				if (ev.type === 'text') emit({ type: 'text', text: ev.text })
@@ -139,7 +139,8 @@ export async function runChat(core: LayerCore, provider: AiProvider, agent: Agen
 			emit({ type: 'done', steps: step })
 			return
 		}
-		const blocks: Block[] = []
+		// The model's own blocks (Anthropic thinking) go back first and unchanged, or current Claude models refuse the turn.
+		const blocks: Block[] = [...(result.replay ?? [])]
 		if (result.text) blocks.push({ type: 'text', text: result.text })
 		for (const c of result.toolCalls) blocks.push({ type: 'tool_call', id: c.id, name: c.name, input: c.input })
 		convo.push({ role: 'assistant', content: blocks })
