@@ -23,7 +23,8 @@ if [ "$tree" != "$(git -C "$repo" rev-parse 'HEAD^{tree}')" ]; then
   commit="$commit-dirty"; tag="$tag-dirty"
 fi
 rm -rf "$here/src" && mkdir -p "$here/src"
-git -C "$repo" archive "$tree" | tar -x -C "$here/src"
+# umask 022: the image must be readable by www-data whatever umask the caller has (install.sh, a private shell...).
+(umask 022 && git -C "$repo" archive "$tree" | tar -x -C "$here/src")
 # deploy/ is not server code; apps/daily_todo is bind-mounted by compose.yaml
 # (instant edits), so the image must not ship a second copy.
 # Notes and docs are not server code and must never be web-served.
