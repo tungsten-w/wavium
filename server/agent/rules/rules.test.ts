@@ -10,7 +10,7 @@ import type { AiProvider } from '../ai'
 import { type Db, migrate, wrap } from '../db'
 import { addMail, classify, seedMail } from '../mail/fixture'
 import { describe, domainOf, firstMatch, matches, type Rule, validateRule } from './engine'
-import { applyNow, preview, propose, RuleRunner, RuleStore, type RulesDeps } from './index'
+import { applyNow, preview, propose, RuleRunner, RuleStore, sameFolderIn, type RulesDeps } from './index'
 
 let db: Db
 let moves: Array<[string, number, number]>
@@ -153,4 +153,18 @@ group('preview, apply, propose', () => {
 		aiReply = new Error('budget')
 		await expect(propose(deps, 'ann', { text: 'x' })).rejects.toMatchObject({ code: 'unavailable' })
 	})
+})
+
+test('all my accounts: the matching folder in each account (role first, then name, never Trash)', () => {
+	const f = (id: number, accountId: number, name: string, role: 'inbox' | 'archive' | 'trash' | 'junk' | 'other') => ({ id, accountId, name, role, messages: 0, unseen: 0 })
+	const folders = [
+		f(1, 1, 'INBOX', 'inbox'), f(2, 1, 'Archive', 'archive'), f(3, 1, 'Factures', 'other'), f(4, 1, 'Trash', 'trash'),
+		f(11, 2, 'INBOX', 'inbox'), f(12, 2, 'Archives', 'archive'), f(13, 2, 'factures', 'other'), f(14, 2, 'Factures', 'trash'),
+		f(21, 3, 'INBOX', 'inbox'),
+	]
+	expect(sameFolderIn(folders, 2, 2)).toBe(12) // Archive -> that account's archive, whatever its name
+	expect(sameFolderIn(folders, 3, 2)).toBe(13) // a custom folder -> same name, any case, not the Trash one
+	expect(sameFolderIn(folders, 3, 3)).toBeNull() // no such folder: skipped
+	expect(sameFolderIn(folders, 2, 1)).toBe(2)
+	expect(sameFolderIn(folders, 99, 2)).toBeNull()
 })

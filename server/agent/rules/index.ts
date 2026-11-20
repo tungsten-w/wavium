@@ -10,7 +10,7 @@
 //
 // Owner routes (session; OCS-APIRequest on writes), /agent/v1/rules:
 //   GET                    rules, folders per account, recent actions
-//   POST                   create {name, account, when, then}
+//   POST                   create {name, account, when, then, all_accounts?} (all: one rule per account)
 //   PATCH  /<id>           {name?, enabled?, when?, then?}
 //   DELETE /<id>           remove the rule (rules are settings, not mail)
 //   POST   /propose        {text, account?} -> {rule, description, preview} (not saved)
@@ -137,6 +137,20 @@ function accountFolders(folders: Folder[], account: number): Set<number> {
 	return new Set(folders.filter((f) => f.accountId === account).map((f) => f.id))
 }
 
+/**
+ * "All my accounts": the folder of another account that matches one picked in
+ * the first (same role: Archive, Spam...; else same name, any case). Null when
+ * that account has none.
+ */
+export function sameFolderIn(folders: Folder[], fromId: number, toAccount: number): number | null {
+	const from = folders.find((f) => f.id === fromId)
+	if (!from) return null
+	if (from.accountId === toAccount) return from.id
+	const mine = folders.filter((f) => f.accountId === toAccount && f.role !== 'trash')
+	const byRole = from.role !== 'other' ? mine.find((f) => f.role === from.role) : undefined
+	return (byRole ?? mine.find((f) => f.name.toLowerCase() === from.name.toLowerCase()))?.id ?? null
+}
+
 /** Applies a rule's actions to one mail row (the inbox copy). */
 async function act(deps: RulesDeps, uid: string, rule: Rule, row: { id: number, mailbox_id: number, seen: boolean, starred: boolean }): Promise<void> {
 	if (rule.then.mark_read && !row.seen || rule.then.star && !row.starred) {
@@ -235,7 +249,7 @@ export async function applyNow(deps: RulesDeps, uid: string, rule: Rule): Promis
 }
 
 /** The AI turns a sentence into a rule (not saved). */
-export async function propose(deps: RulesDeps, uid: string, input: { text?: unknown, account?: unknown }) {
+export async function propose(deps: RulesDeps, uid: string, input: { text?: unknown, account?: unknown, all_accounts?: unknown }) {
 	const text = typeof input.text === 'string' ? input.text.trim() : ''
 	if (!text || text.length > 500) throw new AgentError('invalid_input', 'Describe the rule in one sentence (max 500 characters)')
 	const accounts = await accountsOf(deps.db, uid)
@@ -285,8 +299,17 @@ export async function propose(deps: RulesDeps, uid: string, input: { text?: unkn
 	}
 	const name = typeof a.name === 'string' && a.name.trim() ? a.name.trim().slice(0, 200) : text.slice(0, 60)
 	const byId = new Map(folders.map((f) => [f.id, f.name]))
-	const p = await preview(deps.db, uid, account.id, rule.when)
-	return { rule: { name, account: account.id, ...rule, source_text: text }, description: describe(rule, (id) => byId.get(id) ?? `#${id}`), preview: { scanned: p.scanned, count: p.count, sample: p.sample } }
+	// All my accounts: the same conditions over every inbox (the folder is matched per account on save).
+	const scope = input.all_accounts === true ? accounts : [account]
+	const p = { scanned: 0, count: 0, sample: [] as Array<{ subject: string, from: string | null }> }
+	for (const acc of scope) {
+		const one = await preview(deps.db, uid, acc.id, rule.when)
+		p.scanned += one.scanned
+		p.count += one.count
+		p.sample.push(...one.sample)
+	}
+	p.sample = p.sample.slice(0, 5)
+	return { rule: { name, account: account.id, ...rule, source_text: text }, description: describe(rule, (id) => byId.get(id) ?? `#${id}`), preview: p, ...(input.all_accounts === true ? { all_accounts: true } : {}) }
 }
 
 export function rulesModule(ai: Pick<AiModule, 'forTask'> | null): AgentModule {
@@ -322,7 +345,24 @@ export function rulesModule(ai: Pick<AiModule, 'forTask'> | null): AgentModule {
 			if (!(await accountsOf(d.db, uid)).some((x) => x.id === account)) throw new AgentError('not_found', `No mail account ${input.account}`)
 			const rule = validateRule(input, accountFolders(folders, account))
 			const ruleName = typeof input.name === 'string' && input.name.trim() ? input.name.trim().slice(0, 200) : 'Rule'
-			const id = await d.store.create(uid, { name: ruleName, account, ...rule, source_text: typeof input.source_text === 'string' ? input.source_text.slice(0, 500) : null })
+			const source_text = typeof input.source_text === 'string' ? input.source_text.slice(0, 500) : null
+			if (input.all_accounts === true) {
+				// One rule per account, its folder matched in each; an account without that folder is skipped and said.
+				const created = []
+				const skipped = []
+				for (const acc of await accountsOf(d.db, uid)) {
+					const then = { ...rule.then }
+					if (rule.then.move_to !== undefined) {
+						const to = sameFolderIn(folders, rule.then.move_to, acc.id)
+						if (to === null) { skipped.push({ account: acc.id, email: acc.email, reason: `no folder "${name(rule.then.move_to)}"` }); continue }
+						then.move_to = to
+					}
+					const id = await d.store.create(uid, { name: ruleName, account: acc.id, when: rule.when, then, source_text })
+					created.push(view(await d.store.get(uid, id)))
+				}
+				return Response.json({ rules: created, skipped })
+			}
+			const id = await d.store.create(uid, { name: ruleName, account, ...rule, source_text })
 			return Response.json(view(await d.store.get(uid, id)))
 		}
 		if (a === 'propose' && m === 'POST') return Response.json(await propose(d, uid, await body(req)))

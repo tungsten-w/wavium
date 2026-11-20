@@ -68,3 +68,27 @@ test('cancel keeps nothing; toggle, apply and delete a saved rule', async () => 
 	expect(queryByText(container, /Matches 2/)).toBeNull()
 	expect(server.calls('POST', '/agent/v1/rules')).toHaveLength(0)
 })
+
+test('all my accounts: the default with two accounts; saving makes one rule per account and files on each', async () => {
+	const two = { rules: [] as RuleView[], accounts: [{ id: 1, email: 'alice@atrium.test' }, { id: 3, email: 'alice@gmail.com' }], recent: [] }
+	server.restore()
+	server = fakeServer()
+		.on('GET', '/agent/v1/rules', () => two)
+		.on('POST', '/agent/v1/rules/propose', () => ({
+			rule: { name: 'Factures EDF', account: 1, when: { from_domain: 'edf.fr' }, then: { move_to: 13 }, source_text: 'factures EDF dans Archive' },
+			description: 'from edf.fr → move to Archive', preview: { scanned: 40, count: 3, sample: [] }, all_accounts: true,
+		}))
+		.on('POST', '/agent/v1/rules', () => ({ rules: [{ ...saved, id: 7 }, { ...saved, id: 8, account: 3 }], skipped: [] }))
+		.on('POST', /^\/agent\/v1\/rules\/\d+\/apply$/, () => ({ applied: 1 }))
+	const { container } = await render(<MailRules />)
+	await waitFor(() => getButton(container, 'Propose'))
+	expect((getField(container, 'Account') as HTMLSelectElement).value).toBe('all')
+	await type(getField(container, 'Describe it in your own words'), 'factures EDF dans Archive')
+	await click(getButton(container, 'Propose'))
+	expect(server.calls('POST', '/agent/v1/rules/propose')[0].body).toEqual({ text: 'factures EDF dans Archive', all_accounts: true })
+	await waitFor(() => queryByText(container, 'Matches 3 of the last 40 mails in your inboxes, e.g.:'))
+	await click(getButton(container, 'Save and file these 3 now'))
+	await waitFor(() => server.calls('POST', '/agent/v1/rules/8/apply').length === 1 || null)
+	expect(server.calls('POST', '/agent/v1/rules')[0].body).toMatchObject({ all_accounts: true, account: 1 })
+	expect(server.calls('POST', '/agent/v1/rules/7/apply')).toHaveLength(1)
+})
