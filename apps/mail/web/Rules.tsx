@@ -143,7 +143,7 @@ export function MailRules() {
 						{data.rules.map((r) => (
 							<li key={r.id} data-rule={r.id}>
 								<Switch checked={r.enabled} label={r.name} onChange={(e) => void toggle(r, e.target.checked)} />
-								<span className="ml-rules__desc">{r.description}</span>
+								<span className="ml-rules__desc">{r.description}{data.accounts.length > 1 && <small> · {data.accounts.find((a) => a.id === r.account)?.email ?? `account ${r.account}`}</small>}</span>
 								<Button variant="text" onClick={() => void apply(r)}>Apply now</Button>
 								<IconButton icon="delete" label={`Delete rule ${r.name}`} onClick={() => void remove(r)} />
 							</li>

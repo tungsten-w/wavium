@@ -87,8 +87,12 @@ test('all my accounts: the default with two accounts; saving makes one rule per 
 	await click(getButton(container, 'Propose'))
 	expect(server.calls('POST', '/agent/v1/rules/propose')[0].body).toEqual({ text: 'factures EDF dans Archive', all_accounts: true })
 	await waitFor(() => queryByText(container, 'Matches 3 of the last 40 mails in your inboxes, e.g.:'))
+	two.rules = [{ ...saved, id: 7 }, { ...saved, id: 8, account: 3 }]
 	await click(getButton(container, 'Save and file these 3 now'))
 	await waitFor(() => server.calls('POST', '/agent/v1/rules/8/apply').length === 1 || null)
 	expect(server.calls('POST', '/agent/v1/rules')[0].body).toMatchObject({ all_accounts: true, account: 1 })
 	expect(server.calls('POST', '/agent/v1/rules/7/apply')).toHaveLength(1)
+	// After saving, the list says which account each rule belongs to.
+	await waitFor(() => container.querySelector('[data-rule="8"]')?.textContent?.includes('alice@gmail.com') ? true : null)
+	expect(container.querySelector('[data-rule="7"]')?.textContent).toContain('alice@atrium.test')
 })

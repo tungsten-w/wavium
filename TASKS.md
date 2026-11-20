@@ -109,4 +109,4 @@ ADR 0010, waits for the owner's go), the rest in any order.
 ### Daily use (goal 2026-11-20: "100 % operational")
 
 - [x] V4-17 Accounts and sorting for daily use: "Add a mail account" in Mail; username follows the address (unknown providers); editing keeps passwords and Google sign-in; classification starts as soon as an AI is added; filed mail shows at once in its folder — branch ready: night/V4-17
-- [~] (instance Claude, 2026-11-20) V4-18 Rules for "all my accounts" (one target folder per account), from reports/V4-17.md
+- [x] V4-18 Rules for "all my accounts": one rule per account, folder matched by role or name; account shown per rule — branch ready: night/V4-18
