@@ -1,8 +1,9 @@
 # Install Wavium
 
 A fresh Wavium server with HTTPS in a few commands. You need a Linux machine
-with Docker (Compose v2), a domain name pointing to it, and ports 80 and 443
-open.
+(x86-64 or arm64) with Docker (Compose v2), and either a domain name pointing to
+it with ports 80 and 443 open, or — on a home network — the few extra lines under
+*On a local network* below.
 
 ## Quick install (one command)
 
@@ -19,6 +20,30 @@ and the admin login. Update later with
 Without questions: `WAVIUM_DOMAIN=cloud.example.org bash deploy/wavium/install.sh --yes`.
 
 The steps below do the same by hand.
+
+## On a local network (no public domain)
+
+With no public name, Let's Encrypt cannot certify anything: there is no way for
+it to check a machine it cannot reach. Caddy then serves a certificate from its
+own authority, and the browser warns once (accept it and it is quiet after that).
+In `deploy/wavium/.env`:
+
+```
+# The address people type, an IP or a name only your network knows.
+WAVIUM_DOMAIN=192.168.1.40
+WAVIUM_TLS_ISSUER=internal
+# Only if 80 and 443 are taken (another reverse proxy on the machine):
+WAVIUM_HTTP_PORT=8440
+WAVIUM_HTTPS_PORT=8443
+WAVIUM_PUBLIC_PORT_SUFFIX=:8443
+```
+
+Then `bash deploy/wavium/install.sh --update`. An IP address works: a browser
+sends no server name for one, so Caddy is told which certificate to serve
+anyway, and every redirect keeps the port.
+
+Nothing is published to the internet this way. Over a VPN (Tailscale, NetBird,
+WireGuard), use the VPN address as `WAVIUM_DOMAIN`.
 
 ## 1. Build the image
 

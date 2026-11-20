@@ -33,6 +33,14 @@ tagged in git (`v1`, `v2`, ...).
   HTML; the web server no longer serves UI sources, `services/` or
   `reports/`; Permissions-Policy everywhere, CSP and COOP on the app page;
   test tooling updated (no known vulnerable package left).
+- **Installing**: a fresh install now works on **arm64** (a Raspberry Pi, an
+  Apple Silicon Mac, an ARM server) — the build took the x86-only Bun — and on a
+  **local network**, where there is no public name for Let's Encrypt to certify:
+  `WAVIUM_TLS_ISSUER=internal` serves Caddy's own certificate, an IP address
+  works (a browser sends no name for one, which used to fail the handshake), and
+  alternate ports keep their port in every redirect. An app that a new version
+  adds (Messages here) is now switched on by an update too, not only by a fresh
+  install.
 - Tests: browser tests open every app (desktop and phone) with a screenshot
   each, in CI.
 
