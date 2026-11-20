@@ -11,14 +11,15 @@ const empty: AccountInput = {
 }
 const fromAccount = (a: Account): AccountInput => ({
 	accountName: a.name, emailAddress: a.emailAddress, imapHost: a.imapHost, imapPort: a.imapPort, imapSslMode: a.imapSslMode, imapUser: a.imapUser,
-	smtpHost: a.smtpHost, smtpPort: a.smtpPort, smtpSslMode: a.smtpSslMode, smtpUser: a.smtpUser, authMethod: 'password',
+	smtpHost: a.smtpHost, smtpPort: a.smtpPort, smtpSslMode: a.smtpSslMode, smtpUser: a.smtpUser, authMethod: a.authMethod ?? 'password',
 })
 
-export function AccountSetup({ onDone }: { onDone: () => void }) {
+export function AccountSetup({ onDone, onBack }: { onDone: () => void, onBack?: () => void }) {
 	return (
 		<div className="ml-setup">
 			<Card className="ml-setup__card">
-				<div className="ml-setup__hero"><Icon name="mail" /><h1>Connect your mail</h1><p>Read and send mail without leaving Wavium. Your credentials stay on your server.</p></div>
+				{onBack && <Button variant="text" size="s" icon="arrowBack" onClick={onBack}>Back to mail</Button>}
+				<div className="ml-setup__hero"><Icon name="mail" /><h1>{onBack ? 'Add a mail account' : 'Connect your mail'}</h1><p>Gmail, Orange, Outlook, iCloud, Free, SFR, La Poste or any IMAP server. Read and send mail without leaving Wavium. Your credentials stay on your server.</p></div>
 				<AccountForm onDone={onDone} />
 			</Card>
 		</div>
@@ -100,7 +101,15 @@ function AccountForm({ account, onDone, submitLabel = 'Connect account' }: { acc
 
 	function setEmail(email: string) {
 		const p = account ? null : detectProvider(email)
-		patch({ emailAddress: email, ...(p && !manual ? providerFields(p, email) : !account && !input.imapUser && !input.smtpUser ? { imapUser: email, smtpUser: email } : {}) })
+		// A username the person has not typed yet still follows the address, letter by letter.
+		const follows = (user: string) => !account && (user === '' || user.trim() === input.emailAddress.trim())
+		patch({
+			emailAddress: email,
+			...(p && !manual ? providerFields(p, email) : {
+				...(follows(input.imapUser) ? { imapUser: email } : {}),
+				...(follows(input.smtpUser) ? { smtpUser: email } : {}),
+			}),
+		})
 	}
 
 	async function signInWithGoogle() {
@@ -131,6 +140,9 @@ function AccountForm({ account, onDone, submitLabel = 'Connect account' }: { acc
 			// With a known provider the one password field goes to both servers.
 			const pw = !showServers ? { smtpPassword: input.imapPassword } : {}
 			const value: AccountInput = { ...input, ...pw, imapPort: Number(input.imapPort), smtpPort: Number(input.smtpPort) }
+			// Editing: a blank password means "keep the one saved" (the server would otherwise save an empty one).
+			if (account && !value.imapPassword) delete value.imapPassword
+			if (account && !value.smtpPassword) delete value.smtpPassword
 			const saved = account ? await updateAccount(account.id, value) : await createAccount(value)
 			if (!account) await setRoles(saved.id)
 			toast(account ? 'Connection saved' : 'Mail account connected')

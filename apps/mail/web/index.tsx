@@ -122,7 +122,7 @@ function Mail() {
 	// "ui-heartbeat" that keeps the background sync at 15 minutes (it slows to
 	// 6 hours when Mail looks unused). Merges new, changed and vanished messages.
 	useEffect(() => {
-		if (!mailboxId || filter || labelOn || messages === null) return
+		if (!mailboxId || filter || messages === null) return
 		let stopped = false
 		const tick = async () => {
 			if (stopped || document.hidden) return
@@ -130,6 +130,15 @@ function Mail() {
 				const ids = (messages ?? []).map((m) => m.databaseId)
 				const r = await syncMailbox(mailboxId, false, ids)
 				if (stopped || !r || !Array.isArray(r.newMessages)) return
+				// Curated or a category: the label list decides what shows, so ask it again when anything moved.
+				if (labelOn) {
+					if (r.newMessages.length || r.vanishedMessages?.length || r.changedMessages?.length) {
+						const fresh = await fetchPage()
+						if (!stopped) setMessages(fresh)
+					}
+					if (r.stats) setBoxes((bs) => bs.map((b) => b.databaseId === mailboxId ? { ...b, unread: r.stats.unread } : b))
+					return
+				}
 				const gone = new Set(r.vanishedMessages ?? [])
 				const changed = new Map((r.changedMessages ?? []).map((m) => [m.databaseId, m]))
 				if (gone.size || changed.size || r.newMessages.length) {
@@ -142,12 +151,14 @@ function Mail() {
 				if (r.stats) setBoxes((bs) => bs.map((b) => b.databaseId === mailboxId ? { ...b, unread: r.stats.unread } : b))
 			} catch { /* a failed background sync is retried on the next tick */ }
 		}
+		// Once right away: a mail just filed into this folder (by a rule, a move, another device) shows now, not a minute later.
+		void tick()
 		const timer = window.setInterval(() => { void tick() }, 60_000)
 		const onVisible = () => { if (!document.hidden) void tick() }
 		document.addEventListener('visibilitychange', onVisible)
 		return () => { stopped = true; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- restart only when the folder or load state changes
-	}, [mailboxId, filter, messages === null])
+	}, [mailboxId, filter, labelOn, label, messages === null])
 
 	// Merged Inbox/Archive: pick up new mail every minute (sync each folder, then merge page one).
 	useEffect(() => {
@@ -167,6 +178,8 @@ function Mail() {
 				void loadAccounts()
 			} catch { /* retried on the next tick */ }
 		}
+		// Once right away: a mail just filed into this folder (by a rule, a move, another device) shows now, not a minute later.
+		void tick()
 		const timer = window.setInterval(() => { void tick() }, 60_000)
 		const onVisible = () => { if (!document.hidden) void tick() }
 		document.addEventListener('visibilitychange', onVisible)
@@ -343,13 +356,16 @@ function Mail() {
 		</NavSection>)}
 		{/* Status sits at the bottom of the sidebar; each account's settings are the gear on its header. */}
 		<div className="ml-nav-foot">
+			<NavItem icon="add" label="Add a mail account" active={isSetup} onClick={() => navigate(`${basePath}/setup`)} />
 			<NavItem icon="route" label="Rules" active={isRules} onClick={() => navigate(`${basePath}/rules`)} />
 			<NavItem icon="barChart" label="Status" active={isStatus} onClick={() => navigate(`${basePath}/status`)} />
 		</div>
 	</> : null
 
 	if (accounts === null) return <AppLayout nav={nav}><div className="ml-center"><Spinner /></div></AppLayout>
-	if (!accounts.length || isSetup) return <AccountSetup onDone={() => { void loadAccounts().then(() => navigate(basePath)) }} />
+	// Another account: same form, with the sidebar and a way back.
+	if (isSetup && accounts.length) return <AppLayout nav={nav}><AccountSetup onBack={() => navigate(basePath)} onDone={() => { void loadAccounts().then(() => navigate(basePath)) }} /></AppLayout>
+	if (!accounts.length) return <AccountSetup onDone={() => { void loadAccounts().then(() => navigate(basePath)) }} />
 	if (isRules) return <AppLayout nav={nav}><MailRules /></AppLayout>
 	if (isStatus) return <AppLayout nav={nav}><MailStatus onCuratedChange={() => setCuratedVer((v) => v + 1)} onShowCategory={(c) => { setFilter(''); setQuery(''); setLabel({ ...noLabel, category: c }); navigate(`${basePath}/view/inbox`) }} /></AppLayout>
 	if (settingsId && accounts.some((a) => a.id === settingsId)) return <AppLayout nav={nav}><AccountSettings key={settingsId} account={accounts.find((a) => a.id === settingsId)!} boxes={boxes} onDone={loadAccounts} onClose={() => navigate(basePath)} /></AppLayout>

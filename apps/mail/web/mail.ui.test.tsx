@@ -284,3 +284,29 @@ test('formatting: the message goes out as HTML with a plain-text part', async ()
 	await waitFor(() => server.calls('POST', '/apps/mail/api/outbox/78').length === 1)
 	expect(server.calls('POST', '/apps/mail/api/outbox')[0].body).toMatchObject({ isHtml: true, bodyHtml: 'Hello <b>Bob</b>', bodyPlain: 'Hello Bob' })
 })
+
+test('opening a folder syncs it at once: a mail just filed there by a rule shows without waiting a minute', async () => {
+	const filed = msg(13, 'Filed by a rule', 'factures@example.com', 'Invoice of November')
+	// The folder starts empty in Wavium's list; the server already has the filed mail.
+	let synced = false
+	server.restore()
+	server = fakeServer()
+		.on('POST', '/apps/mail/api/mailboxes/2/sync', () => { synced = true; return { newMessages: [filed], changedMessages: [], vanishedMessages: [], stats: { total: 1, unread: 1 } } })
+		.on('GET', '/apps/mail/api/triage/list', (req) => req.query.has('cursor') || !synced ? [] : [filed])
+		.on('GET', '/apps/mail/api/messages', (req) => req.query.has('cursor') || !synced ? [] : [filed])
+		.on('GET', '/apps/mail/api/accounts', () => [account])
+		.on('GET', '/apps/mail/api/mailboxes', () => ({ id: 1, email: account.emailAddress, mailboxes: boxes, delimiter: '/' }))
+		.on('GET', '/apps/mail/api/outbox', () => ({ messages: [] }))
+		.on('GET', /^\/apps\/mail\/api\/preferences\/(.+)$/, () => ({ value: '' }))
+		.on('GET', '/apps/mail/api/triage/messages', () => ({}))
+		.on('GET', '/apps/mail/api/triage/status', () => ({ enabled: false }))
+	const { container } = await renderApp('mail', MailApp.Component!, '/box/2')
+	await waitFor(() => getByText(container, 'Filed by a rule'), 3000)
+	expect(server.calls('POST', '/apps/mail/api/mailboxes/2/sync').length).toBeGreaterThanOrEqual(1)
+})
+
+test('the merged Inbox syncs its folders once when it opens', async () => {
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(container, 'Dinner on Friday?'))
+	await waitFor(() => server.calls('POST', '/apps/mail/api/mailboxes/1/sync').length >= 1 || null, 3000)
+})

@@ -16,6 +16,8 @@ export interface Account {
 	smtpPort: number
 	smtpSslMode: string
 	smtpUser: string
+	/** 'password' or 'xoauth2' (Sign in with Google). */
+	authMethod?: string
 	signature: string | null
 	editorMode: string
 	draftsMailboxId: number | null

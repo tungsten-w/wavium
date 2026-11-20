@@ -105,3 +105,8 @@ ADR 0010, waits for the owner's go), the rest in any order.
 - [x] V4-14 Settings > Your data: where each kind of data is stored (host path and in-container path, Docker volume, database tables), sizes — branch ready: night/v4-feedback
 - [x] V4-15 "Is Wavium safe to install?" chart next to Nextcloud, Proton, Google, Microsoft 365, in Settings > Your data and the README — branch ready: night/v4-feedback
 - [x] V4-16 Mail status: "Where your mail goes" flow chart per address (important / everyday / hidden by Curated / spam / not sorted yet, then categories; click opens them) — branch ready: night/v4-feedback
+
+### Daily use (goal 2026-11-20: "100 % operational")
+
+- [x] V4-17 Accounts and sorting for daily use: "Add a mail account" in Mail; username follows the address (unknown providers); editing keeps passwords and Google sign-in; classification starts as soon as an AI is added; filed mail shows at once in its folder — branch ready: night/V4-17
+- [ ] V4-18 Rules for "all my accounts" (one target folder per account), from reports/V4-17.md

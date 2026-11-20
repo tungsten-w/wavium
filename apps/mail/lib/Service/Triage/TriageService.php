@@ -333,7 +333,9 @@ class TriageService {
 		}
 		$state = $this->state();
 		$now = $this->time->getTime();
-		if ((int)($state['pausedUntil'] ?? 0) > $now) {
+		// "No AI set up" costs nothing to check again (the Bun server answers at
+		// once): an AI added in Settings > AI is used on the next run, not 10 min later.
+		if ((int)($state['pausedUntil'] ?? 0) > $now && ($state['state'] ?? '') !== 'not_configured') {
 			return 0;
 		}
 		$token = $this->appConfig->getValueString(Application::APP_ID, 'triage_tollgate_token', '');
@@ -958,9 +960,7 @@ class TriageService {
 			$reason = 'Classification is off; the mail is queued.';
 		} elseif (!$s['configured']) {
 			$reason = 'Classification is not configured; the mail is queued.';
-		} elseif (($this->state()['state'] ?? '') === 'not_configured' && (int)($this->state()['pausedUntil'] ?? 0) > $now) {
-			$reason = 'No AI is set up for classification (Settings > AI); the mail is queued.';
-		} elseif ((int)($this->state()['pausedUntil'] ?? 0) > $now) {
+		} elseif (($this->state()['state'] ?? '') !== 'not_configured' && (int)($this->state()['pausedUntil'] ?? 0) > $now) {
 			$reason = 'Classification is paused; the mail runs when it resumes.';
 		} elseif ($this->spentToday()['total'] >= $s['capTotal']) {
 			$reason = 'Today’s budget is used; the mail runs tomorrow.';

@@ -8,7 +8,7 @@ import '../../../core/web/testing/dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { fakeServer, type FakeServer } from '../../../core/web/testing/fakeServer'
 import { cleanup, click, getButton, getField, queryByText, render, type, waitFor } from '../../../core/web/testing/render'
-import { AccountSetup } from './Account'
+import { AccountSettings, AccountSetup } from './Account'
 
 let server: FakeServer
 let google = { configured: false, clientId: null as string | null, redirectUrl: 'https://w.test/index.php/apps/mail/integration/google-auth', scope: 'https://mail.google.com/' }
@@ -77,4 +77,41 @@ test('Gmail with OAuth, pop-up blocked: the half-made account is removed', async
 	await click(await waitFor(() => getButton(container, 'Sign in with Google')))
 	await waitFor(() => server.calls('DELETE', '/apps/mail/api/accounts/42').length === 1)
 	expect(done).not.toHaveBeenCalled()
+})
+
+test('an unknown provider: both usernames follow the whole address, not its first letter', async () => {
+	const { container } = await render(<AccountSetup onDone={() => {}} />)
+	// Typed letter by letter, as a person does.
+	const address = 'jean@monbox.org'
+	for (let i = 1; i <= address.length; i++) await type(getField(container, 'Email address'), address.slice(0, i))
+	const users = [...container.querySelectorAll('label')].filter((l) => l.textContent?.startsWith('Username'))
+		.map((l) => (l.getAttribute('for') ? container.querySelector(`#${CSS.escape(l.getAttribute('for')!)}`) : l.querySelector('input')) as HTMLInputElement)
+	expect(users.map((u) => u.value)).toEqual([address, address])
+})
+
+test('another account: back link and a clear title', async () => {
+	const back = vi.fn()
+	const { container } = await render(<AccountSetup onDone={() => {}} onBack={back} />)
+	expect(container.textContent).toContain('Add a mail account')
+	await click(getButton(container, 'Back to mail'))
+	expect(back).toHaveBeenCalled()
+})
+
+const saved = {
+	id: 42, accountId: 42, name: 'Gmail', emailAddress: 'a@gmail.com', imapHost: 'imap.gmail.com', imapPort: 993, imapSslMode: 'ssl', imapUser: 'a@gmail.com',
+	smtpHost: 'smtp.gmail.com', smtpPort: 465, smtpSslMode: 'ssl', smtpUser: 'a@gmail.com', authMethod: 'xoauth2', signature: null, editorMode: 'plaintext',
+	draftsMailboxId: null, sentMailboxId: null, trashMailboxId: null, archiveMailboxId: null, junkMailboxId: null, snoozeMailboxId: null,
+	showSubscribedOnly: false, aliases: [], isDelegated: false,
+}
+
+test('editing an account: blank passwords are kept, a Google sign-in stays a Google sign-in', async () => {
+	server.on('PUT', '/apps/mail/api/accounts/42', (req) => ({ ...saved, ...(req.body as object) }))
+	const { container } = await render(<AccountSettings account={saved} boxes={[]} onDone={() => {}} onClose={() => {}} />)
+	await type(getField(container, 'Account name'), 'Gmail perso')
+	await click(getButton(container, 'Save connection'))
+	await waitFor(() => server.calls('PUT', '/apps/mail/api/accounts/42').length === 1 || null)
+	const body = server.calls('PUT', '/apps/mail/api/accounts/42')[0].body as Record<string, unknown>
+	expect(body.authMethod).toBe('xoauth2')
+	expect('imapPassword' in body).toBe(false)
+	expect('smtpPassword' in body).toBe(false)
 })
