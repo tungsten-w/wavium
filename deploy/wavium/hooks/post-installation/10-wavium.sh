@@ -3,9 +3,17 @@
 # Wavium's apps and the settings a fresh server needs.
 set -eu
 occ() { php /var/www/html/occ "$@"; }
-for app in mail calendar contacts tasks notes daily_todo activity dashboard messages; do
-	occ app:enable "$app" >/dev/null 2>&1 || echo "Wavium: app $app not enabled"
-done
+# One list for the first install and for every update (deploy/wavium-apps).
+if [ -f /wavium-apps ]; then
+	while read -r app; do
+		case "$app" in ''|\#*) continue ;; esac
+		occ app:enable "$app" >/dev/null 2>&1 || echo "Wavium: app $app not enabled"
+	done < /wavium-apps
+else
+	for app in mail calendar contacts tasks notes daily_todo activity dashboard messages; do
+		occ app:enable "$app" >/dev/null 2>&1 || echo "Wavium: app $app not enabled"
+	done
+fi
 occ background:cron
 occ config:system:set memcache.local --value='\OC\Memcache\APCu'
 occ config:system:set memcache.distributed --value='\OC\Memcache\Redis'

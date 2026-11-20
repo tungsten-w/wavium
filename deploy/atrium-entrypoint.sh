@@ -47,6 +47,14 @@ if [ "$run" = 1 ] && [ -f "$dst/version.php" ] && [ -f "$dst/config/config.php" 
 	else
 		(cd "$dst" && php -r "$migrate")
 	fi
+	# Apps this build ships that the install does not have yet (Messages in v4):
+	# the post-installation hook only ever runs on a fresh install.
+	if [ -f /wavium-apps ]; then
+		while read -r app; do
+			case "$app" in ''|\#*) continue ;; esac
+			occ app:enable "$app" </dev/null >/dev/null 2>&1 || true
+		done < /wavium-apps
+	fi
 	# Logos/icons may have changed: drop theming's generated-image cache.
 	if [ "$(id -u)" = 0 ]; then
 		su -p www-data -s /bin/sh -c "cd $dst && php -r 'require \"lib/base.php\"; \\OCP\\Server::get(\\OCA\\Theming\\ThemingDefaults::class)->increaseCacheBuster();'"

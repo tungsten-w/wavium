@@ -1,0 +1,17 @@
+# Apps Wavium turns on: on a fresh install (deploy/wavium/hooks/post-installation)
+# and on every update (deploy/atrium-entrypoint.sh). One per line, "#" is a
+# comment.
+#
+# It is a file and not two copies of a shell loop because the hooks only ever run
+# on a fresh install: without the update path, an app added by a new version
+# (Messages in v4) would ship its code to existing installs and stay switched
+# off there.
+mail
+calendar
+contacts
+tasks
+notes
+daily_todo
+messages
+activity
+dashboard

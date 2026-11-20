@@ -74,6 +74,8 @@ COPY src/server/ /opt/atrium/server/
 COPY php-fpm.conf /usr/local/etc/php-fpm.d/zz-atrium.conf
 COPY atrium-entrypoint.sh /atrium-entrypoint.sh
 COPY removed-apps /removed-apps
+# Apps to turn on, read by the entrypoint and by the post-installation hook.
+COPY wavium-apps /wavium-apps
 COPY atrium-web.sh /usr/local/bin/atrium-web
 # Bun binds port 80 as www-data.
 RUN set -eu; apt-get update; apt-get install -y --no-install-recommends libcap2-bin git; \
