@@ -19,13 +19,13 @@ describe('resolveRoute', () => {
 	})
 
 	test('no routes: first provider; triage gets the small suggested model, others the provider default', () => {
-		expect(resolveRoute('triage', {}, [claude, local])).toMatchObject({ provider: claude, model: 'claude-haiku-4-5', modelFrom: 'suggested', providerFrom: 'first', tier: 'small' })
+		expect(resolveRoute('triage', {}, [claude, local])).toMatchObject({ provider: claude, model: 'claude-haiku-5-5', modelFrom: 'suggested', providerFrom: 'first', tier: 'small' })
 		expect(resolveRoute('summary', {}, [claude, local])).toMatchObject({ model: 'claude-opus-x', modelFrom: 'provider-default' })
 	})
 
 	test('a large task without a provider default gets the large suggestion', () => {
 		const p = { ...claude, defaultModel: undefined }
-		expect(resolveRoute('draft', {}, [p])).toMatchObject({ model: 'claude-sonnet-4-5', modelFrom: 'suggested' })
+		expect(resolveRoute('draft', {}, [p])).toMatchObject({ model: 'claude-sonnet-5-5', modelFrom: 'suggested' })
 	})
 
 	test('routes win: provider and model per task', () => {
@@ -66,7 +66,7 @@ describe('resolveRoute', () => {
 test('describeRouting: every known task plus routed custom ones, problems listed apart', () => {
 	const { routes, problems } = describeRouting({ routes: { summary: { provider: 'gone' }, 'mail-reply': { provider: 'local' } } }, [claude, local])
 	expect(routes.map((r) => [r.task, r.provider.id, r.model])).toEqual([
-		['triage', 'claude', 'claude-haiku-4-5'],
+		['triage', 'claude', 'claude-haiku-5-5'],
 		['draft', 'claude', 'claude-opus-x'],
 		['assistant', 'claude', 'claude-opus-x'],
 		['mail-reply', 'local', 'llama-local'],
@@ -77,15 +77,15 @@ test('describeRouting: every known task plus routed custom ones, problems listed
 describe('providerForTask', () => {
 	test('the request goes to the routed provider with the routed model; an explicit model still wins', async () => {
 		const f = fakeFetch(
-			() => Response.json({ id: 'x', model: 'claude-haiku-4-5', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } }),
+			() => Response.json({ id: 'x', model: 'claude-haiku-5-5', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } }),
 			() => Response.json({ id: 'y', model: 'other', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } }),
 		)
 		const { ai, route } = providerForTask('triage', {}, [claude, local], { fetch: f.fetch })
-		expect(route.model).toBe('claude-haiku-4-5')
+		expect(route.model).toBe('claude-haiku-5-5')
 		expect(ai.id).toBe('claude')
 		await ai.complete(msg)
 		await ai.complete({ ...msg, model: 'other' })
-		expect(f.calls.map((c) => c.body.model)).toEqual(['claude-haiku-4-5', 'other'])
+		expect(f.calls.map((c) => c.body.model)).toEqual(['claude-haiku-5-5', 'other'])
 	})
 
 	test('streams get the model too; works with the mock and an injected factory', async () => {

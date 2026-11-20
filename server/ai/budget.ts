@@ -173,7 +173,7 @@ export function requestChars(req: AiRequest): number {
 	let n = req.system?.length ?? 0
 	for (const m of req.messages) {
 		if (typeof m.content === 'string') n += m.content.length
-		else for (const b of m.content) n += b.type === 'text' ? b.text.length : b.type === 'tool_result' ? b.content.length : JSON.stringify(b.input ?? null).length
+		else for (const b of m.content) n += b.type === 'text' ? b.text.length : b.type === 'tool_result' ? b.content.length : JSON.stringify((b.type === 'opaque' ? b.data : b.input) ?? null).length
 	}
 	for (const t of req.tools ?? []) n += t.name.length + t.description.length + JSON.stringify(t.inputSchema).length
 	return n

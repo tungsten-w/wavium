@@ -32,7 +32,13 @@ export interface TextBlock { type: 'text', text: string }
 export interface ToolCall { id: string, name: string, input: unknown }
 export interface ToolCallBlock extends ToolCall { type: 'tool_call' }
 export interface ToolResultBlock { type: 'tool_result', toolCallId: string, content: string, isError?: boolean }
-export type ContentBlock = TextBlock | ToolCallBlock | ToolResultBlock
+/**
+ * A provider's own block, sent back unchanged in the next request (Anthropic
+ * thinking blocks: current Claude models expect them before a tool call they
+ * made). Other providers leave it out.
+ */
+export interface OpaqueBlock { type: 'opaque', provider: string, data: unknown }
+export type ContentBlock = TextBlock | ToolCallBlock | ToolResultBlock | OpaqueBlock
 
 export interface AiMessage {
 	/** Tool results go in a user message, like Anthropic; OpenAI-style providers split them out. */
@@ -98,6 +104,8 @@ export interface AiResult {
 	providerStopReason?: string
 	/** Provider's own response (or last stream event), for debugging. */
 	raw?: unknown
+	/** Blocks to put first, unchanged, in the assistant turn when the conversation goes on (tool loops). */
+	replay?: OpaqueBlock[]
 }
 
 export type AiStreamEvent =

@@ -52,7 +52,7 @@ export const tierOf = (task: string): Tier => TASK_TIERS[task] ?? 'large'
  * gateways serve whatever was installed, so they rely on defaultModel.
  */
 export const SUGGESTED_MODELS: Partial<Record<ProviderKind, Record<Tier, string>>> = {
-	anthropic: { small: 'claude-haiku-4-5', large: 'claude-sonnet-4-5' },
+	anthropic: { small: 'claude-haiku-5-5', large: 'claude-sonnet-5-5' },
 	openai: { small: 'gpt-4.1-mini', large: 'gpt-4.1' },
 	mistral: { small: 'mistral-small-latest', large: 'mistral-large-latest' },
 }
