@@ -111,3 +111,4 @@ ADR 0010, waits for the owner's go), the rest in any order.
 - [x] V4-17 Accounts and sorting for daily use: "Add a mail account" in Mail; username follows the address (unknown providers); editing keeps passwords and Google sign-in; classification starts as soon as an AI is added; filed mail shows at once in its folder — branch ready: night/V4-17
 - [x] V4-18 Rules for "all my accounts": one rule per account, folder matched by role or name; account shown per rule — branch ready: night/V4-18
 - [x] V4-19 Current Claude models (Haiku 5.5 for triage, Sonnet 5.5 for the rest): no temperature, no forced tool choice, thinking blocks sent back in tool loops — branch ready: night/V4-19
+- [x] V4-20 Fresh install with deploy/wavium/install.sh came up broken (umask 077 leaked into the build: code unreadable in the image); fixed and replayed on a fresh clone — branch ready: night/V4-20

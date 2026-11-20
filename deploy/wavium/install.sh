@@ -64,6 +64,8 @@ if [ "$mode" = install ]; then
 		https=${WAVIUM_HTTPS_PORT:-443} http=${WAVIUM_HTTP_PORT:-80}
 		suffix=$( [ "$https" = 443 ] && echo "" || echo ":$https" )
 		admin_pw=$(secret)
+		# Private .env only: the umask goes back before the build (a 077 umask made the image's code unreadable).
+		old_umask=$(umask)
 		umask 077
 		cat >"$env_file" <<EOF
 # Written by install.sh on $(date -u +%Y-%m-%dT%H:%M:%SZ). Keep it private.
@@ -79,6 +81,7 @@ WAVIUM_PUBLIC_PORT_SUFFIX=$suffix
 WAVIUM_PROJECT=${WAVIUM_PROJECT:-wavium}
 WAVIUM_TIMEZONE=$(cat /etc/timezone 2>/dev/null || echo Europe/Paris)
 EOF
+		umask "$old_umask"
 		ok "Wrote $env_file (random passwords)"
 	fi
 fi
