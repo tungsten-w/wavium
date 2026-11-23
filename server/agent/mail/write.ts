@@ -11,6 +11,7 @@ import type { Tool, ToolCtx } from '../tools'
 import { AgentError, iso, nowSec, randomToken, stableJson } from '../util'
 import { draftKey, parseDraftKey } from './keys'
 import { accountsOf, attachmentsFromMeta, mailScope, needsFetch, rowsForKey, storedBody } from './read'
+import { CORRECTED_BY_USER, CUMULATIVE_TAGS, patchFor, TAGGED_BY_AGENT, tagsOf, WAVIUM_TAGS } from './tags'
 
 export const INLINE_MAX = 262_144
 export const UPLOAD_MAX = 25 * 1024 * 1024
@@ -220,6 +221,14 @@ async function inReplyTo(ctx: ToolCtx, key: unknown, fallback: string | null): P
 	return (rows[0].message_id as string | null) ?? null
 }
 
+const asList = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : v === undefined ? [] : [String(v)])
+
+/** The classification row of one mail, or undefined when nothing classified it yet. */
+async function triageRow(ctx: ToolCtx, account: number, hash: string): Promise<Record<string, unknown> | undefined> {
+	const [r] = await ctx.db.q<Record<string, unknown>>(`SELECT * FROM ${ctx.db.t('mail_triage')} WHERE account_id = $1 AND msg_hash = $2`, [account, hash])
+	return r
+}
+
 /** Best row of a mail for a write (not one that is gone from the server). */
 async function rowFor(ctx: ToolCtx, key: string) {
 	const found = await rowsForKey(ctx.db, ctx.grantor, key)
@@ -252,6 +261,59 @@ export function mailWrites(bridge: MailBridge): Tool[] {
 				if (Object.keys(flags).length) await bridge.flags(ctx.grantor, id, flags)
 				if (dest !== null) await bridge.move(ctx.grantor, id, dest)
 				return { message_key: input.message_key, updated: true }
+			},
+		},
+		{
+			name: 'mail_message_tag',
+			description: `Tag a mail: ${WAVIUM_TAGS.join(', ')}. A tag says what the mail is, so it writes the classification the Mail UI shows; it never moves or deletes anything -- "spam" is a word, not a folder. remove only takes important and urgent: for the others, add the right tag instead. Refused on a mail the owner classified by hand.`,
+			area: 'mail',
+			action: 'write',
+			input: obj({
+				message_key: str(),
+				add: arr(str(undefined, { enum: [...WAVIUM_TAGS] }), 'Tags to set', { maxItems: WAVIUM_TAGS.length }),
+				remove: arr(str(undefined, { enum: [...CUMULATIVE_TAGS] }), 'Tags to clear', { maxItems: CUMULATIVE_TAGS.length }),
+			}, ['message_key']),
+			// prepare/execute rather than run, for the line the owner reads in
+			// Settings > Agents > Activity: "Tagged \"Dinner?\" as important, urgent"
+			// instead of the tool name and a message key. `write` is never gated by
+			// an approval (access.ts: only delete, send and share are), which is
+			// right for a tag -- it changes a word, and the owner's own "Wrong?"
+			// button overrides it and locks the mail against the agent.
+			prepare: async (ctx, input) => {
+				const key = String(input.message_key)
+				const add = asList(input.add)
+				const remove = asList(input.remove)
+				const patch = patchFor(add, remove)
+				const { row, account } = await rowFor(ctx, key)
+				const existing = await triageRow(ctx, num(account.id), String(row.msg_hash))
+				// The owner's own "Wrong?" answer is the last word (V4-10): an agent
+				// does not get to overrule the person whose mail it is.
+				if (existing && String(existing.model ?? '') === CORRECTED_BY_USER) {
+					throw new AgentError('conflict', 'The owner classified this mail by hand; an agent cannot change its tags')
+				}
+				const what = [add.length ? `as ${add.join(', ')}` : '', remove.length ? `no longer ${remove.join(', ')}` : ''].filter(Boolean).join(', ')
+				return { payload: { key, account: num(account.id), hash: String(row.msg_hash), patch }, summary: `Tagged "${String(row.subject ?? '')}" ${what}`.slice(0, 200), ref: key }
+			},
+			execute: async (ctx, payload) => {
+				const { key, account, hash, patch } = payload as { key: string, account: number, hash: string, patch: Record<string, unknown> }
+				const T = ctx.db.t('mail_triage')
+				const cols = Object.keys(patch)
+				const existing = await triageRow(ctx, account, hash)
+				if (existing) {
+					const params: unknown[] = []
+					const sets = cols.map((c) => { params.push(patch[c]); return `${c} = $${params.length}` })
+					params.push(TAGGED_BY_AGENT)
+					sets.push(`model = $${params.length}`)
+					params.push(account, hash)
+					await ctx.db.q(`UPDATE ${T} SET ${sets.join(', ')} WHERE account_id = $${params.length - 1} AND msg_hash = $${params.length}`, params)
+				} else {
+					// Not classified yet (no AI configured, or a folder outside the
+					// pipeline): the agent's answer becomes the classification.
+					const names = ['account_id', 'msg_hash', 'version', 'model', 'classified_at', ...cols]
+					const values = [account, hash, 'agent', TAGGED_BY_AGENT, nowSec(), ...cols.map((c) => patch[c])]
+					await ctx.db.q(`INSERT INTO ${T} (${names.join(', ')}) VALUES (${values.map((_, i) => `$${i + 1}`).join(', ')})`, values)
+				}
+				return { message_key: key, tags: tagsOf(await triageRow(ctx, account, hash) as never) }
 			},
 		},
 		{

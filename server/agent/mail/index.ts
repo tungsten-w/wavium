@@ -8,6 +8,7 @@ import { arr, boolean, int, obj, str } from '../schema'
 import type { Tool } from '../tools'
 import { MailArrivals } from './arrival'
 import { accountsTool, CATEGORIES, getMessage, getThread, listMessages, URGENCIES } from './read'
+import { WAVIUM_TAGS } from './tags'
 import { mailWrites, type MailBridge, phpBridge, purgeExpired } from './write'
 
 export function mailTools(bridge: MailBridge | null): Tool[] {
@@ -22,7 +23,7 @@ export function mailTools(bridge: MailBridge | null): Tool[] {
 		},
 		{
 			name: 'mail_message_list',
-			description: 'Search mail, newest first. Default folders: inbox + archive. Rows have message_key, thread_key, folder, date, from, to, subject, snippet, flags, has_attachments and a compact classification. Use mail_message_get for the body.',
+			description: `Search mail, newest first. Default folders: inbox + archive. Rows have message_key, thread_key, folder, date, from, to, subject, snippet, flags, has_attachments, tags (${WAVIUM_TAGS.join(', ')}) and a compact classification. Use mail_message_get for the body.`,
 			area: 'mail',
 			input: obj({
 				account: int(),
@@ -34,6 +35,7 @@ export function mailTools(bridge: MailBridge | null): Tool[] {
 				subject: str(),
 				text: str('Full text over subject, snippet and stored bodies'),
 				category: { anyOf: [str(undefined, { enum: CATEGORIES }), arr(str(undefined, { enum: CATEGORIES }))] },
+				tag: { anyOf: [str(undefined, { enum: [...WAVIUM_TAGS] }), arr(str(undefined, { enum: [...WAVIUM_TAGS] }))], description: 'Mail carrying every tag given' },
 				curated: boolean('Only mail the owner\'s Curated setting shows (true, including mail not classified yet) or hides (false)'),
 				urgency_min: str(undefined, { enum: URGENCIES }),
 				needs_reply: boolean(),
@@ -48,7 +50,7 @@ export function mailTools(bridge: MailBridge | null): Tool[] {
 		},
 		{
 			name: 'mail_message_get',
-			description: 'One mail: headers, text body (paged with max_chars/offset), optional sanitized HTML, attachments, flags, full classification (mail-v2), folder, only_in_atrium.',
+			description: 'One mail: headers, text body (paged with max_chars/offset), optional sanitized HTML, attachments, flags, tags, full classification, folder, only_in_atrium.',
 			area: 'mail',
 			input: obj({
 				message_key: str(),

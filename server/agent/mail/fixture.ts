@@ -45,9 +45,10 @@ export function addMail(db: Db, id: number, mbox: number, mid: string, subject: 
 		[id, mid, mbox, subject, sentAt, extra.preview ?? `preview ${subject}`, extra.root ?? mid, extra.att ?? null, extra.seen ?? 0])
 }
 
-export function classify(db: Db, account: number, mid: string, category: string, f: { urgency?: string, needs_reply?: number, needs_action?: number, suspicious?: number, at?: number } = {}) {
-	return db.q(`INSERT INTO oc_mail_triage (account_id, msg_hash, version, category, urgency, needs_reply, needs_action, suspicious, classified_at) VALUES ($1, $2, 'mail-v2', $3, $4, $5, $6, $7, $8)`,
-		[account, md5(mid), category, f.urgency ?? 'whenever', f.needs_reply ?? 0, f.needs_action ?? 0, f.suspicious ?? 0, f.at ?? 0])
+export function classify(db: Db, account: number, mid: string, category: string, f: { urgency?: string, needs_reply?: number, needs_action?: number, has_deadline?: number, suspicious?: number, confidence?: number, model?: string, at?: number } = {}) {
+	return db.q(`INSERT INTO oc_mail_triage (account_id, msg_hash, version, model, category, category_confidence, urgency, needs_reply, needs_action, has_deadline, suspicious, classified_at)
+		VALUES ($1, $2, 'mail-v2', $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+	[account, md5(mid), f.model ?? 'mock-small', category, f.confidence ?? 0.9, f.urgency ?? 'whenever', f.needs_reply ?? 0, f.needs_action ?? 0, f.has_deadline ?? 0, f.suspicious ?? 0, f.at ?? 0])
 }
 
 export function queue(db: Db, account: number, mid: string, f: { priority?: number, sentAt?: number, status?: string, enqueuedAt: number }) {

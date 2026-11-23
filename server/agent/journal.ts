@@ -53,7 +53,7 @@ const LABELS: Record<string, string> = {
 	notes_note_create: 'New note', notes_note_update: 'Edited note',
 	calendar_event_create: 'New event', calendar_event_update: 'Edited event', task_create: 'New task', task_update: 'Edited task', task_complete: 'Ticked a task',
 	files_write: 'Wrote file', files_mkdir: 'New folder', files_move: 'Moved', files_unshare: 'Stopped a share',
-	mail_message_update: 'Updated mail', mail_draft_create: 'New draft', mail_draft_update: 'Edited draft', mail_draft_delete: 'Discarded draft',
+	mail_message_update: 'Updated mail', mail_message_tag: 'Tagged mail', mail_draft_create: 'New draft', mail_draft_update: 'Edited draft', mail_draft_delete: 'Discarded draft',
 }
 
 const SUMMARY_KEYS = ['title', 'name', 'path', 'subject', 'to', 'message_key', 'contact_id', 'event_id', 'task_id', 'item_id', 'id', 'draft_key', 'share_id']

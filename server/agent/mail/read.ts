@@ -6,6 +6,7 @@
 import { bool, type Db, num } from '../db'
 import { AgentError, iso, parseIso, round2 } from '../util'
 import { messageKey, parseMessageKey, parseThreadKey, syncKeys, threadKey } from './keys'
+import { SURE, tagsOf, WAVIUM_TAGS } from './tags'
 
 export const CATEGORIES = ['personal', 'work', 'etudes', 'admin', 'orders', 'security', 'social', 'newsletter', 'ads', 'spam', 'other']
 export const URGENCIES = ['never', 'whenever', 'this_week', 'today', 'now']
@@ -86,6 +87,14 @@ const rolePref = (r: Role) => ROLE_ORDER.indexOf(r)
 const folderView = (f: Folder | undefined) => (f ? { id: f.id, role: f.role, name: f.name } : null)
 const addr = (r: { label?: unknown, email?: unknown }) => ({ name: String(r.label ?? '') === String(r.email ?? '') ? '' : String(r.label ?? ''), address: String(r.email ?? '') })
 
+/** The five words of V4-24, read off the classification columns (tags.ts). */
+export function tagsOfRow(r: Record<string, unknown>): string[] {
+	return tagsOf({
+		category: r.t_category, category_confidence: r.t_category_confidence, urgency: r.t_urgency,
+		needs_reply: r.t_needs_reply, needs_action: r.t_needs_action, has_deadline: r.t_has_deadline, suspicious: r.t_suspicious,
+	})
+}
+
 export function compactClassification(t: Record<string, unknown>) {
 	if (!t.t_category) return null
 	return {
@@ -118,7 +127,7 @@ function selectCols(db: Db): string {
 	return `m.id, m.uid, m.message_id, m.mailbox_id, m.subject, m.sent_at, m.flag_seen, m.flag_flagged, m.flag_answered, m.flag_forwarded,
 		m.flag_attachments, CASE WHEN b.attachments IS NOT NULL AND b.attachments <> '' THEN 1 ELSE 0 END AS b_has_att, m.flag_important, m.flag_junk, m.preview_text, m.in_reply_to, m.thread_root_id, m.server_gone_at,
 		k.account_id, k.msg_hash, k.thread_hash,
-		t.version AS t_version, t.category AS t_category, t.category_confidence AS t_category_confidence, t.urgency AS t_urgency,
+		t.version AS t_version, t.model AS t_model, t.category AS t_category, t.category_confidence AS t_category_confidence, t.urgency AS t_urgency,
 		t.urgency_score AS t_urgency_score, t.needs_reply AS t_needs_reply, t.needs_action AS t_needs_action, t.has_deadline AS t_has_deadline,
 		t.written_by_person AS t_written_by_person, t.suspicious AS t_suspicious, t.classified_at AS t_classified_at
 	FROM ${db.t('mail_messages')} m
@@ -165,6 +174,7 @@ export function listRow(r: Row, scope: MailScope, rcpt: Awaited<ReturnType<typeo
 		snippet: String(r.preview_text ?? '').slice(0, 300),
 		flags: { seen: bool(r.flag_seen), starred: bool(r.flag_flagged), answered: bool(r.flag_answered), forwarded: bool(r.flag_forwarded), important: bool(r.flag_important) },
 		has_attachments: hasAtt(r),
+		tags: tagsOfRow(r),
 		classification: compactClassification(r),
 	}
 }
@@ -201,6 +211,7 @@ export interface ListInput {
 	seen?: boolean
 	starred?: boolean
 	has_attachments?: boolean
+	tag?: string | string[]
 	limit?: number
 	cursor?: string
 }
@@ -268,6 +279,25 @@ export async function listMessages(db: Db, grantor: string, input: ListInput) {
 		const list = hides.length ? hides.map((c) => p(c)).join(', ') : null
 		if (input.curated) where.push(list ? `(t.category IS NULL OR t.category NOT IN (${list}))` : '1 = 1')
 		else where.push(list ? `(t.category IS NOT NULL AND t.category IN (${list}))` : '1 = 0')
+	}
+	if (input.tag !== undefined) {
+		// Tags are a reading of the classification (tags.ts), so a tag filter is
+		// a condition on the same columns -- kept here, next to the SQL it mirrors,
+		// and covered by a test that walks every tag through both sides.
+		const tags = Array.isArray(input.tag) ? input.tag : [input.tag]
+		for (const t of tags) if (!(WAVIUM_TAGS as readonly string[]).includes(t)) throw new AgentError('invalid_input', `Unknown tag ${t}. Tags: ${WAVIUM_TAGS.join(', ')}`)
+		// Built on demand, never eagerly: p() appends a parameter, so a clause
+		// that is not used must not reserve one (it shifted every placeholder).
+		const sure = (cat: string) => `(t.category = ${p(cat)} AND (t.category_confidence IS NULL OR t.category_confidence >= ${SURE}))`
+		const sql: Record<string, () => string> = {
+			spam: () => `(t.suspicious >= ${SURE} OR ${sure('spam')})`,
+			promo: () => sure('ads'),
+			etudes: () => sure('etudes'),
+			important: () => `(t.needs_reply >= ${SURE} OR t.needs_action >= ${SURE} OR t.has_deadline >= ${SURE})`,
+			urgent: () => `t.urgency IN (${p('today')}, ${p('now')})`,
+		}
+		// Several tags: every one of them, like asking for a mail that is both.
+		where.push(tags.length ? tags.map((t) => sql[t]()).join(' AND ') : '1 = 0')
 	}
 	if (input.urgency_min !== undefined) {
 		const i = URGENCIES.indexOf(input.urgency_min)
@@ -396,6 +426,7 @@ export async function getMessage(db: Db, grantor: string, input: { message_key: 
 		flags: { seen: bool(r.flag_seen), starred: bool(r.flag_flagged), answered: bool(r.flag_answered), forwarded: bool(r.flag_forwarded), important: bool(r.flag_important), junk: bool(r.flag_junk) },
 		has_attachments: hasAtt(r),
 		attachments: attachmentsFromMeta(meta),
+		tags: tagsOfRow(r),
 		classification: fullClassification(r),
 		only_in_atrium: r.server_gone_at !== null && r.server_gone_at !== undefined,
 		body_source: stored?.body !== null && stored?.body !== undefined ? 'stored' : 'preview',
