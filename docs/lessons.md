@@ -168,3 +168,33 @@ first answer (a due date, then the repeat) both start from the same old copy:
 the second wins and drops the first. Queue the edits per object and apply
 each to the version the previous one saved (`apps/tasks/web/index.tsx`).
 A browser test that fills two fields in a row catches it; the DOM test did not.
+
+## A wide `trusted_proxies` lets the local network forge the visitor's IP — 2026-11-23
+
+`deploy/wavium/compose.yaml` trusted `172.16.0.0/12 192.168.0.0/16 10.0.0.0/8`
+so that Nextcloud would recognise Caddy whatever subnet Docker handed the edge
+network. Two of those three ranges are also the home network, and Caddy's port
+is published on it. Nextcloud walks `X-Forwarded-For` from the right and skips
+every entry that is a trusted proxy, so a machine on the LAN sending its own
+`X-Forwarded-For: 1.2.3.4` is skipped as "a proxy" and `1.2.3.4` becomes the
+visitor: brute-force protection and rate limits then count against an address
+nobody owns, and the log agrees with the lie.
+
+Nothing looks wrong while no one tries it — the real address still shows up for
+honest clients, which is exactly why the width survived review. The fix is to
+trust one subnet, the edge network's, and to **freeze** that subnet
+(`WAVIUM_EDGE_SUBNET`) instead of widening the trust to cover whatever Docker
+might pick: an unfrozen subnet is the reason the list was wide in the first
+place, and it is the same trap as `ATRIUM_TRUSTED_PROXIES` on the public demo,
+where a nightly `down -v` moved the network.
+
+Narrowing the variable is not enough on an install that already exists.
+Nextcloud's config writer saves the **merged** configuration, so the wide list
+had been baked into `config.php` as `trusted_proxies` 0, 1, 2. The image's
+`reverse-proxy.config.php` then only replaces the entries the new value has —
+index 0 — and 1 and 2 stay trusted. `occ config:system:get trusted_proxies`
+showed `172.16.240.0/24` *and* the two old ranges after the update, which is
+the only reason it was caught. `deploy/atrium-entrypoint.sh` now deletes the
+stored copy when a new build lands. Verified with the attack itself: a request
+to the LAN address carrying the right `Host` and a forged
+`X-Forwarded-For: 203.0.113.9` is logged with the caller's real address.

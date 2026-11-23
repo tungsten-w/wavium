@@ -55,6 +55,16 @@ if [ "$run" = 1 ] && [ -f "$dst/version.php" ] && [ -f "$dst/config/config.php" 
 			occ app:enable "$app" </dev/null >/dev/null 2>&1 || true
 		done < /wavium-apps
 	fi
+	# config.php holds a copy of trusted_proxies: Nextcloud's config writer saves
+	# the *merged* configuration, so whatever TRUSTED_PROXIES produced at install
+	# time ends up in the file. Narrowing the variable later only overwrites the
+	# entries it has (0, 1, ...) and leaves the tail of the longer old list
+	# trusted -- and a range left behind that covers the local network lets any
+	# machine on it forge X-Forwarded-For. Drop the stored copy; the image's
+	# reverse-proxy.config.php reads the variable on every request anyway.
+	if [ -n "${TRUSTED_PROXIES:-}" ]; then
+		occ config:system:delete trusted_proxies >/dev/null 2>&1 || true
+	fi
 	# Logos/icons may have changed: drop theming's generated-image cache.
 	if [ "$(id -u)" = 0 ]; then
 		su -p www-data -s /bin/sh -c "cd $dst && php -r 'require \"lib/base.php\"; \\OCP\\Server::get(\\OCA\\Theming\\ThemingDefaults::class)->increaseCacheBuster();'"

@@ -22,8 +22,15 @@ x-app: &app
     NEXTCLOUD_ADMIN_USER: ${WAVIUM_ADMIN_USER:-admin}
     NEXTCLOUD_ADMIN_PASSWORD: ${WAVIUM_ADMIN_PASSWORD:?set WAVIUM_ADMIN_PASSWORD in .env}
     NEXTCLOUD_TRUSTED_DOMAINS: ${WAVIUM_DOMAIN:?set WAVIUM_DOMAIN in .env}
-    # Caddy is the only proxy; it sits on the private network.
-    TRUSTED_PROXIES: 172.16.0.0/12 192.168.0.0/16 10.0.0.0/8
+    # Caddy is the only proxy, and the edge network it sits on is the only
+    # place a forwarded header can legitimately come from, so trust exactly
+    # that subnet (frozen at the bottom of this file). Wider ranges are not
+    # harmless: 192.168.0.0/16 and 10.0.0.0/8 cover the home network, so any
+    # machine on the LAN reaching the published port could set
+    # X-Forwarded-For and have Nextcloud believe it -- brute-force protection
+    # and rate limits then count against a made-up address, and the log shows
+    # it too.
+    TRUSTED_PROXIES: ${WAVIUM_EDGE_SUBNET:-172.16.240.0/24}
     OVERWRITEHOST: ${WAVIUM_DOMAIN}${WAVIUM_PUBLIC_PORT_SUFFIX:-}
     OVERWRITEPROTOCOL: https
     OVERWRITECLIURL: https://${WAVIUM_DOMAIN}${WAVIUM_PUBLIC_PORT_SUFFIX:-}
@@ -78,7 +85,7 @@ services:
     networks: [backend, edge]
 
   db:
-    image: postgres:17.6-alpine
+    image: postgres:17.12-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: wavium
@@ -124,7 +131,7 @@ services:
     networks: [backend, edge]
 
   caddy:
-    image: caddy:2.10.2-alpine
+    image: caddy:2.11.9-alpine
     restart: unless-stopped
     environment:
       WAVIUM_DOMAIN: ${WAVIUM_DOMAIN}
@@ -150,7 +157,15 @@ services:
 networks:
   backend:
     internal: true
-  edge: {}
+  edge:
+    # Frozen: TRUSTED_PROXIES names this subnet. Left to itself Docker picks a
+    # free range at creation time, which changes when the network is recreated
+    # -- the app would then stop recognising Caddy and log the proxy's address
+    # instead of the visitor's. Override WAVIUM_EDGE_SUBNET if the default
+    # collides with another network on the host (`docker network ls`).
+    ipam:
+      config:
+        - subnet: ${WAVIUM_EDGE_SUBNET:-172.16.240.0/24}
 
 volumes:
   html: {}
