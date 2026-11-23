@@ -99,7 +99,7 @@ services:
       GREENMAIL_OPTS: >-
         -Dgreenmail.setup.test.smtp -Dgreenmail.setup.test.imap
         -Dgreenmail.hostname=0.0.0.0
-        -Dgreenmail.users=alice:demo-mail@atrium.test,bob:demo-mail@atrium.test
+        -Dgreenmail.users=alice:demo-mail@atrium.test,bob:demo-mail@atrium.test,chloe:demo-mail@atrium.test
         -Dgreenmail.users.login=email
 
   # PHP-FPM (Nextcloud backend) on the repo. Skips the official

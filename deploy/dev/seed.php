@@ -166,6 +166,19 @@ $mails = [
 	],
 ];
 
+// Chloé is the newcomer: mail waiting on the server, no account in Wavium yet.
+// Connecting it is the first thing she does, and V4-23 is about what she sees
+// right after -- so her inbox has to exist before any Wavium account does.
+$mails['chloe'] = [
+	['from' => ['Mairie de Villeneuve', 'contact@mairie.example.org'], 'subject' => 'Votre inscription est confirmée', 'ago' => 2 * 3600,
+		'body' => "Bonjour,\n\nVotre inscription a bien été enregistrée.\n\nLa mairie"],
+	['from' => ['Léa', 'lea@example.org'], 'subject' => 'On se voit dimanche ?', 'ago' => 7 * 3600,
+		'body' => "Hello ! Dispo dimanche pour un café ?\n\nLéa"],
+	['from' => ['Promos Exemple', 'deals@promo.example.com'], 'subject' => 'Offre du jour : -40%', 'ago' => $day,
+		'headers' => ['List-Unsubscribe: <https://promo.example.com/u/chloe>'],
+		'body' => "Nos meilleures offres du jour."],
+];
+
 foreach ($mails as $uid => $list) {
 	$imap = new Imap(MAIL_HOST, 3143);
 	$imap->cmd("LOGIN $uid@atrium.test " . MAIL_PASSWORD);
@@ -185,6 +198,10 @@ foreach ($mails as $uid => $list) {
 	$imap->cmd('LOGOUT');
 	say("mail: " . count($list) . " messages for $uid");
 
+	if (!isset(DEMO_USERS[$uid])) {
+		say("mail: $uid has mail waiting but no Wavium account (on purpose)");
+		continue;
+	}
 	occ('mail:account:create-imap', $uid, DEMO_USERS[$uid][0], "$uid@atrium.test",
 		MAIL_HOST, '3143', 'none', "$uid@atrium.test", MAIL_PASSWORD,
 		MAIL_HOST, '3025', 'none', "$uid@atrium.test", MAIL_PASSWORD);

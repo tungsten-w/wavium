@@ -8,6 +8,7 @@ import '../../../core/web/testing/dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { fakeServer, type FakeServer } from '../../../core/web/testing/fakeServer'
 import { cleanup, click, getButton, getField, queryByText, render, type, waitFor } from '../../../core/web/testing/render'
+import { Snackbars } from '@atrium/ui'
 import { AccountSettings, AccountSetup } from './Account'
 
 let server: FakeServer
@@ -38,6 +39,53 @@ test('a known provider: servers filled and hidden, one password for both', async
 		emailAddress: 'jean@orange.fr', imapHost: 'imap.orange.fr', imapPort: 993, imapUser: 'jean@orange.fr', imapPassword: 's3cret',
 		smtpHost: 'smtp.orange.fr', smtpPort: 465, smtpUser: 'jean@orange.fr', smtpPassword: 's3cret',
 	})
+})
+
+test('a refused connection says what the mail server said, not "HTTP 400" (V4-23)', async () => {
+	server.on('POST', '/apps/mail/api/accounts', () => new Response(JSON.stringify({
+		status: 'fail',
+		data: { error: 'AUTHENTICATION', service: 'IMAP', host: 'imap.gmail.com', port: 993, details: 'Authentication failed.' },
+	}), { status: 400, headers: { 'Content-Type': 'application/json' } }))
+	const { container } = await render(<><AccountSetup onDone={() => {}} /><Snackbars /></>)
+	await type(getField(container, 'Account name'), 'Gmail')
+	await type(getField(container, 'Email address'), 'a@gmail.com')
+	await waitFor(() => container.querySelector('[aria-label="Provider"]'))
+	await type(getField(container, 'App password'), 'abcdefghijklmnop')
+	await click(getButton(container, 'Connect account'))
+
+	// Earlier tests queue toasts of their own, so look at all of them.
+	const shown = () => [...document.querySelectorAll('.at-snackbar')].map((el) => el.textContent ?? '')
+	const message = await waitFor(() => shown().find((t) => t.includes('imap.gmail.com')))
+	expect(message).toContain('IMAP at imap.gmail.com:993')
+	expect(message).toContain('Authentication failed.')
+	expect(message).not.toContain('HTTP 400')
+})
+
+test('an app password pasted with its spaces is sent without them (V4-23)', async () => {
+	const done = vi.fn()
+	const { container } = await render(<AccountSetup onDone={done} />)
+	await type(getField(container, 'Account name'), 'Gmail')
+	await type(getField(container, 'Email address'), 'a@gmail.com')
+	await waitFor(() => container.querySelector('[aria-label="Provider"]'))
+	// Google shows app passwords in groups of four; copying one keeps the spaces.
+	await type(getField(container, 'App password'), 'abcd efgh ijkl mnop')
+	await click(getButton(container, 'Connect account'))
+	await waitFor(() => (done.mock.calls.length ? true : null))
+	const sent = server.calls('POST', '/apps/mail/api/accounts')[0].body as Record<string, unknown>
+	expect(sent.imapPassword).toBe('abcdefghijklmnop')
+	expect(sent.smtpPassword).toBe('abcdefghijklmnop')
+})
+
+test('an account password keeps the spaces inside it, only the ends are trimmed (V4-23)', async () => {
+	const done = vi.fn()
+	const { container } = await render(<AccountSetup onDone={done} />)
+	await type(getField(container, 'Account name'), 'Perso')
+	await type(getField(container, 'Email address'), 'jean@orange.fr')
+	await waitFor(() => container.querySelector('[aria-label="Provider"]'))
+	await type(getField(container, 'Password'), ' correct horse battery ')
+	await click(getButton(container, 'Connect account'))
+	await waitFor(() => (done.mock.calls.length ? true : null))
+	expect((server.calls('POST', '/apps/mail/api/accounts')[0].body as Record<string, unknown>).imapPassword).toBe('correct horse battery')
 })
 
 test('Gmail without OAuth: app password help, no Google button; server settings on demand', async () => {

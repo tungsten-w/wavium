@@ -38,6 +38,8 @@ const body = (m: Message): MessageBody => ({
 let server: FakeServer
 
 beforeEach(() => {
+	// Mail remembers the last filter per device (V4-23): each test starts fresh.
+	localStorage.clear()
 	server = fakeServer()
 		.on('GET', '/apps/mail/api/accounts', () => [account])
 		.on('GET', '/apps/mail/api/mailboxes', () => ({ id: 1, email: account.emailAddress, mailboxes: boxes, delimiter: '/' }))
@@ -74,6 +76,41 @@ test('the inbox lists the mails with sender, address and subject', async () => {
 	expect(list.query.get('mailboxIds')).toBe('1')
 	expect(list.query.get('exclude')).toBe('ads,spam,newsletter,social')
 	expect(server.unhandled.map((r) => `${r.method} ${r.path}`)).toEqual([])
+})
+
+test('a filter that hides everything says so, and offers the way out (V4-23)', async () => {
+	// Curated finds nothing; the folder itself is not empty.
+	server.on('GET', '/apps/mail/api/triage/list', () => [])
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(container, /No message matches Curated/))
+	expect(queryByText(container, 'This folder is empty'), 'an empty filter is not an empty folder').toBeNull()
+
+	await click(getButton(container, 'See all mail'))
+	await waitFor(() => getByText(container, 'Dinner on Friday?'))
+	// "See all" means the plain list, with no label filter on it.
+	expect(server.calls('GET', '/apps/mail/api/messages').some((c) => !c.query.has('cursor'))).toBe(true)
+	expect(server.unhandled.map((r) => `${r.method} ${r.path}`)).toEqual([])
+})
+
+test('an empty folder still reads as an empty folder', async () => {
+	server
+		.on('GET', '/apps/mail/api/triage/list', () => [])
+		.on('GET', '/apps/mail/api/messages', () => [])
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(container, 'This folder is empty'))
+	expect(queryByText(container, 'See all mail')).toBeNull()
+})
+
+test('the filter chosen last time is the one Mail opens on (V4-23)', async () => {
+	const first = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(first.container, 'Dinner on Friday?'))
+	await click(getButton(first.container, 'All'))
+	await waitFor(() => server.calls('GET', '/apps/mail/api/messages').length > 0)
+	cleanup()
+
+	const again = await renderApp('mail', MailApp.Component!, '/view/inbox')
+	await waitFor(() => getByText(again.container, 'Dinner on Friday?'))
+	expect(again.container.querySelector('.ml-chip--on')?.textContent, 'back on All, not on Curated').toBe('All')
 })
 
 test('opening a mail shows it and marks it read', async () => {

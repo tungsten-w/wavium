@@ -66,6 +66,32 @@ class TriageServiceTest extends MailDbTestCase {
 		return $this->triage->idsByLabel($this->row->getUserId(), array_map(fn ($m) => $m->getId(), $mailboxes), $categories, $needsAction, $cursor, $limit, $exclude);
 	}
 
+	public function testUncachedMailboxIdsNamesTheFoldersWithNoLocalCopy(): void {
+		$fresh = $this->mailbox('Fresh');
+		$synced = $this->mailbox('Synced');
+		$this->db->executeStatement(
+			'UPDATE *PREFIX*mail_mailboxes SET sync_new_token = ?, sync_changed_token = ?, sync_vanished_token = ? WHERE id = ?',
+			['n', 'c', 'v', $synced->getId()],
+		);
+		$uid = $this->row->getUserId();
+
+		$this->assertSame([$fresh->getId()], $this->triage->uncachedMailboxIds($uid, [$fresh->getId(), $synced->getId()]));
+		$this->assertSame([], $this->triage->uncachedMailboxIds($uid, [$synced->getId()]));
+		$this->assertSame([], $this->triage->uncachedMailboxIds($uid, []), 'no folder asked, nothing to sync');
+		$this->assertSame([], $this->triage->uncachedMailboxIds('someone-else', [$fresh->getId()]), 'another user\'s folder is not ours to report');
+	}
+
+	public function testAHalfSyncedFolderStillCountsAsUncached(): void {
+		$half = $this->mailbox('Half');
+		$this->db->executeStatement('UPDATE *PREFIX*mail_mailboxes SET sync_new_token = ? WHERE id = ?', ['n', $half->getId()]);
+
+		$this->assertSame(
+			[$half->getId()],
+			$this->triage->uncachedMailboxIds($this->row->getUserId(), [$half->getId()]),
+			'one token out of three is not a local copy (Mailbox::isCached wants all three)',
+		);
+	}
+
 	public function testCategoryFilterReturnsOnlyThatCategoryNewestFirst(): void {
 		$inbox = $this->mailbox('INBOX');
 		$a = $this->serverMail($inbox, 1, '<a@t>');

@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace OCA\Mail\Controller;
 
 use OCA\Mail\Db\MessageMapper;
+use OCA\Mail\Exception\MailboxNotCachedException;
+use OCA\Mail\Http\JsonResponse as MailJsonResponse;
 use OCA\Mail\Service\Triage\TriageService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -64,6 +66,20 @@ class TriageController extends Controller {
 		$boxes = array_values(array_filter(array_map('intval', explode(',', $mailboxIds))));
 		$cats = array_values(array_filter(array_map('trim', explode(',', $category))));
 		$skip = array_values(array_filter(array_map('trim', explode(',', $exclude))));
+		// A folder with no local copy has no labelled mail to find, so this list
+		// would answer 200 and an empty array -- and Curated would show "This
+		// folder is empty" on an account that was just added, forever, because
+		// nothing ever asked for the initial sync. Say "not cached" instead, the
+		// same answer /messages gives, and name the folders: the client syncs
+		// them and asks again.
+		$uncached = $this->triage->uncachedMailboxIds($this->userId, $boxes);
+		if ($uncached !== []) {
+			return MailJsonResponse::fail([
+				'message' => 'mailbox ' . implode(', ', $uncached) . ' is not cached',
+				'type' => MailboxNotCachedException::class,
+				'mailboxIds' => $uncached,
+			]);
+		}
 		$ids = $this->triage->idsByLabel($this->userId, $boxes, $cats, $needsAction, $cursor, $limit, $skip);
 		return new JSONResponse($this->messageMapper->findByIds($this->userId, $ids, 'DESC'));
 	}

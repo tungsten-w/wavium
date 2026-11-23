@@ -13,7 +13,7 @@ import { TagChips, TagsDialog } from './Tags'
 import { UnsubscribeBanner } from './Unsubscribe'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
-import { archiveTarget, kindBoxes, labelQuery, sortBoxes, type ViewKind } from './labels'
+import { archiveTarget, filterName, kindBoxes, labelQuery, readFilter, sortBoxes, writeFilter, type ViewKind } from './labels'
 import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, correctTriage, suggestReply, undoDelete, snoozeMessage, patchAccount, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
 import './style.css'
 
@@ -53,7 +53,10 @@ function Mail() {
 	const [draftPicker, setDraftPicker] = useState<Message[] | null>(null)
 	const [triage, setTriage] = useState<Record<number, Triage | null>>({})
 
-	const [label, setLabel] = useState<LabelFilter>(defaultLabel)
+	const [label, setLabel] = useState<LabelFilter>(readFilter)
+	useEffect(() => { writeFilter(label) }, [label])
+	// Set when the open filter matches nothing but the folder does hold mail.
+	const [filteredOut, setFilteredOut] = useState(false)
 	// The user's Curated list (Mail preference); bumped when it loads or changes.
 	const [curatedVer, setCuratedVer] = useState(0)
 	useEffect(() => { loadCuratedHides().catch(() => {}).finally(() => setCuratedVer((v) => v + 1)) }, [])
@@ -110,8 +113,16 @@ function Mail() {
 		if (!listIds.length) { setMessages(view && accounts ? [] : null); return }
 		if (label.curated && curatedVer === 0) { setMessages(null); return }
 		let live = true
-		setMessages(null); setReachedEnd(false)
-		fetchPage().then((ms) => { if (live) setMessages(ms) }).catch((e) => {
+		setMessages(null); setReachedEnd(false); setFilteredOut(false)
+		fetchPage().then(async (ms) => {
+			if (!live) return
+			setMessages(ms)
+			// Nothing to show under a filter is not the same as an empty folder:
+			// ask for one unfiltered mail so the list can say which it is.
+			if (!labelOn || ms.length) return
+			const any = await listMerged(listIds, { limit: 1 }).catch(() => [])
+			if (live) setFilteredOut(any.length > 0)
+		}).catch((e) => {
 			if (live) { setMessages([]); toast.error(`Could not load messages: ${errorText(e)}`) }
 		})
 		return () => { live = false }
@@ -385,7 +396,12 @@ function Mail() {
 				{filter && <div className="ml-filter"><span>Results for “{query}”</span><Button variant="text" size="s" onClick={() => { setFilter(''); setQuery('') }}>Clear search</Button></div>}
 				{isOutbox ? <Outbox messages={outbox} accounts={accounts} onEdit={(m) => setComposer({ accountId: m.accountId, to: addressText(m.to), cc: addressText(m.cc), bcc: addressText(m.bcc), subject: m.subject, body: m.editorBody ?? m.bodyPlain ?? '', attachments: m.attachments, outboxId: m.id, sendAt: m.sendAt })} onReload={loadOutbox} />
 					: messages === null ? <div className="ml-center"><Spinner /></div>
-					: messages.length === 0 ? <EmptyState icon="mail" title={filter ? 'No messages match your search' : 'This folder is empty'} />
+					: messages.length === 0 ? (filteredOut
+						? <EmptyState icon="label" title={`No message matches ${filterName(label)} in this folder`}>
+							<p>The rest of the folder is still there — {label.curated ? 'Curated keeps newsletters, ads, social and spam out of the way' : 'this filter only shows part of it'}.</p>
+							<Button onClick={() => { setFilter(''); setQuery(''); setLabel(noLabel) }}>See all mail</Button>
+						</EmptyState>
+						: <EmptyState icon="mail" title={filter ? 'No messages match your search' : 'This folder is empty'} />)
 					: <><ul className="ml-messages">{messages.map((m) => <MessageRow key={m.databaseId} message={m} triage={triage[m.databaseId]} outgoing={mailbox?.specialRole === 'sent' || mailbox?.specialRole === 'drafts'} selected={messageId === m.databaseId} onOpen={() => navigate(`${boxPath}/thread/${m.databaseId}`)} onFlag={() => void patchMessage(m, { flagged: !m.flags.flagged })} onArchive={mailbox?.specialRole === 'sent' || mailbox?.specialRole === 'drafts' ? undefined : (() => { const t = archiveTarget(boxes, m.mailboxId); return t ? () => void move(m, t.databaseId) : undefined })()} />)}</ul>
 						{!reachedEnd && <LoadMore busy={loadingMore} onVisible={() => void more()} />}</>}
 			</section>

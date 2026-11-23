@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { archiveTarget, kindBoxes, labelQuery, sortBoxes } from './labels'
-import { curatedTitle, DEFAULT_CURATED_HIDES, defaultLabel, noLabel, parseCuratedHides, searchFilter, type Account, type Mailbox } from './api'
+import { archiveTarget, filterName, kindBoxes, labelQuery, readFilter, sortBoxes, writeFilter } from './labels'
+import { curatedTitle, DEFAULT_CURATED_HIDES, defaultLabel, noLabel, parseCuratedHides, searchFilter, type Account, type LabelFilter, type Mailbox } from './api'
 
 const box = (databaseId: number, accountId: number, specialRole: string, name = specialRole): Mailbox =>
 	({ databaseId, accountId, specialRole, name, delimiter: '/', displayName: name, id: name, attributes: [], specialUse: [] }) as unknown as Mailbox
@@ -102,5 +102,51 @@ describe('Curated setting (Mail preference curated-hides, also read by the agent
 		expect(curatedTitle(['ads', 'spam', 'social'])).toBe('Hides ads, spam and social')
 		expect(curatedTitle(['spam'])).toBe('Hides spam')
 		expect(curatedTitle([])).toBe('Shows every category')
+	})
+})
+
+describe('the filter is remembered per device', () => {
+	const fake = () => {
+		const kept = new Map<string, string>()
+		return { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v), kept }
+	}
+
+	it('comes back where you left it', () => {
+		const store = fake()
+		const chosen: LabelFilter = { ...noLabel, category: 'orders' }
+		writeFilter(chosen, store)
+		expect(readFilter(store)).toEqual(chosen)
+		writeFilter(noLabel, store)
+		expect(readFilter(store), 'All is a choice too, not "nothing stored"').toEqual(noLabel)
+	})
+	it('starts on Curated, and falls back to it on anything unreadable', () => {
+		expect(readFilter(fake())).toEqual(defaultLabel)
+		expect(readFilter(null)).toEqual(defaultLabel)
+		for (const raw of ['', 'not json', '42', '{"curated":"yes"}']) {
+			const store = fake()
+			store.setItem('wavium.mail.filter', raw)
+			const back = readFilter(store)
+			expect(back.category).toBe('')
+			expect(typeof back.curated).toBe('boolean')
+		}
+	})
+	it('drops a category the classifier no longer has', () => {
+		const store = fake()
+		store.setItem('wavium.mail.filter', JSON.stringify({ category: 'receipts-of-1998', needsAction: true, curated: false }))
+		expect(readFilter(store)).toEqual({ ...noLabel, needsAction: true })
+	})
+	it('survives a storage that refuses to write (private mode)', () => {
+		const locked = { getItem: () => null, setItem: () => { throw new Error('quota') } }
+		expect(() => writeFilter(defaultLabel, locked)).not.toThrow()
+	})
+})
+
+describe('filterName: what the list says is filtering it', () => {
+	it('names the chip in use, category first', () => {
+		expect(filterName(defaultLabel)).toBe('Curated')
+		expect(filterName({ ...noLabel, category: 'orders' })).toBe('Orders')
+		expect(filterName({ ...noLabel, needsAction: true })).toBe('Needs action')
+		expect(filterName({ ...defaultLabel, category: 'ads' })).toBe('Ads')
+		expect(filterName(noLabel)).toBe('All')
 	})
 })

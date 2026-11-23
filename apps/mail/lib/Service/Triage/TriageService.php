@@ -805,6 +805,37 @@ class TriageService {
 	}
 
 	/**
+	 * Among the given folders, the ones this user owns that were never synced
+	 * (no sync token yet, same bar as Mailbox::isCached()).
+	 *
+	 * A label list reads Atrium's local copy, so over a folder with no local
+	 * copy it answers "nothing" instead of "not cached yet" -- which is what
+	 * made Curated look like an empty Inbox on an account that had just been
+	 * added. The caller runs the initial sync first, like the plain list does.
+	 *
+	 * @param int[] $mailboxIds
+	 * @return int[]
+	 */
+	public function uncachedMailboxIds(string $userId, array $mailboxIds): array {
+		if ($mailboxIds === []) {
+			return [];
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('mb.id')->from('mail_mailboxes', 'mb')
+			->join('mb', 'mail_accounts', 'a', $qb->expr()->andX(
+				$qb->expr()->eq('a.id', 'mb.account_id'),
+				$qb->expr()->eq('a.user_id', $qb->createNamedParameter($userId)),
+			))
+			->where($qb->expr()->in('mb.id', $qb->createNamedParameter($mailboxIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->orX(
+				$qb->expr()->isNull('mb.sync_new_token'),
+				$qb->expr()->isNull('mb.sync_changed_token'),
+				$qb->expr()->isNull('mb.sync_vanished_token'),
+			));
+		return array_map('intval', $qb->executeQuery()->fetchAll(\PDO::FETCH_COLUMN));
+	}
+
+	/**
 	 * Ids of the user's classified mails in the given folders that match a label
 	 * filter, newest first. The caller loads the messages themselves.
 	 *

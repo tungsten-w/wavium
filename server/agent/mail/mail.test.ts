@@ -74,8 +74,9 @@ test('list filters', async () => {
 	const subjects = async (input: Parameters<typeof listMessages>[2]) => (await listMessages(db, 'ann', input)).messages.map((m) => m.subject)
 	expect(await subjects({ has_attachments: true })).toEqual(['Invoice']) // known from the stored body only
 	expect(await subjects({ has_attachments: false })).toEqual(['Re: Hello', 'Hello'])
-	expect(await subjects({ curated: true })).toEqual(['Hello'])
-	expect(await subjects({ curated: false })).toEqual(['Invoice', 'Re: Hello'])
+	// Curated hides categories; 'Re: Hello' has none yet, so it is shown, like in the UI.
+	expect(await subjects({ curated: true })).toEqual(['Re: Hello', 'Hello'])
+	expect(await subjects({ curated: false })).toEqual(['Invoice'])
 	expect(await subjects({ category: 'ads' })).toEqual(['Invoice'])
 	expect(await subjects({ urgency_min: 'this_week' })).toEqual(['Hello'])
 	expect(await subjects({ needs_reply: true })).toEqual(['Hello'])

@@ -117,3 +117,7 @@ ADR 0010, waits for the owner's go), the rest in any order.
 
 - [x] V4-21 The version next to the logo in the header, linking to a page that says what each version brought (Settings > What's new), with the history of every version — branch ready: night/V4-21
 - [x] V4-22 Sweep for bugs a first-time user would hit: every app opened on desktop and phone, test suites green, what is found fixed with a test — branch ready: night/V4-21 (5 bugs fixed)
+
+### Mail for daily use (2026-11-23)
+
+- [~] V4-23 Mail: the Curated filter showed an empty Inbox on a freshly connected account (the label list never ran the initial sync); a filter that hides everything now says so and offers "See all mail"; the filter is remembered; account setup shows the real reason the mail server refused instead of "HTTP 400" (instance Claude/oxygen, 2026-11-23) — branch: night/V4-23
