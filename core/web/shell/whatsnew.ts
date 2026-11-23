@@ -28,6 +28,7 @@ export const RELEASES: Release[] = [
 		headline: 'The version is now written next to the logo, and a round of fixes.',
 		items: [
 			'The version sits next to the logo in the header. Click it to read this page.',
+			'Fixed: Notes lost letters while you typed -- "Courses" came back as "Couses". What you type is what is saved now.',
 			'Fixed: on a new account, changing the accent colour failed with "Internal server error" -- and so did choosing a wallpaper afterwards.',
 			'Fixed: a fresh install logged an error on every classic page, for a file the image did not carry.',
 			'The screens you see on a brand-new account -- empty lists, "connect your mail" -- are now opened by the tests, on a computer and on a phone.',

@@ -259,9 +259,17 @@ export function LiveEditor(props: LiveEditorProps) {
 	}, [])
 
 	// Outside changes (the other version picked after a conflict, a reload).
+	//
+	// Never while the editor has the focus, i.e. while someone is typing. Each
+	// keystroke travels editor -> onChange -> React state -> back here, and the
+	// document is already ahead of the value that arrives: typing "SONDE" fast
+	// enough wrote "SNE", because this replaced the whole document with a value
+	// that predated the last letters. An outside change only ever matters when
+	// the editor is not the thing being typed into.
 	useEffect(() => {
 		const v = view.current
-		if (v && props.value !== v.state.doc.toString()) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: props.value } })
+		if (!v || v.hasFocus) return
+		if (props.value !== v.state.doc.toString()) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: props.value } })
 	}, [props.value])
 
 	return <div ref={host} className="nt-live" />

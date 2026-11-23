@@ -8,6 +8,11 @@ tagged in git (`v1`, `v2`, ...).
 - **The version is written next to the logo** in the header. Click it to see
   what each version brought (Settings > What's new), the newest first, with the
   one you are running marked.
+- **Fixed: Notes dropped letters while you typed.** Typing at a normal pace in a
+  note lost characters -- "Courses" was saved as "Couses" -- because the editor
+  was being overwritten with a copy of the text that predated the last
+  keystrokes. Nothing was lost on the server: what you type is now what is
+  saved, letter for letter.
 - **Fixed: changing the accent colour failed on a new account.** Every new
   account is given a random accent colour, and the first time the person chose
   their own in Settings > Appearance, the request answered "Internal server
