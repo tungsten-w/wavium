@@ -19,8 +19,8 @@ const good = {
 }
 
 describe('questions', () => {
-	test('mail-v2 parses: 1 choice, 5 predicates, 1 score', () => {
-		expect(file.version).toBe('mail-v2')
+	test('mail-v3 parses: 1 choice, 5 predicates, 1 score', () => {
+		expect(file.version).toBe('mail-v3')
 		expect(QS.map((q) => q.type)).toEqual(['choice', 'predicate', 'predicate', 'predicate', 'predicate', 'predicate', 'score'])
 	})
 
@@ -35,7 +35,7 @@ describe('questions', () => {
 		const t = triageTool(QS)
 		const s = t.inputSchema as any
 		expect(t.name).toBe(TOOL_NAME)
-		expect(s.properties.category.enum).toEqual(['personal', 'work', 'admin', 'orders', 'security', 'social', 'newsletter', 'ads', 'spam', 'other'])
+		expect(s.properties.category.enum).toEqual(['personal', 'work', 'etudes', 'admin', 'orders', 'security', 'social', 'newsletter', 'ads', 'spam', 'other'])
 		expect(s.properties.urgency.enum).toEqual(['never', 'whenever', 'this_week', 'today', 'now'])
 		expect(s.properties.needs_reply).toMatchObject({ type: 'number', minimum: 0, maximum: 1 })
 		expect(s.required).toEqual(['category', 'category_confidence', 'needs_reply', 'needs_action', 'has_deadline', 'written_by_person', 'suspicious', 'urgency'])

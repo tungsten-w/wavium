@@ -7,7 +7,7 @@ import { bool, type Db, num } from '../db'
 import { AgentError, iso, parseIso, round2 } from '../util'
 import { messageKey, parseMessageKey, parseThreadKey, syncKeys, threadKey } from './keys'
 
-export const CATEGORIES = ['personal', 'work', 'admin', 'orders', 'security', 'social', 'newsletter', 'ads', 'spam', 'other']
+export const CATEGORIES = ['personal', 'work', 'etudes', 'admin', 'orders', 'security', 'social', 'newsletter', 'ads', 'spam', 'other']
 export const URGENCIES = ['never', 'whenever', 'this_week', 'today', 'now']
 export const DEFAULT_CURATED_HIDES = ['ads', 'spam', 'newsletter', 'social']
 export const CURATED_PREF_KEY = 'curated-hides'

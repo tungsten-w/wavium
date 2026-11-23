@@ -165,7 +165,7 @@ class TriageAiBackendTest extends MailDbTestCase {
 		$this->assertSame('ai', $t->settings()['backend'], 'an explicit choice wins');
 	}
 
-	public function testAiClassifiesAsTheAccountOwnerAndStoresMailV2(): void {
+	public function testAiClassifiesAsTheAccountOwnerAndForwardsTheQuestionSet(): void {
 		$this->replies[] = [200, $this->decisions()];
 		$t = $this->service();
 		$this->assertSame('ok', $this->classifyOne($t));
@@ -176,7 +176,11 @@ class TriageAiBackendTest extends MailDbTestCase {
 		$this->assertSame(\OCP\Server::get(InternalAuth::class)->expected(), $o['headers'][InternalAuth::HEADER]);
 		$this->assertNotSame('', $o['headers'][InternalAuth::HEADER]);
 		$this->assertSame($this->row->getUserId(), $o['json']['uid']);
-		$this->assertSame('mail-v2', $o['json']['version']);
+		// The version is whatever questions.json says: a new question set (V4-27 added
+		// the etudes category and bumped it to mail-v3) must travel with its answers.
+		$set = json_decode((string)file_get_contents(__DIR__ . '/../../../lib/Service/Triage/questions.json'), true);
+		$this->assertSame($set['version'], $o['json']['version']);
+		$this->assertSame('mail-v3', $o['json']['version']);
 		$this->assertStringContainsString('Pay by Friday', $o['json']['input']);
 		$this->assertCount(7, $o['json']['questions']);
 

@@ -401,13 +401,13 @@ export const reclassify = (id: number) => mail<{ queued: boolean, classified: bo
 export const setTriageEnabled = (enabled: boolean) => mail<{ enabled: boolean }>('/triage/enabled', { method: 'PUT', body: { enabled } })
 
 export const categoryLabels: Record<string, string> = {
-	personal: 'Personal', work: 'Work', school: 'School', admin: 'Admin', finance: 'Finance', orders: 'Orders', security: 'Security',
-	calendar: 'Calendar', social: 'Social', newsletter: 'Newsletter', ads: 'Ads', spam: 'Spam', other: 'Other', unknown: 'Unknown',
+	personal: 'Personal', work: 'Work', etudes: 'Studies', admin: 'Admin', orders: 'Orders', security: 'Security',
+	social: 'Social', newsletter: 'Newsletter', ads: 'Ads', spam: 'Spam', other: 'Other',
 }
-export const urgencyLabels: Record<string, string> = { never: 'Never', whenever: 'Whenever', this_week: 'This week', today: 'Today', now: 'Now', unknown: 'Unknown' }
+export const urgencyLabels: Record<string, string> = { never: 'Never', whenever: 'Whenever', this_week: 'This week', today: 'Today', now: 'Now' }
 
 /** The categories offered as filters (the classifier's current set). */
-export const filterCategories = ['personal', 'work', 'admin', 'orders', 'security', 'social', 'newsletter', 'ads', 'spam', 'other']
+export const filterCategories = ['personal', 'work', 'etudes', 'admin', 'orders', 'security', 'social', 'newsletter', 'ads', 'spam', 'other']
 /**
  * Curated hides the noisy categories; mail not classified yet still shows.
  * The user picks them (Mail status page); stored as the Mail preference

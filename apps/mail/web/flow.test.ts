@@ -43,10 +43,10 @@ describe('mail flow', () => {
 	})
 
 	it('folds small categories into Other after four', () => {
-		const many: FlowRow[] = ['work', 'school', 'admin', 'finance', 'orders', 'security'].map((c, i) => ({ accountId: 1, category: c, important: false, count: 10 - i }))
+		const many: FlowRow[] = ['work', 'etudes', 'admin', 'orders', 'security', 'personal'].map((c, i) => ({ accountId: 1, category: c, important: false, count: 10 - i }))
 		const m = buildFlow(many, { accountId: 1, pending: 0, hides, source: 'x' })
 		const leaves = m.nodes.filter((n) => n.column === 2).map((n) => n.label)
-		expect(leaves).toEqual(['Work', 'School', 'Admin', 'Finance', 'Other'])
+		expect(leaves).toEqual(['Work', 'Studies', 'Admin', 'Orders', 'Other'])
 	})
 
 	it('is empty without mail', () => {

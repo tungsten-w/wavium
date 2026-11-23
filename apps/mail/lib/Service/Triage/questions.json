@@ -1,5 +1,5 @@
 {
-  "version": "mail-v2",
+  "version": "mail-v3",
   "model": "gpt-6-luna",
   "questions": [
     {
@@ -16,8 +16,12 @@
           "description": "About a job, internship, freelance work, a client or a colleague, including work meetings and invitations"
         },
         {
+          "value": "etudes",
+          "description": "School, university or training: courses, timetables, enrolment, exams, marks, coursework, internships for a course, student services, teachers and school admin"
+        },
+        {
           "value": "admin",
-          "description": "Official and life paperwork: university or school, government, taxes, insurance, health, housing, landlord, utilities, legal, bank, bills, invoices, payments, refunds"
+          "description": "Official and life paperwork: government, taxes, insurance, health, housing, landlord, utilities, legal, bank, bills, invoices, payments, refunds"
         },
         {
           "value": "orders",

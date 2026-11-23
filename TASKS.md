@@ -125,7 +125,7 @@ ADR 0010, waits for the owner's go), the rest in any order.
 ### Mail: tags, classification and daily use (2026-11-23, audit `docs/audit-2026-11-23.md`)
 
 - [x] V4-25 The twice-daily mail brief was failing under cron (`claude` not on cron's PATH, rc=127) and nobody saw it, because `brief.md` kept the previous report: explicit PATH, binary checked before use, `brief.status` written on every pass — fixed outside the repo (`/home/oxygen/claude-mail/brief.sh`, not versioned); report: reports/V4-25.md
-- [ ] V4-27 Category `etudes` in the classifier, and the dead labels removed (school, finance, calendar, unknown)
+- [x] V4-27 Category `etudes` in the classifier, and the dead labels removed (school, finance, calendar, unknown): the three category lists (questions.json, the agent tools, the Mail chips) now have a test that fails when they drift apart; question set bumped to mail-v3 — report: reports/V4-27.md
 - [ ] V4-26 Classification turns itself on as soon as an AI provider is added, and its state is visible to a non-admin user
 - [ ] V4-24 Tags an agent can set: spam/promo/important/urgent/etudes derived from the classification, MCP tool `mail_message_tag` (action write, so approvals apply), IMAP keyword mirror, lock on mail the human corrected — deps: V4-26, V4-27
 - [ ] V4-28 Classify the folders the user picks, not only Inbox and Spam; bounded catch-up of mail classified by an older questions version — deps: V4-26
