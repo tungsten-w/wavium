@@ -201,3 +201,43 @@ first-run bugs above visible from now on. What it did show, in a screenshot,
 is that the interface speaks two languages at once (English React parts,
 translated classic pages) -- reported, not fixed: that is a translation
 project.
+
+## 2026-11-23 — V4-23: when "empty" means "I have not looked yet"
+
+The report was "Curated shows nothing, All shows everything" on a mail account
+connected minutes earlier. Three plausible causes were offered with the task
+(empty preferences, classification not computed yet, inverted logic) and all
+three were wrong. The production database settled it in two queries: the
+account's 3354 messages were there, the triage table was empty, and the exact
+SQL the Curated filter runs matched 3354 of 3354 rows. The filter was right.
+
+The answer was in the request log. The label list never appeared with a failure
+— it answered `200` nine times in two minutes while `POST /mailboxes/1/sync`
+answered `428` fourteen times. The plain list says "this folder has no local
+copy", which is the signal that makes the client start the first sync; the label
+list ran a query over an empty cache and answered honestly that it found
+nothing. Nobody was wrong about the data; one of the two endpoints could not
+express "not yet". Lesson worth keeping: when two endpoints serve the same
+list, the error contract is part of the API, and a faster path that skips it
+brings back every bug the slow path already solved.
+
+Two things about verification. First, the browser test written for this bug
+does not reproduce it: in the dev stack a three-message folder is already
+cached by the time the first list runs, so it passed with the fix removed. It
+was kept as an end-to-end walk of Mail, and the bug is pinned by a controller
+test and a client test, each checked by breaking the fix and watching them
+fail. Writing the e2e test first and trusting it would have shipped nothing.
+
+Second, that walk found a second bug nobody had reported: Favorites listed the
+account's `\Flagged` folder, which Gmail has and Orange, Free, SFR and iCloud
+do not — so the page was always empty for most people, in a sidebar entry
+shown to everyone. Chasing it cost an hour down the wrong path (GreenMail
+advertises no CONDSTORE, so flags set on the mail server never reach Wavium's
+copy, which looks exactly like a bug in the app). Both findings are in
+`docs/lessons.md`.
+
+Rule A1 was bent, deliberately and with the owner's explicit instruction: the
+diagnosis was made against their live instance. Read-only — `SELECT`s,
+container logs, deployed files — no write, no mail sent, no credential read.
+Without it the real cause would have been guesswork, because the dev stack
+cannot reproduce the condition.
