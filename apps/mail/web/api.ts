@@ -188,24 +188,63 @@ export function mailErrorType(e: unknown): string {
 	const data = (e.body as { data?: { type?: unknown } } | undefined)?.data
 	return typeof data?.type === 'string' ? data.type : ''
 }
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** How a mail server turned the connection down, in words (account setup). */
+const connectionReasons: Record<string, string> = {
+	AUTHENTICATION_WRONG_PASSWORD: 'did not accept this username and password',
+	AUTHENTICATION_DENIED: 'refused the sign-in',
+	AUTHENTICATION: 'did not accept the sign-in',
+	CONNECTION_ERROR: 'did not answer',
+	OTHER: 'refused the connection',
+}
 /**
- * A folder that was never synced answers 400 MailboxNotCachedException, and one
- * being synced answers MailboxLockedException. Like upstream Mail, run the
- * initial sync (large folders take several rounds) or wait, then retry.
+ * A sentence for a Mail failure, for a toast.
+ *
+ * Account setup answers jsend: `{ status: 'fail', data: { error, service, host,
+ * port, details } }`. The generic HTTP layer looks for a top-level `message`,
+ * finds none and falls back to the status code -- which is why connecting Gmail
+ * with a wrong app password only ever said "HTTP 400".
  */
-export async function listMessages(mailboxId: number, opts: { cursor?: number, filter?: string, limit?: number } = {}) {
-	const q = new URLSearchParams({ mailboxId: String(mailboxId), limit: String(opts.limit ?? 20), view: 'singleton' })
-	if (opts.cursor) q.set('cursor', String(opts.cursor))
-	if (opts.filter) q.set('filter', opts.filter)
+export function mailErrorText(e: unknown): string {
+	if (!(e instanceof HttpError)) return e instanceof Error ? e.message : String(e)
+	const d = (e.body as { data?: { error?: string, service?: string, host?: string, port?: number, details?: string, message?: string } } | undefined)?.data
+	if (d?.error && d.service && d.host) {
+		const how = connectionReasons[d.error] ?? connectionReasons.OTHER
+		const hint = d.error.startsWith('AUTHENTICATION')
+			? ' Check the username and the password -- Gmail, iCloud, Yahoo and Outlook want an app password, not your account password.'
+			: ' Check the server name, the port and the encryption.'
+		return `${d.service} at ${d.host}:${d.port} ${how}.${d.details ? ` It said: ${d.details}` : ''}${hint}`
+	}
+	return d?.message || e.message
+}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** Folders a MailboxNotCachedException names, when the server says which (Atrium's label list does). */
+export function notCachedIds(e: unknown): number[] {
+	if (!(e instanceof HttpError)) return []
+	const ids = (e.body as { data?: { mailboxIds?: unknown } } | undefined)?.data?.mailboxIds
+	return Array.isArray(ids) ? ids.filter((v): v is number => typeof v === 'number') : []
+}
+/**
+ * Runs `load`; when the server answers that a folder was never synced
+ * (MailboxNotCachedException) it runs the initial sync -- large folders take
+ * several rounds -- or waits out a sync already running (MailboxLockedException),
+ * then asks again. Like upstream Mail.
+ *
+ * Every list needs this, not just the plain one: a label list over a folder with
+ * no local copy used to answer "empty", so Curated showed an empty Inbox on a
+ * freshly added account and nothing ever started the sync.
+ */
+export async function withInitialSync<T>(mailboxIds: number[], load: () => Promise<T>): Promise<T> {
 	for (let attempt = 0; ; attempt++) {
 		try {
-			return await mail<Message[]>(`/messages?${q}`)
+			return await load()
 		} catch (e) {
 			const type = mailErrorType(e)
 			if (attempt >= 30 || !/Mailbox(NotCached|Locked)Exception$/.test(type)) throw e
 			if (type.endsWith('NotCachedException')) {
-				try { await syncMailbox(mailboxId, true) } catch (err) {
+				const named = notCachedIds(e)
+				try {
+					for (const id of named.length ? named : mailboxIds) await syncMailbox(id, true)
+				} catch (err) {
 					// 428 = still not cached after this round; locked = another sync runs.
 					if (!(err instanceof HttpError) || ![409, 428].includes(err.status) && !/Locked/.test(mailErrorType(err))) throw err
 					await sleep(1000)
@@ -215,6 +254,12 @@ export async function listMessages(mailboxId: number, opts: { cursor?: number, f
 			}
 		}
 	}
+}
+export function listMessages(mailboxId: number, opts: { cursor?: number, filter?: string, limit?: number } = {}) {
+	const q = new URLSearchParams({ mailboxId: String(mailboxId), limit: String(opts.limit ?? 20), view: 'singleton' })
+	if (opts.cursor) q.set('cursor', String(opts.cursor))
+	if (opts.filter) q.set('filter', opts.filter)
+	return withInitialSync([mailboxId], () => mail<Message[]>(`/messages?${q}`))
 }
 export const getMessageBody = (id: number) => mail<MessageBody>(`/messages/${id}/body`)
 export const setFlags = (id: number, flags: Partial<Record<'seen' | 'flagged' | 'answered' | 'important', boolean>>) => mail(`/messages/${id}/flags`, { method: 'PUT', body: { flags } })
@@ -403,9 +448,11 @@ export function curatedTitle(hides: string[]): string {
 	if (!names.length) return 'Shows every category'
 	return 'Hides ' + (names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`)
 }
-export interface LabelFilter { category: string, needsAction: boolean, curated: boolean }
+export interface LabelFilter { category: string, needsAction: boolean, curated: boolean, flagged?: boolean }
 export const noLabel: LabelFilter = { category: '', needsAction: false, curated: false }
 export const defaultLabel: LabelFilter = { ...noLabel, curated: true }
+/** Favorites: starred mail, whatever its category, wherever it is. */
+export const starredLabel: LabelFilter = { ...noLabel, flagged: true }
 
 /** Mails of the given folders that carry a label (category and/or needs action), newest first. */
 export const listByLabel = (mailboxIds: number[], label: LabelFilter, opts: { cursor?: number, limit?: number } = {}) => {
@@ -413,8 +460,9 @@ export const listByLabel = (mailboxIds: number[], label: LabelFilter, opts: { cu
 	if (label.category) q.set('category', label.category)
 	if (label.curated) q.set('exclude', curatedHides.join(','))
 	if (label.needsAction) q.set('needsAction', '1')
+	if (label.flagged) q.set('flagged', '1')
 	if (opts.cursor) q.set('cursor', String(opts.cursor))
-	return mail<Message[]>(`/triage/list?${q}`)
+	return withInitialSync(mailboxIds, () => mail<Message[]>(`/triage/list?${q}`))
 }
 
 /**

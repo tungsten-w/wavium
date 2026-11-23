@@ -260,10 +260,14 @@ export async function listMessages(db: Db, grantor: string, input: ListInput) {
 		where.push(cats.length ? `t.category IN (${cats.map((c) => p(c)).join(', ')})` : '1 = 0')
 	}
 	if (input.curated !== undefined) {
+		// Curated hides categories, so mail the classifier has not seen yet is
+		// shown, not hidden -- the same rule the UI's Curated chip follows. It used
+		// to need a category, which made every mail invisible to agents on an
+		// instance with no AI set up.
 		const hides = await curatedHides(db, grantor)
 		const list = hides.length ? hides.map((c) => p(c)).join(', ') : null
-		if (input.curated) where.push(list ? `(t.category IS NOT NULL AND t.category NOT IN (${list}))` : 't.category IS NOT NULL')
-		else where.push(list ? `(t.category IS NULL OR t.category IN (${list}))` : 't.category IS NULL')
+		if (input.curated) where.push(list ? `(t.category IS NULL OR t.category NOT IN (${list}))` : '1 = 1')
+		else where.push(list ? `(t.category IS NOT NULL AND t.category IN (${list}))` : '1 = 0')
 	}
 	if (input.urgency_min !== undefined) {
 		const i = URGENCIES.indexOf(input.urgency_min)

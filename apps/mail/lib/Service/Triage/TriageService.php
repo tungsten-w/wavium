@@ -805,14 +805,47 @@ class TriageService {
 	}
 
 	/**
+	 * Among the given folders, the ones this user owns that were never synced
+	 * (no sync token yet, same bar as Mailbox::isCached()).
+	 *
+	 * A label list reads Atrium's local copy, so over a folder with no local
+	 * copy it answers "nothing" instead of "not cached yet" -- which is what
+	 * made Curated look like an empty Inbox on an account that had just been
+	 * added. The caller runs the initial sync first, like the plain list does.
+	 *
+	 * @param int[] $mailboxIds
+	 * @return int[]
+	 */
+	public function uncachedMailboxIds(string $userId, array $mailboxIds): array {
+		if ($mailboxIds === []) {
+			return [];
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('mb.id')->from('mail_mailboxes', 'mb')
+			->join('mb', 'mail_accounts', 'a', $qb->expr()->andX(
+				$qb->expr()->eq('a.id', 'mb.account_id'),
+				$qb->expr()->eq('a.user_id', $qb->createNamedParameter($userId)),
+			))
+			->where($qb->expr()->in('mb.id', $qb->createNamedParameter($mailboxIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->orX(
+				$qb->expr()->isNull('mb.sync_new_token'),
+				$qb->expr()->isNull('mb.sync_changed_token'),
+				$qb->expr()->isNull('mb.sync_vanished_token'),
+			));
+		return array_map('intval', $qb->executeQuery()->fetchAll(\PDO::FETCH_COLUMN));
+	}
+
+	/**
 	 * Ids of the user's classified mails in the given folders that match a label
 	 * filter, newest first. The caller loads the messages themselves.
 	 *
 	 * @param int[] $mailboxIds
 	 * @param string[] $categories empty = any
+	 * @param string[] $exclude categories to leave out (mail with no category stays in)
+	 * @param bool $flagged only mail the person starred
 	 * @return int[]
 	 */
-	public function idsByLabel(string $userId, array $mailboxIds, array $categories, bool $needsAction, ?int $cursor, int $limit, array $exclude = []): array {
+	public function idsByLabel(string $userId, array $mailboxIds, array $categories, bool $needsAction, ?int $cursor, int $limit, array $exclude = [], bool $flagged = false): array {
 		if ($mailboxIds === []) {
 			return [];
 		}
@@ -842,6 +875,11 @@ class TriageService {
 		}
 		if ($needsAction) {
 			$qb->andWhere($qb->expr()->gte('t.needs_action', $qb->createNamedParameter(0.5, IQueryBuilder::PARAM_STR)));
+		}
+		if ($flagged) {
+			// Favorites: a plain IMAP server has no "Starred" folder (Gmail does), so
+			// the only way to list them is the flag, across the account's folders.
+			$qb->andWhere($qb->expr()->eq('m.flag_flagged', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
 		}
 		if ($cursor !== null) {
 			$qb->andWhere($qb->expr()->lt('m.sent_at', $qb->createNamedParameter($cursor, IQueryBuilder::PARAM_INT)));

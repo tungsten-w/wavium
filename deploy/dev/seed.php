@@ -152,7 +152,9 @@ $mails = [
 			'body' => "Cher client,\n\nUne activité inhabituelle a été détectée. Confirmez vos identifiants sous 24h :\nhttp://secure-bnq-verif.example.biz/login\n\nLe service sécurité"],
 		['from' => ['GitHub Exemple', 'noreply@code.example.com'], 'subject' => '[atrium] Nouvelle issue : le calendrier ne charge pas', 'ago' => 6 * $day,
 			'body' => "Une nouvelle issue a été ouverte sur le dépôt atrium."],
-		['from' => ['Maman', 'maman@example.org'], 'subject' => 'Photos des vacances', 'ago' => 70 * $day,
+		// Starred on the mail server: Favorites has to find it by the flag, because a
+		// plain IMAP server has no "Starred" folder to list (V4-23).
+		['from' => ['Maman', 'maman@example.org'], 'subject' => 'Photos des vacances', 'ago' => 70 * $day, 'starred' => true,
 			'body' => "Coucou ma chérie, voici enfin les photos de l'été. Bisous !"],
 	],
 	'bob' => [
@@ -164,6 +166,19 @@ $mails = [
 			'headers' => ['List-Unsubscribe: <https://promo.example.com/u/bob>'],
 			'body' => "Profitez de nos offres exceptionnelles."],
 	],
+];
+
+// Chloé is the newcomer: mail waiting on the server, no account in Wavium yet.
+// Connecting it is the first thing she does, and V4-23 is about what she sees
+// right after -- so her inbox has to exist before any Wavium account does.
+$mails['chloe'] = [
+	['from' => ['Mairie de Villeneuve', 'contact@mairie.example.org'], 'subject' => 'Votre inscription est confirmée', 'ago' => 2 * 3600,
+		'body' => "Bonjour,\n\nVotre inscription a bien été enregistrée.\n\nLa mairie"],
+	['from' => ['Léa', 'lea@example.org'], 'subject' => 'On se voit dimanche ?', 'ago' => 7 * 3600,
+		'body' => "Hello ! Dispo dimanche pour un café ?\n\nLéa"],
+	['from' => ['Promos Exemple', 'deals@promo.example.com'], 'subject' => 'Offre du jour : -40%', 'ago' => $day,
+		'headers' => ['List-Unsubscribe: <https://promo.example.com/u/chloe>'],
+		'body' => "Nos meilleures offres du jour."],
 ];
 
 foreach ($mails as $uid => $list) {
@@ -179,12 +194,17 @@ foreach ($mails as $uid => $list) {
 	}
 	foreach ($list as $m) {
 		$when = $now - $m['ago'];
-		$flags = $m['ago'] > 2 * $day ? '(\\Seen)' : '()';
+		$seen = $m['ago'] > 2 * $day;
+		$flags = '(' . trim(($seen ? '\\Seen ' : '') . (!empty($m['starred']) ? '\\Flagged' : '')) . ')';
 		$imap->cmd('APPEND INBOX ' . $flags . ' "' . date('d-M-Y H:i:s O', $when) . '"', message($m, "$uid@atrium.test", $when));
 	}
 	$imap->cmd('LOGOUT');
 	say("mail: " . count($list) . " messages for $uid");
 
+	if (!isset(DEMO_USERS[$uid])) {
+		say("mail: $uid has mail waiting but no Wavium account (on purpose)");
+		continue;
+	}
 	occ('mail:account:create-imap', $uid, DEMO_USERS[$uid][0], "$uid@atrium.test",
 		MAIL_HOST, '3143', 'none', "$uid@atrium.test", MAIL_PASSWORD,
 		MAIL_HOST, '3025', 'none', "$uid@atrium.test", MAIL_PASSWORD);

@@ -34,7 +34,7 @@ export function mailTools(bridge: MailBridge | null): Tool[] {
 				subject: str(),
 				text: str('Full text over subject, snippet and stored bodies'),
 				category: { anyOf: [str(undefined, { enum: CATEGORIES }), arr(str(undefined, { enum: CATEGORIES }))] },
-				curated: boolean('Only mail the owner\'s Curated setting shows (true) or hides (false)'),
+				curated: boolean('Only mail the owner\'s Curated setting shows (true, including mail not classified yet) or hides (false)'),
 				urgency_min: str(undefined, { enum: URGENCIES }),
 				needs_reply: boolean(),
 				needs_action: boolean(),

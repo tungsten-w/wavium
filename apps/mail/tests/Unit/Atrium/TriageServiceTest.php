@@ -66,6 +66,32 @@ class TriageServiceTest extends MailDbTestCase {
 		return $this->triage->idsByLabel($this->row->getUserId(), array_map(fn ($m) => $m->getId(), $mailboxes), $categories, $needsAction, $cursor, $limit, $exclude);
 	}
 
+	public function testUncachedMailboxIdsNamesTheFoldersWithNoLocalCopy(): void {
+		$fresh = $this->mailbox('Fresh');
+		$synced = $this->mailbox('Synced');
+		$this->db->executeStatement(
+			'UPDATE *PREFIX*mail_mailboxes SET sync_new_token = ?, sync_changed_token = ?, sync_vanished_token = ? WHERE id = ?',
+			['n', 'c', 'v', $synced->getId()],
+		);
+		$uid = $this->row->getUserId();
+
+		$this->assertSame([$fresh->getId()], $this->triage->uncachedMailboxIds($uid, [$fresh->getId(), $synced->getId()]));
+		$this->assertSame([], $this->triage->uncachedMailboxIds($uid, [$synced->getId()]));
+		$this->assertSame([], $this->triage->uncachedMailboxIds($uid, []), 'no folder asked, nothing to sync');
+		$this->assertSame([], $this->triage->uncachedMailboxIds('someone-else', [$fresh->getId()]), 'another user\'s folder is not ours to report');
+	}
+
+	public function testAHalfSyncedFolderStillCountsAsUncached(): void {
+		$half = $this->mailbox('Half');
+		$this->db->executeStatement('UPDATE *PREFIX*mail_mailboxes SET sync_new_token = ? WHERE id = ?', ['n', $half->getId()]);
+
+		$this->assertSame(
+			[$half->getId()],
+			$this->triage->uncachedMailboxIds($this->row->getUserId(), [$half->getId()]),
+			'one token out of three is not a local copy (Mailbox::isCached wants all three)',
+		);
+	}
+
 	public function testCategoryFilterReturnsOnlyThatCategoryNewestFirst(): void {
 		$inbox = $this->mailbox('INBOX');
 		$a = $this->serverMail($inbox, 1, '<a@t>');
@@ -99,6 +125,21 @@ class TriageServiceTest extends MailDbTestCase {
 		$this->classify('<b@t>', 'personal');
 
 		$this->assertSame([$c->getId(), $b->getId()], $this->ids([$inbox], [], false, null, 50, ['promos']));
+	}
+
+	public function testFlaggedListsStarredMailWhateverItsCategory(): void {
+		$inbox = $this->mailbox('INBOX');
+		$plain = $this->serverMail($inbox, 1, '<p@t>');
+		$star = $this->serverMail($inbox, 2, '<s@t>');
+		$starAd = $this->serverMail($inbox, 3, '<sa@t>');
+		$this->classify('<sa@t>', 'ads');
+		$this->db->executeStatement('UPDATE *PREFIX*mail_messages SET flag_flagged = true WHERE id IN (?, ?)', [$star->getId(), $starAd->getId()]);
+
+		$flagged = fn (array $exclude = []) => $this->triage->idsByLabel($this->row->getUserId(), [$inbox->getId()], [], false, null, 50, $exclude, true);
+		$this->assertSame([$starAd->getId(), $star->getId()], $flagged(), 'starred mail, newest first');
+		$this->assertNotContains($plain->getId(), $flagged());
+		// Favorites ignores Curated: a starred ad is still a favourite.
+		$this->assertSame([$star->getId()], $flagged(['ads']), 'the exclude list still applies when asked for');
 	}
 
 	public function testNeedsActionThreshold(): void {

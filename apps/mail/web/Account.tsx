@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useEffect, useState } from 'react'
 import { Button, Card, Icon, Select, TextArea, TextField, confirmDialog, toast } from '@atrium/ui'
-import { createAccount, deleteAccount, googleInfo, listMailboxes, oauthState, patchAccount, specialMailbox, updateAccount, updateSignature, type Account, type AccountInput, type GoogleInfo, type Mailbox } from './api'
+import { createAccount, deleteAccount, googleInfo, listMailboxes, mailErrorText, oauthState, patchAccount, specialMailbox, updateAccount, updateSignature, type Account, type AccountInput, type GoogleInfo, type Mailbox } from './api'
 import { detectProvider, googleAuthUrl, providerFields, type Provider } from './providers'
 
 const empty: AccountInput = {
@@ -72,6 +72,20 @@ export function waitForPopup(url: string, open: typeof window.open = window.open
 	})
 }
 
+/**
+ * The password as the mail server wants it.
+ *
+ * App passwords are shown in groups of four ("abcd efgh ijkl mnop") and get
+ * pasted with the spaces, which the server then rejects -- the spaces are
+ * presentation, not part of the secret. An account password may legitimately
+ * contain spaces, so there only the ends are trimmed.
+ */
+export function cleanPassword(password: string | undefined, provider: Provider | null): string {
+	// Editing an existing account starts with no password at all in the form.
+	const pw = password ?? ''
+	return provider?.password === 'app' ? pw.replace(/\s+/g, '') : pw.trim()
+}
+
 const providerFieldsNum = (p: Provider, email: string) => {
 	const f = providerFields(p, email)
 	return { ...f, imapPort: Number(f.imapPort), smtpPort: Number(f.smtpPort) }
@@ -130,16 +144,18 @@ function AccountForm({ account, onDone, submitLabel = 'Connect account' }: { acc
 		} catch (e) {
 			// A half-made account (Google refused or the window was closed early) is removed again.
 			if (created) await deleteAccount(created.id).catch(() => {})
-			toast.error(`Google sign-in did not finish: ${e instanceof Error ? e.message : String(e)}`)
+			toast.error(`Google sign-in did not finish: ${mailErrorText(e)}`)
 		} finally { setBusy(false) }
 	}
 
 	async function submit() {
 		setBusy(true)
 		try {
+			const imapPassword = cleanPassword(input.imapPassword, provider)
+			const smtpPassword = cleanPassword(input.smtpPassword, provider)
 			// With a known provider the one password field goes to both servers.
-			const pw = !showServers ? { smtpPassword: input.imapPassword } : {}
-			const value: AccountInput = { ...input, ...pw, imapPort: Number(input.imapPort), smtpPort: Number(input.smtpPort) }
+			const pw = !showServers ? { smtpPassword: imapPassword } : { smtpPassword }
+			const value: AccountInput = { ...input, imapPassword, ...pw, imapPort: Number(input.imapPort), smtpPort: Number(input.smtpPort) }
 			// Editing: a blank password means "keep the one saved" (the server would otherwise save an empty one).
 			if (account && !value.imapPassword) delete value.imapPassword
 			if (account && !value.smtpPassword) delete value.smtpPassword
@@ -147,7 +163,7 @@ function AccountForm({ account, onDone, submitLabel = 'Connect account' }: { acc
 			if (!account) await setRoles(saved.id)
 			toast(account ? 'Connection saved' : 'Mail account connected')
 			onDone()
-		} catch (e) { toast.error(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+		} catch (e) { toast.error(mailErrorText(e)) } finally { setBusy(false) }
 	}
 
 	return (

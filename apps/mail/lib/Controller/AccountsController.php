@@ -176,6 +176,7 @@ class AccountsController extends Controller {
 				'service' => $e->getService(),
 				'host' => $e->getHost(),
 				'port' => $e->getPort(),
+				'details' => self::connectionDetail($e),
 			];
 
 			$this->logger->info('Creating account failed: ' . $e->getMessage(), $data);
@@ -327,6 +328,24 @@ class AccountsController extends Controller {
 		return new JSONResponse();
 	}
 
+	/**
+	 * What the mail server itself said, for the person reading the toast.
+	 *
+	 * CouldNotConnectException::getReason() maps everything it does not know to
+	 * 'OTHER', which told nobody anything. One line, capped, and with long tokens
+	 * replaced: a connection failure must never carry a credential.
+	 */
+	private static function connectionDetail(CouldNotConnectException $e): ?string {
+		$previous = $e->getPrevious();
+		$text = trim((string)($previous?->getMessage() ?? ''));
+		if ($text === '') {
+			return null;
+		}
+		$text = preg_replace('~[A-Za-z0-9+/=_-]{40,}~', '[...]', $text) ?? $text;
+		$text = trim((string)preg_replace('/\s+/', ' ', $text));
+		return $text === '' ? null : mb_substr($text, 0, 200);
+	}
+
 	#[NoAdminRequired]
 	#[TrapError]
 	#[UserRateLimit(limit: 5, period: 60)]
@@ -389,6 +408,7 @@ class AccountsController extends Controller {
 				'service' => $e->getService(),
 				'host' => $e->getHost(),
 				'port' => $e->getPort(),
+				'details' => self::connectionDetail($e),
 			];
 
 			$this->logger->info('Creating account failed: ' . $e->getMessage(), $data);
