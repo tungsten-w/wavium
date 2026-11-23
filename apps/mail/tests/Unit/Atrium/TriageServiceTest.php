@@ -127,6 +127,21 @@ class TriageServiceTest extends MailDbTestCase {
 		$this->assertSame([$c->getId(), $b->getId()], $this->ids([$inbox], [], false, null, 50, ['promos']));
 	}
 
+	public function testFlaggedListsStarredMailWhateverItsCategory(): void {
+		$inbox = $this->mailbox('INBOX');
+		$plain = $this->serverMail($inbox, 1, '<p@t>');
+		$star = $this->serverMail($inbox, 2, '<s@t>');
+		$starAd = $this->serverMail($inbox, 3, '<sa@t>');
+		$this->classify('<sa@t>', 'ads');
+		$this->db->executeStatement('UPDATE *PREFIX*mail_messages SET flag_flagged = true WHERE id IN (?, ?)', [$star->getId(), $starAd->getId()]);
+
+		$flagged = fn (array $exclude = []) => $this->triage->idsByLabel($this->row->getUserId(), [$inbox->getId()], [], false, null, 50, $exclude, true);
+		$this->assertSame([$starAd->getId(), $star->getId()], $flagged(), 'starred mail, newest first');
+		$this->assertNotContains($plain->getId(), $flagged());
+		// Favorites ignores Curated: a starred ad is still a favourite.
+		$this->assertSame([$star->getId()], $flagged(['ads']), 'the exclude list still applies when asked for');
+	}
+
 	public function testNeedsActionThreshold(): void {
 		$inbox = $this->mailbox('INBOX');
 		$a = $this->serverMail($inbox, 1, '<a@t>');

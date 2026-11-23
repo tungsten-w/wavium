@@ -56,10 +56,10 @@ class TriageController extends Controller {
 	}
 
 	/**
-	 * Messages by label across folders: ?mailboxIds=1,2&category=ads,social&needsAction=1&cursor=..&limit=..
+	 * Messages by label across folders: ?mailboxIds=1,2&category=ads,social&needsAction=1&flagged=1&cursor=..&limit=..
 	 */
 	#[NoAdminRequired]
-	public function list(string $mailboxIds = '', string $category = '', string $exclude = '', bool $needsAction = false, ?int $cursor = null, int $limit = 20): JSONResponse {
+	public function list(string $mailboxIds = '', string $category = '', string $exclude = '', bool $needsAction = false, ?int $cursor = null, int $limit = 20, bool $flagged = false): JSONResponse {
 		if ($this->userId === null) {
 			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
 		}
@@ -80,7 +80,7 @@ class TriageController extends Controller {
 				'mailboxIds' => $uncached,
 			]);
 		}
-		$ids = $this->triage->idsByLabel($this->userId, $boxes, $cats, $needsAction, $cursor, $limit, $skip);
+		$ids = $this->triage->idsByLabel($this->userId, $boxes, $cats, $needsAction, $cursor, $limit, $skip, $flagged);
 		return new JSONResponse($this->messageMapper->findByIds($this->userId, $ids, 'DESC'));
 	}
 	/** Queue one mail again (front of the queue) and classify it now when possible. */

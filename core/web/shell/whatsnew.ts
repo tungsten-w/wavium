@@ -23,6 +23,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
 	{
+		version: 'v4.2',
+		date: '2026-11-23',
+		headline: 'Mail: your messages show up, and the filters tell you what they are doing.',
+		items: [
+			'Fixed: a mail account you had just connected looked empty -- "This folder is empty" with the Curated filter, while All showed everything.',
+			'A filter that hides every message now says which filter is on, and offers "See all mail".',
+			'The filter you pick is remembered, so Mail opens where you left it.',
+			'Fixed: Favorites was always empty on Orange, Free, SFR, iCloud and most mail servers. It now lists everything you starred, wherever it is.',
+			'Fixed: adding a mail account failed with a bare "HTTP 400". It now says which server refused and why -- and app passwords work with the spaces providers print them with.',
+		],
+	},
+	{
 		version: 'v4.1',
 		date: '2026-11-23',
 		headline: 'The version is now written next to the logo, and a round of fixes.',

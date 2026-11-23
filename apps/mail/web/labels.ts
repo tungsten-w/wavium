@@ -33,6 +33,13 @@ export const kindBoxes = (kind: ViewKind, accounts: Account[], boxes: Mailbox[])
 	.map((a) => kind === 'inbox' ? specialMailbox(boxes, 'inbox', a.id) : kind === 'starred' ? specialMailbox(boxes, 'flagged', a.id) : kind === 'drafts' ? specialMailbox(boxes, 'drafts', a.id) : (specialMailbox(boxes, 'archive', a.id) ?? specialMailbox(boxes, 'all', a.id)))
 	.filter((b): b is Mailbox => !!b)
 
+/**
+ * The folders Favorites looks in when the mail server has no "Starred" folder:
+ * everything except Trash and Spam -- a mail you threw away is not a favourite,
+ * and starring in Spam is not a thing people do.
+ */
+export const favoriteBoxes = (boxes: Mailbox[]) => boxes.filter((b) => b.specialRole !== 'trash' && b.specialRole !== 'junk')
+
 /** Where "archive" sends a mail: its own account's Archive folder, or Gmail's All Mail. Null if it is already there or the account has neither. */
 export function archiveTarget(boxes: Mailbox[], mailboxId: number): Mailbox | null {
 	const from = boxes.find((b) => b.databaseId === mailboxId)

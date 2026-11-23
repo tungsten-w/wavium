@@ -13,8 +13,8 @@ import { TagChips, TagsDialog } from './Tags'
 import { UnsubscribeBanner } from './Unsubscribe'
 import { MailStatus } from './Status'
 import { mismatchText, senderMismatch } from './spoof'
-import { archiveTarget, filterName, kindBoxes, labelQuery, readFilter, sortBoxes, writeFilter, type ViewKind } from './labels'
-import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, correctTriage, suggestReply, undoDelete, snoozeMessage, patchAccount, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
+import { archiveTarget, favoriteBoxes, filterName, kindBoxes, labelQuery, readFilter, sortBoxes, writeFilter, type ViewKind } from './labels'
+import { addressText, deleteMailbox, deleteMessage, displayAddress, folderLabel, formatAddress, getMessageBody, listAccounts, listMailboxes, listMerged, listByLabel, filterCategories, noLabel, defaultLabel, starredLabel, type LabelFilter, curatedHides, curatedTitle, loadCuratedHides, listOutbox, mailboxIcon, markAllRead, moveMessage, renameMailbox, createMailbox, deleteOutbox, searchFilter, setFlags, specialMailbox, syncMailbox, triageFor, reclassify, correctTriage, suggestReply, undoDelete, snoozeMessage, patchAccount, categoryLabels, urgencyLabels, type Triage, type Account, type Mailbox, type Message, type MessageBody, type LocalMessage } from './api'
 import './style.css'
 
 const errorText = (e: unknown) => e instanceof Error ? e.message : String(e)
@@ -71,7 +71,12 @@ function Mail() {
 	const settingsId = seg[0] === 'settings' ? Number(seg[1]) : null
 	const mailbox = boxes.find((b) => b.databaseId === mailboxId) ?? null
 	const viewBoxes = useMemo(() => view ? kindBoxes(view, accounts ?? [], boxes) : [], [view, accounts, boxes])
-	const listIds = view ? viewBoxes.map((b) => b.databaseId) : mailboxId ? [mailboxId] : []
+	// Favorites: Gmail has a "Starred" folder, a plain IMAP server (Orange, Free,
+	// GreenMail...) has none -- so there the list is every folder of the account,
+	// filtered to starred mail. Without this, Favorites was always empty.
+	const starredByFlag = view === 'starred' && viewBoxes.length === 0
+	const starredBoxes = useMemo(() => starredByFlag ? favoriteBoxes(boxes) : [], [starredByFlag, boxes])
+	const listIds = view ? (starredByFlag ? starredBoxes : viewBoxes).map((b) => b.databaseId) : mailboxId ? [mailboxId] : []
 	const listKey = listIds.join(',')
 	const selected = messages?.find((m) => m.databaseId === messageId) ?? null
 	const selectedBox = selected ? boxes.find((b) => b.databaseId === selected.mailboxId) : undefined
@@ -79,10 +84,12 @@ function Mail() {
 	const accountBoxes = account ? boxes.filter((b) => b.accountId === account.id) : []
 	const boxPath = view ? `${basePath}/view/${view}` : mailbox ? `${basePath}/box/${mailbox.databaseId}` : basePath
 	const title = isStatus ? 'Status' : isOutbox ? 'Outbox' : view ? viewTitles[view] : mailbox ? folderLabel(mailbox) : 'Mail'
-	// Favorites shows every starred mail, whatever its category.
-	const labelOn = view !== 'starred' && !!(label.category || label.needsAction || label.curated)
+	// Favorites shows every starred mail, whatever its category: the chips do not
+	// apply there, the star does.
+	const openLabel = starredByFlag ? starredLabel : label
+	const labelOn = starredByFlag || (view !== 'starred' && !!(label.category || label.needsAction || label.curated))
 	/** One page of the open list: a label filter, or plain mail / search, over one folder or several. */
-	const fetchPage = (cursor?: number) => labelOn ? listByLabel(listIds, label, { cursor }) : listMerged(listIds, { filter, cursor })
+	const fetchPage = (cursor?: number) => labelOn ? listByLabel(listIds, openLabel, { cursor }) : listMerged(listIds, { filter, cursor })
 
 	const loadAccounts = useCallback(async () => {
 		try {
@@ -111,7 +118,7 @@ function Mail() {
 
 	useEffect(() => {
 		if (!listIds.length) { setMessages(view && accounts ? [] : null); return }
-		if (label.curated && curatedVer === 0) { setMessages(null); return }
+		if (openLabel.curated && curatedVer === 0) { setMessages(null); return }
 		let live = true
 		setMessages(null); setReachedEnd(false); setFilteredOut(false)
 		fetchPage().then(async (ms) => {
@@ -119,7 +126,7 @@ function Mail() {
 			setMessages(ms)
 			// Nothing to show under a filter is not the same as an empty folder:
 			// ask for one unfiltered mail so the list can say which it is.
-			if (!labelOn || ms.length) return
+			if (!labelOn || starredByFlag || ms.length) return
 			const any = await listMerged(listIds, { limit: 1 }).catch(() => [])
 			if (live) setFilteredOut(any.length > 0)
 		}).catch((e) => {
@@ -127,7 +134,7 @@ function Mail() {
 		})
 		return () => { live = false }
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- fetchPage follows these
-	}, [listKey, filter, label, curatedVer])
+	}, [listKey, filter, openLabel, curatedVer])
 
 	// Live sync of the open folder, like upstream Mail. It also records the
 	// "ui-heartbeat" that keeps the background sync at 15 minutes (it slows to
@@ -401,6 +408,7 @@ function Mail() {
 							<p>The rest of the folder is still there — {label.curated ? 'Curated keeps newsletters, ads, social and spam out of the way' : 'this filter only shows part of it'}.</p>
 							<Button onClick={() => { setFilter(''); setQuery(''); setLabel(noLabel) }}>See all mail</Button>
 						</EmptyState>
+						: view === 'starred' ? <EmptyState icon="star" title="No favorites yet"><p>Star a message and it shows up here, whichever folder it is in.</p></EmptyState>
 						: <EmptyState icon="mail" title={filter ? 'No messages match your search' : 'This folder is empty'} />)
 					: <><ul className="ml-messages">{messages.map((m) => <MessageRow key={m.databaseId} message={m} triage={triage[m.databaseId]} outgoing={mailbox?.specialRole === 'sent' || mailbox?.specialRole === 'drafts'} selected={messageId === m.databaseId} onOpen={() => navigate(`${boxPath}/thread/${m.databaseId}`)} onFlag={() => void patchMessage(m, { flagged: !m.flags.flagged })} onArchive={mailbox?.specialRole === 'sent' || mailbox?.specialRole === 'drafts' ? undefined : (() => { const t = archiveTarget(boxes, m.mailboxId); return t ? () => void move(m, t.databaseId) : undefined })()} />)}</ul>
 						{!reachedEnd && <LoadMore busy={loadingMore} onVisible={() => void more()} />}</>}

@@ -120,4 +120,4 @@ ADR 0010, waits for the owner's go), the rest in any order.
 
 ### Mail for daily use (2026-11-23)
 
-- [~] V4-23 Mail: the Curated filter showed an empty Inbox on a freshly connected account (the label list never ran the initial sync); a filter that hides everything now says so and offers "See all mail"; the filter is remembered; account setup shows the real reason the mail server refused instead of "HTTP 400" (instance Claude/oxygen, 2026-11-23) — branch: night/V4-23
+- [x] V4-23 Mail: the Curated filter showed an empty Inbox on a freshly connected account (the label list never ran the initial sync); a filter that hides everything now says so and offers "See all mail"; the filter is remembered; account setup shows the real reason the mail server refused instead of "HTTP 400" — also: Favorites was always empty without a \Flagged folder; report: reports/V4-23.md — branch ready: night/V4-23

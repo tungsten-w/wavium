@@ -3,6 +3,36 @@
 Wavium (formerly Atrium) is a hard fork of Nextcloud 34.0.5. Versions are
 tagged in git (`v1`, `v2`, ...).
 
+## v4.2
+
+- **Fixed: a mail account you had just connected looked empty.** Mail listed
+  nothing with the default "Curated" filter -- "This folder is empty" -- while
+  "All" showed every message. The two lists ask for mail differently: the plain
+  one answers "this folder has not been copied here yet", which starts the first
+  sync, and the filtered one simply found nothing and said so. Nothing ever
+  started that sync, so Curated stayed empty until the next scheduled one.
+- **A filter that hides everything now says so**, names the filter and offers
+  "See all mail", instead of looking exactly like an empty folder.
+- **The filter you pick is remembered** (per device), so Mail opens where you
+  left it instead of always on Curated.
+- **Fixed: Favorites was always empty.** Gmail has a "Starred" folder to list;
+  Orange, Free, SFR, iCloud and most IMAP servers have none, so the page had
+  nothing to show. It now lists everything you starred, whichever folder it is
+  in, and says "No favorites yet" when there is nothing rather than reading as
+  an empty folder.
+- **Fixed: adding a mail account failed with "HTTP 400" and no reason.** The
+  mail server's answer -- wrong password, server unreachable, wrong port -- was
+  thrown away before it reached you. It now says which server refused and what
+  it said. App passwords (Gmail, iCloud, Yahoo, Outlook) are also accepted with
+  the spaces those providers print them with.
+- **Agents could not see mail that had not been classified yet.** On an
+  instance with no AI set up, `mail.list` with the Curated filter matched
+  nothing at all. Mail with no category counts as shown, like in the interface.
+- Tests: Mail is now walked end to end by a browser test -- connecting an
+  account, reading, starring, every folder, sending a message to yourself,
+  search, archiving -- and the demo instance has someone with mail waiting on
+  the server and no account yet, which is the state this version is about.
+
 ## v4.1
 
 - **The version is written next to the logo** in the header. Click it to see

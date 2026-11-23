@@ -448,9 +448,11 @@ export function curatedTitle(hides: string[]): string {
 	if (!names.length) return 'Shows every category'
 	return 'Hides ' + (names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`)
 }
-export interface LabelFilter { category: string, needsAction: boolean, curated: boolean }
+export interface LabelFilter { category: string, needsAction: boolean, curated: boolean, flagged?: boolean }
 export const noLabel: LabelFilter = { category: '', needsAction: false, curated: false }
 export const defaultLabel: LabelFilter = { ...noLabel, curated: true }
+/** Favorites: starred mail, whatever its category, wherever it is. */
+export const starredLabel: LabelFilter = { ...noLabel, flagged: true }
 
 /** Mails of the given folders that carry a label (category and/or needs action), newest first. */
 export const listByLabel = (mailboxIds: number[], label: LabelFilter, opts: { cursor?: number, limit?: number } = {}) => {
@@ -458,6 +460,7 @@ export const listByLabel = (mailboxIds: number[], label: LabelFilter, opts: { cu
 	if (label.category) q.set('category', label.category)
 	if (label.curated) q.set('exclude', curatedHides.join(','))
 	if (label.needsAction) q.set('needsAction', '1')
+	if (label.flagged) q.set('flagged', '1')
 	if (opts.cursor) q.set('cursor', String(opts.cursor))
 	return withInitialSync(mailboxIds, () => mail<Message[]>(`/triage/list?${q}`))
 }

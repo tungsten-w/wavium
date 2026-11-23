@@ -841,9 +841,11 @@ class TriageService {
 	 *
 	 * @param int[] $mailboxIds
 	 * @param string[] $categories empty = any
+	 * @param string[] $exclude categories to leave out (mail with no category stays in)
+	 * @param bool $flagged only mail the person starred
 	 * @return int[]
 	 */
-	public function idsByLabel(string $userId, array $mailboxIds, array $categories, bool $needsAction, ?int $cursor, int $limit, array $exclude = []): array {
+	public function idsByLabel(string $userId, array $mailboxIds, array $categories, bool $needsAction, ?int $cursor, int $limit, array $exclude = [], bool $flagged = false): array {
 		if ($mailboxIds === []) {
 			return [];
 		}
@@ -873,6 +875,11 @@ class TriageService {
 		}
 		if ($needsAction) {
 			$qb->andWhere($qb->expr()->gte('t.needs_action', $qb->createNamedParameter(0.5, IQueryBuilder::PARAM_STR)));
+		}
+		if ($flagged) {
+			// Favorites: a plain IMAP server has no "Starred" folder (Gmail does), so
+			// the only way to list them is the flag, across the account's folders.
+			$qb->andWhere($qb->expr()->eq('m.flag_flagged', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
 		}
 		if ($cursor !== null) {
 			$qb->andWhere($qb->expr()->lt('m.sent_at', $qb->createNamedParameter($cursor, IQueryBuilder::PARAM_INT)));

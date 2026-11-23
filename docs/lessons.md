@@ -198,3 +198,43 @@ the only reason it was caught. `deploy/atrium-entrypoint.sh` now deletes the
 stored copy when a new build lands. Verified with the attack itself: a request
 to the LAN address carrying the right `Host` and a forged
 `X-Forwarded-For: 203.0.113.9` is logged with the caller's real address.
+
+## "This folder is empty" was the list being right about the wrong thing (V4-23)
+
+A mail account connected a minute earlier listed nothing under Mail's default
+Curated filter, while All listed every message. Both lists read the same local
+copy of the mailbox, which on a brand-new account holds nothing at all — so the
+difference was not in the filter, it was in what each list does about that.
+
+The plain list (`/api/messages`) answers `MailboxNotCachedException`, and the
+client reacts to it: run the initial sync (several rounds for a large folder),
+then ask again. That protocol is the only thing that starts the first sync of a
+folder from the interface. The label list (`/api/triage/list`) ran a query,
+found no rows and answered 200 with `[]` — honest and useless: "this folder is
+empty" is indistinguishable from "we have not looked yet", and because it never
+said "not cached", nothing ever started the sync. The folder stayed empty until
+the next scheduled background sync, minutes or hours later.
+
+Two things to keep: **an endpoint that reads a cache has to be able to say the
+cache is cold**, not just return what it found; and when two endpoints serve the
+same list, the error contract is part of the API — adding a faster path that
+skips it reintroduces every bug the slow path had already solved.
+
+The agent layer had the mirror image of the same mistake: `mail.list` with
+`curated: true` required a category, so on an instance with no AI configured it
+matched nothing at all, while the interface showed everything. "Curated" hides
+categories; mail with no category yet is shown.
+
+## GreenMail has no CONDSTORE, so flag changes made on the server are invisible
+
+GreenMail 2.1.3 advertises `IMAP4rev1 LITERAL+ UIDPLUS SORT IDLE MOVE QUOTA` —
+no CONDSTORE, no QRESYNC. Flags set *through* Wavium are fine (the flag goes to
+IMAP and `MessageCacheUpdaterListener` writes the local row), but a flag set
+directly on the server — `UID STORE 8 +FLAGS (\Flagged)`, which is what the
+provider's webmail or a phone does — never reaches Wavium's copy, not even with
+`occ mail:account:sync -f`. Flags present when a message is first fetched are
+imported correctly, which is why this hides so well.
+
+So a browser test must not star a message and then expect a later sync to agree:
+seed the flag on the server before the first sync (`deploy/dev/seed.php` sets
+`\Flagged` on one of alice's mails for exactly this) and assert on that.

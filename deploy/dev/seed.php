@@ -152,7 +152,9 @@ $mails = [
 			'body' => "Cher client,\n\nUne activité inhabituelle a été détectée. Confirmez vos identifiants sous 24h :\nhttp://secure-bnq-verif.example.biz/login\n\nLe service sécurité"],
 		['from' => ['GitHub Exemple', 'noreply@code.example.com'], 'subject' => '[atrium] Nouvelle issue : le calendrier ne charge pas', 'ago' => 6 * $day,
 			'body' => "Une nouvelle issue a été ouverte sur le dépôt atrium."],
-		['from' => ['Maman', 'maman@example.org'], 'subject' => 'Photos des vacances', 'ago' => 70 * $day,
+		// Starred on the mail server: Favorites has to find it by the flag, because a
+		// plain IMAP server has no "Starred" folder to list (V4-23).
+		['from' => ['Maman', 'maman@example.org'], 'subject' => 'Photos des vacances', 'ago' => 70 * $day, 'starred' => true,
 			'body' => "Coucou ma chérie, voici enfin les photos de l'été. Bisous !"],
 	],
 	'bob' => [
@@ -192,7 +194,8 @@ foreach ($mails as $uid => $list) {
 	}
 	foreach ($list as $m) {
 		$when = $now - $m['ago'];
-		$flags = $m['ago'] > 2 * $day ? '(\\Seen)' : '()';
+		$seen = $m['ago'] > 2 * $day;
+		$flags = '(' . trim(($seen ? '\\Seen ' : '') . (!empty($m['starred']) ? '\\Flagged' : '')) . ')';
 		$imap->cmd('APPEND INBOX ' . $flags . ' "' . date('d-M-Y H:i:s O', $when) . '"', message($m, "$uid@atrium.test", $when));
 	}
 	$imap->cmd('LOGOUT');

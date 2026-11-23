@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { archiveTarget, filterName, kindBoxes, labelQuery, readFilter, sortBoxes, writeFilter } from './labels'
+import { archiveTarget, favoriteBoxes, filterName, kindBoxes, labelQuery, readFilter, sortBoxes, writeFilter } from './labels'
 import { curatedTitle, DEFAULT_CURATED_HIDES, defaultLabel, noLabel, parseCuratedHides, searchFilter, type Account, type LabelFilter, type Mailbox } from './api'
 
 const box = (databaseId: number, accountId: number, specialRole: string, name = specialRole): Mailbox =>
@@ -148,5 +148,12 @@ describe('filterName: what the list says is filtering it', () => {
 		expect(filterName({ ...noLabel, needsAction: true })).toBe('Needs action')
 		expect(filterName({ ...defaultLabel, category: 'ads' })).toBe('Ads')
 		expect(filterName(noLabel)).toBe('All')
+	})
+})
+
+describe('favoriteBoxes: where Favorites looks without a Starred folder', () => {
+	it('every folder but Trash and Spam', () => {
+		const all = [box(1, 1, 'inbox'), box(2, 1, 'sent'), box(3, 1, 'trash'), box(4, 1, 'junk'), box(5, 1, '', 'Projets')]
+		expect(favoriteBoxes(all).map((b) => b.databaseId)).toEqual([1, 2, 5])
 	})
 })

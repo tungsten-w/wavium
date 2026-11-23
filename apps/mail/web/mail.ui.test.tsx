@@ -113,6 +113,28 @@ test('the filter chosen last time is the one Mail opens on (V4-23)', async () =>
 	expect(again.container.querySelector('.ml-chip--on')?.textContent, 'back on All, not on Curated').toBe('All')
 })
 
+test('Favorites lists starred mail by its flag when the server has no Starred folder (V4-23)', async () => {
+	const starred = { ...msg(21, 'Photos des vacances', 'maman@example.org', 'les photos de l’été', true), flags: { ...flags, flagged: true, seen: true } }
+	// GreenMail, Orange, Free...: no \Flagged folder in the list, so the flag is all there is.
+	// The cursor check matters: without it the "load more" sentinel pages forever.
+	server.on('GET', '/apps/mail/api/triage/list', (req) => req.query.has('cursor') ? [] : (req.query.get('flagged') === '1' ? [starred] : inbox))
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/starred')
+	await waitFor(() => getByText(container, 'Photos des vacances'))
+
+	const asked = server.calls('GET', '/apps/mail/api/triage/list').find((c) => c.query.get('flagged') === '1')!
+	// Every folder of the account except Trash (4): a mail you threw away is not a favourite.
+	expect(asked.query.get('mailboxIds')).toBe('1,2,3')
+	expect(asked.query.get('exclude'), 'and Curated does not apply: a starred ad is still starred').toBeNull()
+	expect(server.unhandled.map((r) => `${r.method} ${r.path}`)).toEqual([])
+})
+
+test('Favorites with nothing starred says so, instead of looking like an empty folder', async () => {
+	server.on('GET', '/apps/mail/api/triage/list', (req) => req.query.has('cursor') || req.query.get('flagged') === '1' ? [] : inbox)
+	const { container } = await renderApp('mail', MailApp.Component!, '/view/starred')
+	await waitFor(() => getByText(container, 'No favorites yet'))
+	expect(queryByText(container, 'See all mail'), 'nothing is being filtered out: there is nothing starred').toBeNull()
+})
+
 test('opening a mail shows it and marks it read', async () => {
 	const { container } = await renderApp('mail', MailApp.Component!, '/view/inbox')
 	await waitFor(() => getByText(container, 'Dinner on Friday?'))

@@ -31,6 +31,21 @@ async function login(page: Page, user: string, password: string) {
 	await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 60_000 })
 }
 
+/**
+ * Opens one of the account's folders from the sidebar.
+ *
+ * By its href, not by clicking the link: the layout keeps a second copy of the
+ * nav for the phone drawer, and the folder's own name is only part of the
+ * link's accessible name (it also carries the unread count and the folder menu).
+ */
+async function openFolder(page: Page, name: string) {
+	const link = page.locator('a[href^="/apps/mail/box/"]').filter({ hasText: name }).first()
+	await link.waitFor({ state: 'attached', timeout: 60_000 })
+	const href = await link.getAttribute('href')
+	await page.goto(href!)
+	return list(page)
+}
+
 /** The open list, once it has either messages or an empty state (never mid-spinner). */
 async function list(page: Page) {
 	const section = page.locator('section.ml-list')
@@ -40,13 +55,27 @@ async function list(page: Page) {
 
 test.describe.configure({ mode: 'serial' })
 
+/**
+ * Back to "no mail account at all", so this spec can run again on the same
+ * instance. Removing the account is also the only test of that button.
+ */
+async function startWithNoAccount(page: Page) {
+	await page.goto('/apps/mail/')
+	const setup = page.getByRole('heading', { name: 'Connect your mail' })
+	const gear = page.locator('[aria-label$=" settings"]').first()
+	// One of the two is there once Mail knows whether she has an account.
+	await expect(setup.or(gear).first()).toBeVisible({ timeout: 60_000 })
+	if (await setup.count() > 0) return
+	await gear.click()
+	await page.getByRole('button', { name: 'Remove account' }).click()
+	await page.getByRole('button', { name: 'Remove', exact: true }).click()
+	await expect(setup).toBeVisible({ timeout: 60_000 })
+}
+
 test('mail is there the minute the account is connected, under Curated', async ({ page }) => {
 	const problems = watch(page)
 	await login(page, 'chloe', 'chloe-demo-pass')
-	await page.goto('/apps/mail/')
-
-	// No account yet: Mail opens on its setup form.
-	await expect(page.getByRole('heading', { name: 'Connect your mail' })).toBeVisible({ timeout: 60_000 })
+	await startWithNoAccount(page)
 	await page.getByLabel('Account name').fill('Perso')
 	await page.getByLabel('Email address').fill('chloe@atrium.test')
 	// atrium.test is nobody's provider, so the server fields are already open.
@@ -82,9 +111,7 @@ test('the unified Inbox and the account folder hold the same mail', async ({ pag
 	await expect(page.getByText('Dîner samedi ?')).toBeVisible({ timeout: 90_000 })
 	const subjects = await unified.locator('.ml-messages > li').allInnerTexts()
 
-	await page.getByRole('link', { name: 'Inbox', exact: true }).last().click()
-	await page.waitForURL(/\/apps\/mail\/box\/\d+/)
-	const own = await list(page)
+	const own = await openFolder(page, 'Inbox')
 	await expect(own.locator('.ml-messages > li').first()).toBeVisible({ timeout: 90_000 })
 	const ownSubjects = await own.locator('.ml-messages > li').allInnerTexts()
 	// One account, so the merged view and its folder are the same list.
@@ -115,23 +142,32 @@ test('opening a mail shows its text and marks it read', async ({ page }) => {
 	expect(problems).toEqual([])
 })
 
-test('starring a mail puts it in Favorites, and the star survives a reload', async ({ page }) => {
+test('Favorites lists starred mail, and the star can be taken off (V4-23)', async ({ page }) => {
 	const problems = watch(page)
 	await login(page, 'alice', 'alice-demo-pass')
+
+	// "Photos des vacances" comes starred from the mail server (the seed sets
+	// \Flagged on it). A plain IMAP server has no "Starred" folder, so Favorites
+	// has to find it by the flag -- it used to show nothing at all here.
+	await page.goto('/apps/mail/view/starred')
+	const favorites = await list(page)
+	await expect(page.getByText('Photos des vacances'), 'the starred mail is in Favorites').toBeVisible({ timeout: 90_000 })
+	await expect(favorites.getByText('No favorites yet')).toHaveCount(0)
+	await page.screenshot({ path: `${SHOTS}/mail-favorites.png` })
+
+	// Taking the star off empties the list, and says so instead of looking like a folder.
+	await favorites.locator('.ml-messages > li', { hasText: 'Photos des vacances' }).first().getByRole('button', { name: 'Unstar message' }).click()
+	await page.goto('/apps/mail/view/starred')
+	await list(page)
+	await expect(page.getByText('No favorites yet')).toBeVisible({ timeout: 90_000 })
+
+	// Put it back where the seed left it, so this spec can run again.
 	await page.goto('/apps/mail/view/inbox')
 	await list(page)
-
 	const row = page.locator('.ml-messages > li', { hasText: 'Photos des vacances' }).first()
 	await expect(row).toBeVisible({ timeout: 90_000 })
 	await row.getByRole('button', { name: 'Star message' }).click()
 	await expect(row.getByRole('button', { name: 'Unstar message' })).toBeVisible({ timeout: 60_000 })
-
-	await page.goto('/apps/mail/view/starred')
-	await list(page)
-	await expect(page.getByText('Photos des vacances'), 'starred on the IMAP server, not only in the page').toBeVisible({ timeout: 90_000 })
-
-	// Put it back, so running this again starts from the same place.
-	await page.locator('.ml-messages > li', { hasText: 'Photos des vacances' }).first().getByRole('button', { name: 'Unstar message' }).click()
 	expect(problems).toEqual([])
 })
 
@@ -142,9 +178,7 @@ test('every folder opens and lists what is in it', async ({ page }) => {
 	await list(page)
 
 	for (const folder of ['Sent', 'Drafts', 'Archive', 'Spam', 'Trash']) {
-		await page.getByRole('link', { name: folder, exact: true }).last().click()
-		await page.waitForURL(/\/apps\/mail\/box\/\d+/)
-		const open = await list(page)
+		const open = await openFolder(page, folder)
 		// Empty or not, the folder answers: a spinner that never ends or a 500 is the failure.
 		await expect(open.locator('.ml-messages, .at-empty').first()).toBeVisible({ timeout: 90_000 })
 		await expect(open.getByRole('heading', { level: 1 })).toHaveText(folder)
@@ -164,17 +198,15 @@ test('a mail sent to yourself lands in Sent and comes back in the Inbox', async 
 	await composer.getByLabel('To').fill('alice@atrium.test')
 	await composer.getByLabel('Subject').fill(subject)
 	await composer.getByLabel('Message').fill('Envoyé par le test e2e.')
-	await composer.getByRole('button', { name: 'Send' }).click()
+	await composer.getByRole('button', { name: 'Send', exact: true }).click()
 	await expect(composer).toHaveCount(0, { timeout: 60_000 })
 
 	// Sent folder: the copy the mail server kept.
-	await page.getByRole('link', { name: 'Sent', exact: true }).last().click()
-	await list(page)
+	await openFolder(page, 'Sent')
 	await expect(page.getByText(subject), 'in Sent').toBeVisible({ timeout: 120_000 })
 
 	// And back in the Inbox: refresh asks the mail server again.
-	await page.getByRole('link', { name: 'Inbox', exact: true }).last().click()
-	await list(page)
+	await openFolder(page, 'Inbox')
 	for (let i = 0; i < 6; i++) {
 		if (await page.getByText(subject).count()) break
 		await page.getByRole('button', { name: 'Sync mailbox' }).click()
@@ -197,15 +229,17 @@ test('search finds a mail, and archiving one moves it on the server', async ({ p
 	await expect(page.getByText(/facture de novembre/i)).toBeVisible({ timeout: 90_000 })
 
 	// Archive from the list, then look in Archive: the move happened on IMAP.
+	// Whichever mail is on top, so this works however often the spec has run.
 	await page.getByRole('button', { name: 'Clear search' }).click()
-	await list(page)
-	const row = page.locator('.ml-messages > li', { hasText: '#48213' }).first()
+	const open = await list(page)
+	const row = open.locator('.ml-messages > li').first()
 	await expect(row).toBeVisible({ timeout: 90_000 })
+	const subject = (await row.locator('.ml-message__subject').first().innerText()).trim()
 	await row.getByRole('button', { name: 'Archive message' }).click()
-	await expect(page.locator('.ml-messages > li', { hasText: '#48213' })).toHaveCount(0, { timeout: 60_000 })
+	await expect(open.locator('.ml-messages > li', { hasText: subject })).toHaveCount(0, { timeout: 60_000 })
 
 	await page.goto('/apps/mail/view/archive')
 	await list(page)
-	await expect(page.getByText(/#48213/), 'the archived mail is in Archive').toBeVisible({ timeout: 90_000 })
+	await expect(page.getByText(subject).first(), `${subject} is in Archive`).toBeVisible({ timeout: 90_000 })
 	expect(problems).toEqual([])
 })
