@@ -9,6 +9,7 @@ import { Component, Suspense, useEffect, useMemo, useState, type ReactNode } fro
 import { AppCtx, avatarUrl, linkHandler, navigate, setPasswordPrompt, useLocation, type AppContext, type AtriumAppModule, type NavEntry, type Session } from '@atrium/sdk'
 import { Avatar, Badge, Button, Dialog, Icon, IconButton, Menu, Spinner, TextField } from '@atrium/ui'
 import { BrandLogo } from './Brand'
+import { CURRENT } from './whatsnew'
 import { bannerHidden, hideBanner, useDemo, type DemoInfo } from './demo'
 import { findApp, importApp, navApps, type AppIndex, type AppManifest } from './apps'
 import { Assistant } from './Assistant'
@@ -74,6 +75,9 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 					<BrandLogo logo={session.capabilities.theming?.logo} size={18} />
 					<span className="shell-logo__name">{session.capabilities.theming?.name ?? 'Wavium'}</span>
 				</a>
+				{/* Which version this is, next to the name; it opens the page saying what each version brought. */}
+				<a className="shell-version" href="/settings/user/whatsnew" onClick={linkHandler}
+					title={`${session.capabilities.theming?.name ?? 'Wavium'} ${CURRENT} - what's new`}>{CURRENT}</a>
 				<Search />
 				</div>
 				<nav className="shell-apps" aria-label="Apps">

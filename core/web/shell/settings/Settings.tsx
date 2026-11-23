@@ -21,6 +21,7 @@ import { AdminSharing, AdminTheming, Overview, PersonalSharing, Server } from '.
 import { AdminSecurity, Delegation, Groupware, Notifications, Presets } from './Extra'
 import { AdminGoogle, MoveFromGoogle } from './Google'
 import { Tutorial } from './Tutorial'
+import { WhatsNew } from './WhatsNew'
 import { YourData } from './YourData'
 
 interface ReactSection { path: string, label: string, icon: string, admin?: boolean, hidden?: boolean, replaces?: string, Component: ComponentType<{ session: Session }> }
@@ -28,6 +29,7 @@ interface ReactSection { path: string, label: string, icon: string, admin?: bool
 /** Paths owned by React; the classic section with the same id is hidden from the list. */
 const SECTIONS: ReactSection[] = [
 	{ path: '/settings/user/tutorial', label: 'Tutorial', icon: 'lifebuoy', Component: Tutorial },
+	{ path: '/settings/user/whatsnew', label: "What's new", icon: 'info', Component: WhatsNew },
 	{ path: '/settings/user', label: 'Profile', icon: 'user-circle', replaces: 'personal-info', Component: Profile },
 	{ path: '/settings/user/security', label: 'Security', icon: 'shield-lock', replaces: 'security', Component: Security },
 	{ path: '/settings/user/theming', label: 'Appearance', icon: 'palette', replaces: 'theming', Component: Appearance },
