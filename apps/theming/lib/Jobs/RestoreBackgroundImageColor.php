@@ -17,7 +17,6 @@ use OCP\BackgroundJob\QueuedJob;
 use OCP\Files\IAppData;
 use OCP\Files\NotFoundException;
 use OCP\Files\NotPermittedException;
-use OCP\Config\IUserConfig;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use Psr\Log\LoggerInterface;
@@ -32,8 +31,6 @@ class RestoreBackgroundImageColor extends QueuedJob {
 	public function __construct(
 		ITimeFactory $time,
 		private IConfig $config,
-		// Atrium: primary_color is written as a string, see runMigration().
-		private IUserConfig $userConfig,
 		private IAppData $appData,
 		private IJobList $jobList,
 		private IDBConnection $dbc,
@@ -125,9 +122,10 @@ class RestoreBackgroundImageColor extends QueuedJob {
 					}
 					// Restore primary
 					if ($primary !== '') {
-						// Atrium: string, like RandomAccentListener writes it; "mixed" here
-						// would conflict with the stored type and throw (see UserThemeController).
-						$this->userConfig->setValueString($userId, Application::APP_ID, 'primary_color', $primary);
+						// Atrium: untyped, like RandomAccentListener and the preferences
+						// API write it. Writing it typed here would pin the type and make
+						// the person's next colour change throw (see BeforePreferenceListener).
+						$this->config->setUserValue($userId, Application::APP_ID, 'primary_color', $primary);
 					}
 			}
 		}
