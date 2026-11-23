@@ -76,13 +76,34 @@ export function aiModule(make?: (core: LayerCore) => AiSettings, makeBudget?: (c
 		throw new AgentError('invalid_input', 'Body must be a JSON object')
 	}
 
+	/**
+	 * Ask Mail to turn classification on (TriageService::enableOnFirstProvider).
+	 * Never fatal: a provider is saved whether or not Mail answers, and the
+	 * switch on the Mail status page is still there.
+	 */
+	async function autoEnableTriage(core: LayerCore): Promise<void> {
+		try {
+			const r = await core.php?.app<{ changed?: boolean, reason?: string }>('POST', 'apps/mail/api/atrium-agent/triage-auto-enable', { body: {} })
+			if (r?.changed) console.log('mail classification turned on: first AI provider')
+		} catch (e) {
+			console.error(`mail classification could not be turned on: ${(e as Error).message}`)
+		}
+	}
+
 	async function route(core: LayerCore, req: Request, path: string): Promise<Response> {
 		const s = get(core)
 		const who = await caller(core, req)
 		const [a, b, extra] = path.split('/').filter(Boolean).map(decodeURIComponent)
 		const m = req.method
 		if (a === 'settings' && !b && m === 'GET') return Response.json(await s.overview(who))
-		if (a === 'providers' && !b && m === 'POST') return Response.json(await s.create(who, await body(req)))
+		if (a === 'providers' && !b && m === 'POST') {
+			const view = await s.create(who, await body(req))
+			// V4-26: an instance provider is the moment mail classification can
+			// start, so it starts -- unless a person already chose. A personal
+			// provider must not flip it: triage_enabled is instance-wide.
+			if (view.scope === 'instance' && view.enabled) await autoEnableTriage(core)
+			return Response.json(view)
+		}
 		if (a === 'providers' && b && !extra) {
 			if (m === 'PATCH' || m === 'PUT') return Response.json(await s.update(who, b, await body(req)))
 			if (m === 'DELETE') {

@@ -36,6 +36,19 @@ function Bars({ rows }: { rows: { label: string, count: number }[] }) {
 	))}</ul>
 }
 
+/**
+ * What a non-admin is told about classification (V4-26). The switch spends the
+ * instance's AI budget, so only an admin gets it; before, everyone else saw
+ * nothing at all and could not tell whether their mail was being sorted, or
+ * why it was not.
+ */
+export function ClassificationLine({ settings }: { settings: TriageStatus['settings'] }) {
+	const text = settings.enabled ? 'Classification is on'
+		: !settings.configured ? 'Classification is off: no AI provider yet. An admin adds one in Settings > AI.'
+			: 'Classification is off. An admin can turn it on from this page.'
+	return <p className="ml-st__muted">{text}</p>
+}
+
 export function MailStatus({ onCuratedChange, onShowCategory }: { onCuratedChange?: () => void, onShowCategory?: (category: string) => void } = {}) {
 	const [s, setS] = useState<TriageStatus | null>(null)
 	const [hides, setHides] = useState<string[]>([...DEFAULT_CURATED_HIDES])
@@ -71,7 +84,9 @@ export function MailStatus({ onCuratedChange, onShowCategory }: { onCuratedChang
 		<Card className="ml-st__card ml-st__wide">
 			<div className="ml-st__pipe">
 				<div className={`ml-st__state ml-st__state--${tone}`}><span className="ml-st__dot" />{label}</div>
-				{s.canManage && <Switch label="Classification" checked={s.settings.enabled} disabled={busy || !s.settings.configured} onChange={(e) => void toggle(e.target.checked)} />}
+				{s.canManage
+					? <Switch label="Classification" checked={s.settings.enabled} disabled={busy || !s.settings.configured} onChange={(e) => void toggle(e.target.checked)} />
+					: <ClassificationLine settings={s.settings} />}
 			</div>
 			<dl className="ml-st__facts">
 				<div><dt>Last run</dt><dd>{when(s.state.lastRun)}</dd></div>

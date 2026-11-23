@@ -100,6 +100,9 @@ class TriageService {
 		}
 		return [
 			'enabled' => $this->appConfig->getValueBool($a, 'triage_enabled', false),
+			// Whether a human ever decided: without it, "off" and "nobody asked
+			// yet" look the same, and enableOnFirstProvider() could undo a no.
+			'choiceMade' => $this->appConfig->getValueBool($a, 'triage_choice_made', false),
 			'backend' => $backend,
 			// ai: whether a provider exists is known only to the Bun server; it answers 409 when none.
 			'configured' => $backend === 'ai' || $hasToken,
@@ -116,9 +119,37 @@ class TriageService {
 		];
 	}
 
+	/** A human turning the pipeline on or off; their choice is remembered as such. */
 	public function setEnabled(bool $enabled): void {
 		$this->appConfig->setValueBool(Application::APP_ID, 'triage_enabled', $enabled);
+		$this->appConfig->setValueBool(Application::APP_ID, 'triage_choice_made', true);
 		$this->saveState(['state' => $enabled ? 'idle' : 'disabled']);
+	}
+
+	/**
+	 * Called by the agent layer when an instance AI provider is added (V4-26).
+	 * Classification used to stay off until an admin found the switch on the Mail
+	 * status page, so a freshly configured instance sorted nothing and every
+	 * feature built on the classification (Curated, the category chips, "needs
+	 * action", the filing rules) stayed dead. Adding a provider is the moment the
+	 * answer becomes yes by default.
+	 *
+	 * It never overrides a human: if anyone has already used the switch, their
+	 * choice stands, in either direction.
+	 *
+	 * @return array{enabled: bool, changed: bool, reason: string}
+	 */
+	public function enableOnFirstProvider(): array {
+		$a = Application::APP_ID;
+		if ($this->appConfig->getValueBool($a, 'triage_choice_made', false)) {
+			return ['enabled' => $this->appConfig->getValueBool($a, 'triage_enabled', false), 'changed' => false, 'reason' => 'a person already chose'];
+		}
+		if ($this->appConfig->getValueBool($a, 'triage_enabled', false)) {
+			return ['enabled' => true, 'changed' => false, 'reason' => 'already on'];
+		}
+		$this->appConfig->setValueBool($a, 'triage_enabled', true);
+		$this->saveState(['state' => 'idle']);
+		return ['enabled' => true, 'changed' => true, 'reason' => 'first AI provider'];
 	}
 
 	/** @return array<string, mixed> */
@@ -1284,7 +1315,7 @@ class TriageService {
 		$spent = $this->spentToday();
 		return [
 			'now' => $now,
-			'settings' => ['enabled' => $s['enabled'], 'backend' => $s['backend'], 'configured' => $s['configured'], 'capTotalEur' => $s['capTotal'], 'capBackfillEur' => $s['capBackfill'],
+			'settings' => ['enabled' => $s['enabled'], 'choiceMade' => $s['choiceMade'], 'backend' => $s['backend'], 'configured' => $s['configured'], 'capTotalEur' => $s['capTotal'], 'capBackfillEur' => $s['capBackfill'],
 				'model' => $s['backend'] === 'ai' ? (string)($state['lastModel'] ?? 'Settings > AI') : $this->questions()['model'], 'questionsVersion' => $this->questions()['version'], 'timezone' => $s['timezone']],
 			'state' => [
 				'state' => $s['enabled'] ? ($state['state'] ?? 'idle') : 'disabled',

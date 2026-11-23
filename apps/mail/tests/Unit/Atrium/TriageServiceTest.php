@@ -301,4 +301,60 @@ class TriageServiceTest extends MailDbTestCase {
 
 		$this->assertSame(['pendingWrites' => 1, 'failedWrites' => 0, 'readerTodo' => 2, 'readerUnavailable' => 0, 'attachments' => 1, 'attachmentBytes' => 4], $sync);
 	}
+
+	/** V4-26: adding an instance AI provider is what turns classification on. */
+	private function forgetTriageChoice(): void {
+		$c = Server::get(\OCP\IAppConfig::class);
+		$c->deleteKey('mail', 'triage_enabled');
+		$c->deleteKey('mail', 'triage_choice_made');
+	}
+
+	public function testClassificationIsOffUntilSomethingTurnsItOn(): void {
+		$this->forgetTriageChoice();
+
+		$this->assertFalse($this->triage->settings()['enabled']);
+		$this->assertFalse($this->triage->settings()['choiceMade'], 'nobody has decided yet');
+	}
+
+	public function testFirstProviderTurnsClassificationOn(): void {
+		$this->forgetTriageChoice();
+
+		$r = $this->triage->enableOnFirstProvider();
+
+		$this->assertSame(['enabled' => true, 'changed' => true, 'reason' => 'first AI provider'], $r);
+		$this->assertTrue($this->triage->settings()['enabled']);
+		$this->assertSame('idle', $this->triage->state()['state']);
+		// Still nobody's explicit choice: a person can still say no and be obeyed.
+		$this->assertFalse($this->triage->settings()['choiceMade']);
+	}
+
+	public function testASecondProviderChangesNothing(): void {
+		$this->forgetTriageChoice();
+		$this->triage->enableOnFirstProvider();
+
+		$r = $this->triage->enableOnFirstProvider();
+
+		$this->assertSame(['enabled' => true, 'changed' => false, 'reason' => 'already on'], $r);
+	}
+
+	public function testAPersonSayingNoIsNeverOverridden(): void {
+		$this->forgetTriageChoice();
+		$this->triage->setEnabled(false);
+		$this->assertTrue($this->triage->settings()['choiceMade'], 'using the switch is a choice');
+
+		$r = $this->triage->enableOnFirstProvider();
+
+		$this->assertSame(['enabled' => false, 'changed' => false, 'reason' => 'a person already chose'], $r);
+		$this->assertFalse($this->triage->settings()['enabled'], 'a provider added later must not undo the no');
+	}
+
+	public function testAPersonSayingYesIsLeftAlone(): void {
+		$this->forgetTriageChoice();
+		$this->triage->setEnabled(true);
+
+		$r = $this->triage->enableOnFirstProvider();
+
+		$this->assertSame(['enabled' => true, 'changed' => false, 'reason' => 'a person already chose'], $r);
+		$this->assertTrue($this->triage->settings()['enabled']);
+	}
 }

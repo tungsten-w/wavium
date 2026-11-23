@@ -20,6 +20,7 @@ return [
 		['name' => 'atrium_agent#send', 'url' => '/api/atrium-agent/send', 'verb' => 'POST'],
 		['name' => 'atrium_agent#listinfo', 'url' => '/api/atrium-agent/listinfo', 'verb' => 'POST'],
 		['name' => 'atrium_agent#unsubscribe', 'url' => '/api/atrium-agent/unsubscribe', 'verb' => 'POST'],
+		['name' => 'atrium_agent#triageAutoEnable', 'url' => '/api/atrium-agent/triage-auto-enable', 'verb' => 'POST'],
 		[
 			'name' => 'deep_link#open',
 			'url' => '/open/{messageId}',

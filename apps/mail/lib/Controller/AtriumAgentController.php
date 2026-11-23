@@ -90,6 +90,16 @@ class AtriumAgentController extends Controller {
 		}
 	}
 
+	/**
+	 * An instance AI provider was just added (V4-26): turn classification on,
+	 * unless a person already decided one way or the other.
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function triageAutoEnable(): Response {
+		return $this->guard(fn () => new JSONResponse($this->triage->enableOnFirstProvider()));
+	}
+
 	/** Fetch a mail from the server once and keep Atrium's copy (mail_bodies). */
 	#[PublicPage]
 	#[NoCSRFRequired]
