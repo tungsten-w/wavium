@@ -122,6 +122,9 @@ class RestoreBackgroundImageColor extends QueuedJob {
 					}
 					// Restore primary
 					if ($primary !== '') {
+						// Atrium: untyped, like RandomAccentListener and the preferences
+						// API write it. Writing it typed here would pin the type and make
+						// the person's next colour change throw (see BeforePreferenceListener).
 						$this->config->setUserValue($userId, Application::APP_ID, 'primary_color', $primary);
 					}
 			}

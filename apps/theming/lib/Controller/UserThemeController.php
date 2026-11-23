@@ -26,6 +26,7 @@ use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\OCS\OCSBadRequestException;
 use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\AppFramework\OCSController;
+use OCP\Config\IUserConfig;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -42,6 +43,8 @@ class UserThemeController extends OCSController {
 		string $appName,
 		IRequest $request,
 		private IConfig $config,
+		// Atrium: writes of userCacheBuster go through the typed API, see setBackground().
+		private IUserConfig $userConfig,
 		IUserSession $userSession,
 		private ThemesService $themesService,
 		private ThemingDefaults $themingDefaults,
@@ -206,7 +209,13 @@ class UserThemeController extends OCSController {
 		}
 
 		$currentVersion++;
-		$this->config->setUserValue($this->userId, Application::APP_ID, 'userCacheBuster', (string)$currentVersion);
+		// Atrium: this used to be IConfig::setUserValue, which declares the value
+		// "mixed". Atrium's own BeforePreferenceListener bumps the same key with
+		// setValueString when the accent colour changes, and a stored type cannot
+		// change afterwards: picking a colour and then a wallpaper answered 500
+		// (TypeConflictException). Both writers now say string, which also makes
+		// the rows written either way valid again ("mixed" accepts any type).
+		$this->userConfig->setValueString((string)$this->userId, Application::APP_ID, 'userCacheBuster', (string)$currentVersion);
 
 		return new JSONResponse([
 			'backgroundImage' => $this->config->getUserValue($this->userId, Application::APP_ID, 'background_image', BackgroundService::BACKGROUND_DEFAULT),

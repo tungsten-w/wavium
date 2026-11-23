@@ -13,6 +13,7 @@ use OCP\App\IAppManager;
 use OCP\Config\BeforePreferenceDeletedEvent;
 use OCP\Config\BeforePreferenceSetEvent;
 use OCP\Config\IUserConfig;
+use OCP\Config\ValueType;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 
@@ -67,6 +68,7 @@ class BeforePreferenceListener implements IEventListener {
 					$event->setValid(false);
 			}
 			if ($event->getConfigKey() === 'primary_color' && $event->isValid()) {
+				$this->dropTypedAccent($event->getUserId());
 				$this->bumpCacheBuster($event->getUserId());
 			}
 			return;
@@ -75,6 +77,21 @@ class BeforePreferenceListener implements IEventListener {
 		$event->setValid(true);
 		if ($event->getConfigKey() === 'primary_color') {
 			$this->bumpCacheBuster($event->getUserId());
+		}
+	}
+
+	/**
+	 * Atrium: accounts created before this was fixed have their accent stored as
+	 * a string (RandomAccentListener wrote it that way), while the preferences
+	 * API, which is about to write the new colour, writes it untyped. Nextcloud
+	 * refuses to change the type of a stored value, so that write threw and the
+	 * person's first colour change answered 500. Drop the stored value here; the
+	 * controller writes it again immediately after.
+	 */
+	private function dropTypedAccent(string $userId): void {
+		if ($this->userConfig->hasKey($userId, Application::APP_ID, 'primary_color')
+			&& $this->userConfig->getValueType($userId, Application::APP_ID, 'primary_color') !== ValueType::MIXED) {
+			$this->userConfig->deleteUserConfig($userId, Application::APP_ID, 'primary_color');
 		}
 	}
 

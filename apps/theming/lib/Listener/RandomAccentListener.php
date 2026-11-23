@@ -12,6 +12,7 @@ use OCA\Theming\AppInfo\Application;
 use OCP\Config\IUserConfig;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
+use OCP\IConfig;
 use OCP\User\Events\UserCreatedEvent;
 
 /**
@@ -23,6 +24,7 @@ use OCP\User\Events\UserCreatedEvent;
 class RandomAccentListener implements IEventListener {
 	public function __construct(
 		private IUserConfig $userConfig,
+		private IConfig $config,
 	) {
 	}
 
@@ -35,7 +37,11 @@ class RandomAccentListener implements IEventListener {
 		if ($this->userConfig->getValueString($uid, Application::APP_ID, 'primary_color') !== '') {
 			return;
 		}
-		$this->userConfig->setValueString($uid, Application::APP_ID, 'primary_color', self::randomAccent());
+		// Through the legacy setter, which stores the value untyped ("mixed"),
+		// exactly like the preferences API does when the person changes the
+		// colour in Appearance. Nextcloud refuses to change the type of a stored
+		// value, so writing it typed here made that first change answer 500.
+		$this->config->setUserValue($uid, Application::APP_ID, 'primary_color', self::randomAccent());
 	}
 
 	/** A random hue with fixed saturation/lightness, as #rrggbb. */

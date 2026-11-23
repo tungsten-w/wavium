@@ -170,3 +170,34 @@ second account from Mail, one-letter usernames for unknown providers, edits
 wiping passwords and Google sign-in, triage paused after the AI was added,
 filed mail invisible in its folder). Every new test was run against the old
 code first and failed. Real Gmail/Orange servers were not touched (rule A1).
+## 2026-11-23: V4-21 and V4-22 (Claude session, solo, branch night/V4-21)
+
+Asked overnight for two things: the version next to the logo, opening a page
+that tells what each version brought, and a sweep for the bugs a first-time
+user would hit. The useful move was reading the **production log of a real
+install** before touching the code: it held a 500 nobody had reported (pick an
+accent colour, then a wallpaper). The cause was Atrium's own cache-buster
+listener writing `theming/userCacheBuster` as a string while upstream wrote it
+as "mixed", and Nextcloud refusing to change a stored value's type. Lesson:
+when a fork adds a writer to a key upstream also writes, the *type* has to
+match, and the failure only appears in the order colour-then-wallpaper.
+
+The second finding came from the same log: a generated, gitignored file
+(`core/js/mimetypelist.js`) is missing from the production image, so every
+classic page logged a missing resource until an admin ran an occ command. The
+dev stack copies the file from the release, which is exactly why nobody saw
+it -- a workaround in the dev environment hid a real gap in the image.
+
+The browser tests then crashed twice ("Page crashed"). It was not the app: the
+container gave Chromium 64 MB of /dev/shm (fixed with `--ipc=host`), and the
+machine itself was out of memory, swap full, with the production stack and the
+dev stack both running. Worth remembering before blaming the code.
+
+Last: every e2e test logged in as alice or bob, who have demo data, so the
+screens a newcomer sees had never been opened by a test. The demo instance now
+has an account with nothing in it, and a spec walks every app with it on
+desktop and phone. It found no crash, but it is what makes the class of
+first-run bugs above visible from now on. What it did show, in a screenshot,
+is that the interface speaks two languages at once (English React parts,
+translated classic pages) -- reported, not fixed: that is a translation
+project.

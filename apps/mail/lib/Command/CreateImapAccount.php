@@ -11,6 +11,7 @@ declare(strict_types=1);
 namespace OCA\Mail\Command;
 
 use OCA\Mail\Db\MailAccount;
+use OCA\Mail\Db\TagMapper;
 use OCA\Mail\Service\AccountService;
 use OCA\Mail\Service\Classification\ClassificationSettingsService;
 use OCP\IUserManager;
@@ -40,6 +41,7 @@ final class CreateImapAccount extends Command {
 
 	public function __construct(
 		private AccountService $accountService,
+		private TagMapper $tagMapper,
 		ICrypto $crypto,
 		IUserManager $userManager,
 		private ClassificationSettingsService $classificationSettingsService,
@@ -118,6 +120,11 @@ final class CreateImapAccount extends Command {
 		$account->setClassificationEnabled($this->classificationSettingsService->isClassificationEnabledByDefault());
 
 		$account = $this->accountService->save($account);
+		// The tags a new account needs (important, junk, ...). Adding an account
+		// in the interface does this through SetupService; a command did not, so
+		// an account created here had none: every sync then logged "Could not
+		// find important tag" and skipped the important-mail classification.
+		$this->tagMapper->createDefaultTags($account);
 
 		$output->writeln("<info>Account {$account->getId()} for $email created</info>");
 

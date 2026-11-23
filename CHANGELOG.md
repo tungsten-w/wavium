@@ -3,6 +3,41 @@
 Wavium (formerly Atrium) is a hard fork of Nextcloud 34.0.5. Versions are
 tagged in git (`v1`, `v2`, ...).
 
+## v4.1
+
+- **The version is written next to the logo** in the header. Click it to see
+  what each version brought (Settings > What's new), the newest first, with the
+  one you are running marked.
+- **Fixed: Notes dropped letters while you typed.** Typing at a normal pace in a
+  note lost characters -- "Courses" was saved as "Couses" -- because the editor
+  was being overwritten with a copy of the text that predated the last
+  keystrokes. Nothing was lost on the server: what you type is now what is
+  saved, letter for letter.
+- **Fixed: changing the accent colour failed on a new account.** Every new
+  account is given a random accent colour, and the first time the person chose
+  their own in Settings > Appearance, the request answered "Internal server
+  error" and the colour did not change. Accounts already in that state repair
+  themselves at the next change.
+- **Fixed: choosing a colour and then a wallpaper failed.** Settings >
+  Appearance answered "Internal server error" on every wallpaper change once
+  the accent colour had been changed, and kept doing it. (Both halves of
+  Wavium wrote the same setting with a different declared type, which
+  Nextcloud refuses.)
+- **Fixed: a fresh install logged an error on every classic page** for a file
+  the image did not carry (`core/js/mimetypelist.js`, generated and therefore
+  not in the repository). Installs made before this version can also get it
+  with `occ maintenance:mimetype:update-js`.
+- **Fixed: a mail account added with a command had no tags**, so every sync
+  logged an error and never marked anything important. Adding an account in
+  the interface always worked; existing accounts can be repaired with
+  `occ mail:account:add-missing-tags`.
+- Tests: the Messages browser test was reading the page before it had finished
+  loading, so it skipped the very flow it checks. The demo instance now has an
+  account with nothing in it, and the
+  browser tests walk every app with it, on desktop and on a phone -- the
+  screens a new person sees first were never opened by a test before. The
+  browser used to die mid-run on a small machine; it no longer does.
+
 ## v4
 
 - **Messages: your phone's texts in Wavium** (ADR 0010). Link your Android

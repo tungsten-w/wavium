@@ -20,6 +20,11 @@ html, body, #atrium { height: 100%; }
 .shell-logo img, .shell-logo svg { height: 20px; width: auto; flex: none; }
 .shell-logo__name { letter-spacing: -0.2px; }
 @media (max-width: 720px) { .shell-logo__name { display: none; } }
+/* The version, right of the name: quiet, and a link to Settings > What's new.
+   Kept on phones (where the name is hidden): seeing which version this is, is
+   the whole point. */
+.shell-version { flex: none; padding: 2px 7px; border-radius: var(--at-radius-full); border: 1px solid rgb(255 255 255 / 0.35); color: inherit; text-decoration: none; font-size: 11px; font-weight: 600; letter-spacing: 0.2px; opacity: 0.8; white-space: nowrap; transition: background var(--at-fast), opacity var(--at-fast); }
+.shell-version:hover, .shell-version:focus-visible { background: rgb(255 255 255 / 0.18); opacity: 1; }
 .shell-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .shell-apps { display: flex; align-items: center; justify-content: center; gap: 2px; overflow-x: auto; scrollbar-width: none; min-width: 0; padding: 0 8px; }
 .shell-apps::-webkit-scrollbar { display: none; }
@@ -91,6 +96,16 @@ html, body, #atrium { height: 100%; }
 .theme-option .swatch { display: block; align-self: stretch; width: 100%; height: 56px; border-radius: var(--at-radius-m); box-shadow: inset 0 0 0 1px var(--at-outline-variant); }
 .settings-page { padding: 24px 28px 48px; }
 .settings-section--wide { max-width: 1100px; }
+
+/* Settings > What's new: one card per version, newest first. */
+.whatsnew { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.whatsnew__card { padding: 16px 18px; }
+.whatsnew__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.whatsnew__head h3 { margin: 0; font-size: 20px; font-weight: 650; display: flex; align-items: center; gap: 10px; }
+.whatsnew__now { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--at-radius-full); background: var(--at-primary); color: var(--at-on-primary); font-size: 11px; font-weight: 600; letter-spacing: 0.2px; }
+.whatsnew__headline { margin: 6px 0 10px; font-weight: 500; }
+.whatsnew__list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.whatsnew__list li { line-height: 1.45; }
 .settings-topbar { padding: 8px 12px 0; }
 .settings-embed { height: calc(100vh - var(--at-header-h) - 200px); min-height: 480px; position: relative; border-radius: var(--at-radius-l); overflow: hidden; border: 1px solid var(--at-outline-variant); }
 .profile-head { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
