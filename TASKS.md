@@ -115,5 +115,5 @@ ADR 0010, waits for the owner's go), the rest in any order.
 
 ### Version in the header, and a sweep for bugs (2026-11-23)
 
-- [~] V4-21 (instance oxygen-night, 2026-11-23) The version next to the logo in the header, linking to a page that says what each version brought (Settings > What's new), with the history of every version
-- [~] V4-22 (instance oxygen-night, 2026-11-23) Sweep for bugs a first-time user would hit: every app opened on desktop and phone, test suites green, what is found fixed with a test
+- [x] V4-21 The version next to the logo in the header, linking to a page that says what each version brought (Settings > What's new), with the history of every version — branch ready: night/V4-21
+- [x] V4-22 Sweep for bugs a first-time user would hit: every app opened on desktop and phone, test suites green, what is found fixed with a test — branch ready: night/V4-21 (5 bugs fixed)
