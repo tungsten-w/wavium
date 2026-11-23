@@ -112,3 +112,8 @@ ADR 0010, waits for the owner's go), the rest in any order.
 - [x] V4-18 Rules for "all my accounts": one rule per account, folder matched by role or name; account shown per rule — branch ready: night/V4-18
 - [x] V4-19 Current Claude models (Haiku 5.5 for triage, Sonnet 5.5 for the rest): no temperature, no forced tool choice, thinking blocks sent back in tool loops — branch ready: night/V4-19
 - [x] V4-20 Fresh install with deploy/wavium/install.sh came up broken (umask 077 leaked into the build: code unreadable in the image); fixed and replayed on a fresh clone — branch ready: night/V4-20
+
+### Version in the header, and a sweep for bugs (2026-11-23)
+
+- [~] V4-21 (instance oxygen-night, 2026-11-23) The version next to the logo in the header, linking to a page that says what each version brought (Settings > What's new), with the history of every version
+- [~] V4-22 (instance oxygen-night, 2026-11-23) Sweep for bugs a first-time user would hit: every app opened on desktop and phone, test suites green, what is found fixed with a test

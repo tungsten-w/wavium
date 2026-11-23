@@ -87,10 +87,15 @@ test-daily-todo:
 PLAYWRIGHT_IMAGE = mcr.microsoft.com/playwright:v1.49.1-noble
 test-e2e:
 	$(COMPOSE) up -d --wait web
-	docker run --rm --network host --user $(ATRIUM_UID):$(ATRIUM_GID) -e HOME=/tmp \
+	# --ipc=host: Chromium puts its renderer's shared memory in /dev/shm, which a
+	# container limits to 64 MB. Past that the tab dies and Playwright reports
+	# "Page crashed" -- which it did, reproducibly, on the Mail app at phone width.
+	# This is Playwright's own recommendation for running their image.
+	docker run --rm --network host --ipc=host --user $(ATRIUM_UID):$(ATRIUM_GID) -e HOME=/tmp \
 		-e ATRIUM_PORT=$${ATRIUM_PORT:-8092} -e ATRIUM_URL -e ATRIUM_E2E_USER -e ATRIUM_E2E_PASSWORD \
+		-e ATRIUM_E2E_NEW_USER -e ATRIUM_E2E_NEW_PASSWORD -e E2E_GREP \
 		-v $(CURDIR)/tests/e2e:/e2e -w /e2e $(PLAYWRIGHT_IMAGE) \
-		sh -c 'npm ci --no-audit --no-fund --loglevel=error && npx playwright test'
+		sh -c 'npm ci --no-audit --no-fund --loglevel=error && npx playwright test $${E2E_GREP:+-g "$$E2E_GREP"}'
 
 vendor-bin/phpunit/vendor:
 	$(COMPOSE) run --rm -T composer composer install --no-interaction --no-progress -d vendor-bin/phpunit

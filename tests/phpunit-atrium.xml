@@ -17,5 +17,6 @@
 		<file>lib/Authentication/Login/AgentLoginBlockCommandTest.php</file>
 		<file>lib/AppFramework/Middleware/Security/ScopeMiddlewareTest.php</file>
 		<file>Core/Controller/AtriumAgentControllerTest.php</file>
+		<directory>lib/Theming</directory>
 	</testsuite>
 </phpunit>

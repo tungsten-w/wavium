@@ -52,6 +52,11 @@ RUN set -eu; \
     for a in "$rel"/apps/*; do n=$(basename "$a"); grep -qx "$n" /tmp/removed-apps && continue; [ -e "$out/apps/$n" ] || cp -a "$a" "$out/apps/"; done; \
     rm -rf "$out/core/doc" "$out/core/skeleton"; \
     cp -a "$rel/core/doc" "$rel/core/skeleton" "$out/core/"; \
+    # core/js/mimetypelist.js is generated (occ maintenance:mimetype:update-js) and
+    # therefore gitignored, so the exported tree has none: without this, every
+    # classic page logged "Could not find resource core/js/mimetypelist.js" until
+    # an admin ran that command by hand. The release ships one; take it.
+    cp -a "$rel/core/js/mimetypelist.js" "$out/core/js/mimetypelist.js"; \
     # Docker image additions: env-driven config snippets, empty data dirs.
     cp -a "$rel"/config/*.config.php "$rel/config/autoconfig.php" "$out/config/"; \
     cp -a "$rel/custom_apps" "$rel/data" "$out/"; \

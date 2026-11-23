@@ -26,7 +26,9 @@ tagged in git (`v1`, `v2`, ...).
   logged an error and never marked anything important. Adding an account in
   the interface always worked; existing accounts can be repaired with
   `occ mail:account:add-missing-tags`.
-- Tests: the demo instance now has an account with nothing in it, and the
+- Tests: the Messages browser test was reading the page before it had finished
+  loading, so it skipped the very flow it checks. The demo instance now has an
+  account with nothing in it, and the
   browser tests walk every app with it, on desktop and on a phone -- the
   screens a new person sees first were never opened by a test before. The
   browser used to die mid-run on a small machine; it no longer does.

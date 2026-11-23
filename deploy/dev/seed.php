@@ -20,6 +20,16 @@ const DEMO_USERS = [
 	'alice' => ['Alice Martin', 'alice-demo-pass'],
 	'bob' => ['Bob Durand', 'bob-demo-pass'],
 ];
+/**
+ * An account with nothing in it. The first screens a new person sees (every
+ * empty state, "add a mail account", "no AI provider yet") only exist on an
+ * account that has no data, so the demo instance keeps one next to alice and
+ * bob. It is created like the others but seeded with nothing: the data loops
+ * below walk DEMO_USERS only.
+ */
+const EMPTY_USER = [
+	'chloe' => ['Chloé Nouveau', 'chloe-demo-pass'],
+];
 const MAIL_PASSWORD = 'demo-mail';
 const MAIL_HOST = 'greenmail';
 
@@ -41,7 +51,7 @@ function occ(string ...$args): string {
 
 $users = \OCP\Server::get(\OCP\IUserManager::class);
 $config = \OCP\Server::get(\OCP\IConfig::class);
-foreach (DEMO_USERS as $uid => [$name, $password]) {
+foreach (DEMO_USERS + EMPTY_USER as $uid => [$name, $password]) {
 	$user = $users->get($uid) ?? $users->createUser($uid, $password);
 	if ($user === false) {
 		throw new RuntimeException("cannot create $uid");

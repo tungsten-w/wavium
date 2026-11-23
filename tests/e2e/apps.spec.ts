@@ -21,6 +21,7 @@ const APPS: Array<{ id: string, path: string, ready: string }> = [
 	{ id: 'tasks', path: '/apps/tasks/', ready: '.at-app-main' },
 	{ id: 'daily_todo', path: '/apps/daily_todo/', ready: '.at-app-main, iframe' },
 	{ id: 'settings-agents', path: '/settings/user/agents', ready: '.at-app-main' },
+	{ id: 'whatsnew', path: '/settings/user/whatsnew', ready: '.whatsnew' },
 ]
 
 function watch(page: Page) {
@@ -40,20 +41,36 @@ async function login(page: Page) {
 
 test.describe.configure({ mode: 'serial' })
 
-test('every app opens, with a screenshot each (desktop and phone)', async ({ page }) => {
-	const problems = watch(page)
-	await login(page)
+test('every app opens, with a screenshot each (desktop and phone)', async ({ browser }) => {
+	// One short-lived tab per app rather than twenty navigations in the same one:
+	// the browser's memory stays flat, which matters on the kind of machine
+	// Wavium runs on (a Raspberry Pi). A single long-lived tab died here with
+	// "Page crashed" halfway through the walk.
+	const signedIn = await browser.newContext()
+	const first = await signedIn.newPage()
+	await login(first)
+	const state = await signedIn.storageState()
+	await signedIn.close()
+
+	const problems: string[] = []
 	for (const width of [1360, 390]) {
-		await page.setViewportSize({ width, height: width > 500 ? 860 : 800 })
 		for (const app of APPS) {
-			await page.goto(app.path)
-			await expect(page.locator(app.ready).first()).toBeVisible()
-			// Let entering animations finish before the picture.
-			await page.waitForTimeout(900)
-			await page.screenshot({ path: `${SHOTS}/${app.id}${width < 500 ? '-phone' : ''}.png` })
-			if (width < 500) {
-				const sideways = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
-				expect(sideways, `${app.id}: no sideways scroll at phone width`).toBe(false)
+			const ctx = await browser.newContext({ viewport: { width, height: width > 500 ? 860 : 800 }, storageState: state })
+			const page = await ctx.newPage()
+			page.on('pageerror', (e) => problems.push(`${app.id}: page error: ${e.message}`))
+			page.on('response', (r) => { if (r.status() >= 500) problems.push(`${app.id}: ${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`) })
+			try {
+				await page.goto(app.path)
+				await expect(page.locator(app.ready).first(), `${app.id}: the page arrives`).toBeVisible({ timeout: 30_000 })
+				// Let entering animations finish before the picture.
+				await page.waitForTimeout(900)
+				await page.screenshot({ path: `${SHOTS}/${app.id}${width < 500 ? '-phone' : ''}.png` })
+				if (width < 500) {
+					const sideways = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
+					expect(sideways, `${app.id}: no sideways scroll at phone width`).toBe(false)
+				}
+			} finally {
+				await ctx.close()
 			}
 		}
 	}
@@ -64,6 +81,11 @@ test('Messages: link the (fake) phone, read and answer a text', async ({ page })
 	const problems = watch(page)
 	await login(page)
 	await page.goto('/apps/messages/')
+	// Wait for the app to be in one state or the other before asking which:
+	// isVisible() does not wait, so on a slow machine it answered "no QR code"
+	// while the module was still mounting, the pairing step was skipped, and the
+	// test then waited 90 s for conversations that pairing would have created.
+	await expect(page.locator('.ms-link, .ms-setup, .ms-conv').first()).toBeVisible({ timeout: 30_000 })
 	const qr = page.getByRole('button', { name: 'Show the QR code' })
 	if (await qr.isVisible().catch(() => false)) {
 		await qr.click()
