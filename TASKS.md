@@ -121,3 +121,16 @@ ADR 0010, waits for the owner's go), the rest in any order.
 ### Mail for daily use (2026-11-23)
 
 - [x] V4-23 Mail: the Curated filter showed an empty Inbox on a freshly connected account (the label list never ran the initial sync); a filter that hides everything now says so and offers "See all mail"; the filter is remembered; account setup shows the real reason the mail server refused instead of "HTTP 400" — also: Favorites was always empty without a \Flagged folder; report: reports/V4-23.md — branch ready: night/V4-23
+
+### Mail: tags, classification and daily use (2026-11-23, audit `docs/audit-2026-11-23.md`)
+
+- [x] V4-25 The twice-daily mail brief was failing under cron (`claude` not on cron's PATH, rc=127) and nobody saw it, because `brief.md` kept the previous report: explicit PATH, binary checked before use, `brief.status` written on every pass — fixed outside the repo (`/home/oxygen/claude-mail/brief.sh`, not versioned); report: reports/V4-25.md
+- [ ] V4-27 Category `etudes` in the classifier, and the dead labels removed (school, finance, calendar, unknown)
+- [ ] V4-26 Classification turns itself on as soon as an AI provider is added, and its state is visible to a non-admin user
+- [ ] V4-24 Tags an agent can set: spam/promo/important/urgent/etudes derived from the classification, MCP tool `mail_message_tag` (action write, so approvals apply), IMAP keyword mirror, lock on mail the human corrected — deps: V4-26, V4-27
+- [ ] V4-28 Classify the folders the user picks, not only Inbox and Spam; bounded catch-up of mail classified by an older questions version — deps: V4-26
+- [ ] V4-29 Deterministic rules fired on mail arrival (no AI), `tag` action, per-domain exclusion list: replaces the external Python sorter — deps: V4-24
+- [ ] V4-30 A human correction applies deterministically instead of being a prompt hint, and per domain as well as per address
+- [ ] V4-31 `make up` on a half-finished dev install: a clear diagnosis instead of looping on `permission denied for table oc_migrations`; `make doctor` target
+- [ ] V4-32 Agents read and filter tags (`mail_message_list`, `mail_message_get`)
+- [ ] V4-33 Per-account setting: publish the 5 tags as IMAP keywords so a phone sees them — deps: V4-24
