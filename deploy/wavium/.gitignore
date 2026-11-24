@@ -1,4 +1,10 @@
 # Local install state: passwords, build log, backups. Never commit.
 .env
+# A copy of .env carries the same real passwords. `.env` alone did not cover
+# the ones the 2026-11-24 incident left behind, so one `git add -A` would have
+# committed them (rule A2). .env.example stays tracked: it holds no secret.
+.env.bak*
+.env.sav*
+.env.old*
 build.log
 backups/
