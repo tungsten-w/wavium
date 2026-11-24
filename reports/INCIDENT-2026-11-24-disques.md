@@ -652,11 +652,26 @@ Ce n'est pas une sequelle de la panne : la sauvegarde `pre-v42` du 23 a 14h51
 contenait deja 3398 lignes en attente, 0 classee et 0 fournisseur IA.
 
 Corrige sur `night/V4-34` : les deux stacks de production nomment desormais
-`app`, et `server/ai/triage-stack.test.ts` tient l'invariant. La correction ne
-prendra effet qu'une fois le conteneur `cron` recree.
+`app`, et `server/ai/triage-stack.test.ts` tient l'invariant.
+
+**Applique et verifie sur l'instance, le 2026-11-24 a 21h15 UTC.** Le conteneur
+`cron` a ete recree sur accord du proprietaire ; Docker a recree `app` avec
+lui, le bloc d'environnement etant partage (quelques secondes de coupure, temps de
+reponse revenus a la normale ensuite). Le pipeline etait en `backoff` jusqu'a
+21h15 apres 11 echecs : le premier tick suivant le correctif n'a donc rien
+retente, ce qui est correct. A 21h15:17, un tick de `cron.php` a fait passer
+`triage_state` de `backoff` a `not_configured`, et le message de l'erreur
+reseau opaque a :
+
+    No AI for mail triage: no AI provider is configured. Add one in Settings > AI.
+
+L'echec reseau a disparu. Ce qui repond maintenant, c'est la cause restante.
+La file est intacte : 3401 `pending`, 0 parque, 0 essai compte.
 
 **Deuxieme cause, qui demande une decision** : `oc_atrium_ai_providers` est
 vide. Avec la bonne URL, la route repond 409 `not_configured` et le worker
-laisse chaque mail `pending` avec "No AI for mail triage. Add one in
-Settings > AI." — aucun essai compte, rien de parque, rien de perdu. Ajouter un
-fournisseur demande une vraie cle et une decision de depense.
+laisse chaque mail `pending` avec le message cite plus haut : aucun essai
+compte, rien de parque, rien de perdu. Ajouter un fournisseur demande une
+vraie cle et une decision de depense, c'est donc celle du proprietaire
+(Settings > AI). Les plafonds sont aux valeurs par defaut : 1,00 EUR au total,
+0,30 EUR pour le rattrapage.
