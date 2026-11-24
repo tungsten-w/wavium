@@ -24,6 +24,11 @@ x-nextcloud: &nextcloud
     OVERWRITECLIURL: https://${ATRIUM_DOMAIN}
     PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-512M}
     PHP_UPLOAD_LIMIT: ${PHP_UPLOAD_LIMIT:-10G}
+    # Mail triage: PHP asks the Bun server by service name. Without this the
+    # default is http://web:8080, a service this stack does not have, so every
+    # classification failed on a name that cannot resolve. Never 127.0.0.1:
+    # this block is shared with cron, where nothing listens on port 80.
+    ATRIUM_SERVER_URL: http://app:80
   volumes:
     - ${DATA_DIR:-../live/data}/nextcloud:/var/www/html
     - ../apps/daily_todo:/var/www/html/custom_apps/daily_todo

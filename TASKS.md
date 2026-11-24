@@ -134,3 +134,4 @@ ADR 0010, waits for the owner's go), the rest in any order.
 - [ ] V4-31 `make up` on a half-finished dev install: a clear diagnosis instead of looping on `permission denied for table oc_migrations`; `make doctor` target
 - [x] V4-32 Agents read and filter tags (`mail_message_list`, `mail_message_get`) — done as part of V4-24 (the tags are derived from the classification, so reading them is the same query)
 - [ ] V4-33 Per-account setting: publish the 5 tags as IMAP keywords so a phone sees them — deps: V4-24
+- [x] V4-34 Classification could never reach the AI: `ATRIUM_SERVER_URL` was `http://127.0.0.1:80` in the production stacks' shared environment block, where the cron service that runs the triage worker has nothing on port 80 (and `deploy/compose.yaml` declared none at all, falling back to a `web` service it does not have); both now name `app`, with a test holding the invariant for all three stacks — report: reports/V4-34.md

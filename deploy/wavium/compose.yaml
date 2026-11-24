@@ -36,8 +36,13 @@ x-app: &app
     OVERWRITECLIURL: https://${WAVIUM_DOMAIN}${WAVIUM_PUBLIC_PORT_SUFFIX:-}
     PHP_MEMORY_LIMIT: ${WAVIUM_PHP_MEMORY:-512M}
     PHP_UPLOAD_LIMIT: ${WAVIUM_UPLOAD_LIMIT:-10G}
-    # Mail triage: PHP asks the Bun server in the same container.
-    ATRIUM_SERVER_URL: http://127.0.0.1:80
+    # Mail triage: PHP asks the Bun server over the network, by service name.
+    # Not 127.0.0.1: this block is shared with the cron service, where nothing
+    # listens on port 80, and the triage worker runs there. Loopback made every
+    # classification fail with "AI unreachable: cURL error 7" while the status
+    # page still showed the pipeline as on. From the app container the name
+    # resolves to itself, so one value is right for both.
+    ATRIUM_SERVER_URL: http://app:80
     ATRIUM_NTFY_URL: ${WAVIUM_NTFY_URL:-}
     ATRIUM_NTFY_TOKEN: ${WAVIUM_NTFY_TOKEN:-}
     ATRIUM_WEBHOOK_ALLOW: ${WAVIUM_WEBHOOK_ALLOW:-}
