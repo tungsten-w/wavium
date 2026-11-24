@@ -238,3 +238,22 @@ imported correctly, which is why this hides so well.
 So a browser test must not star a message and then expect a later sync to agree:
 seed the flag on the server before the first sync (`deploy/dev/seed.php` sets
 `\Flagged` on one of alice's mails for exactly this) and assert on that.
+
+## A controller parameter called `limit` is range-checked by the framework (V4-28)
+
+`POST /apps/mail/api/triage/backfill` was written as `backfill(int $limit = 100)`,
+with the service clamping anything bigger than its own cap. Asked for 9999, the
+endpoint answered **500 Internal Server Error**, and the log said "Parameter
+limit must be between 1 and 500" — before the controller ran at all.
+
+`Dispatcher::ensureParameterValueSatisfiesRange()` reads a psalm range from the
+docblock (`@param int<1, 500> $foo`) and, failing that, applies a default range
+of 1..500 **to any parameter literally named `limit`**
+(`lib/private/AppFramework/Http/Dispatcher.php`). Out of range is a thrown
+`ParameterOutOfRangeException`, which on a plain app route becomes a 500, not a
+400. Renaming the parameter (`$max`) let the service clamp as intended.
+
+Two things to keep: the parameter *name* can carry framework behaviour, so a
+value a service means to clamp has to reach it first; and unit tests cannot see
+this — the clamp was tested and green, and only a call against the running stack
+showed the 500.

@@ -383,8 +383,10 @@ export interface TriageStatus {
 	recent: { subject: string | null, messageId: number | null, category: string | null, urgency: string | null, needsReply: number | null, needsAction: number | null, suspicious: number | null, classifiedAt: number, costEur: number, tokens: number }[]
 	problems: { subject: string | null, messageId: number | null, status: string, attempts: number, error: string | null, at: number }[]
 	copy: { accountId: number, inList: number, withBody: number, missingBody: number, onlyInAtrium: number, keptRows: number, keptWithText: number, orphanTexts: number, bodiesTotal: number }[]
-	folders: { id: number, accountId: number, name: string, specialUse: string[], serverMessages: number, serverUnread: number, cached: boolean, syncing: boolean, stored: number, kept: number, previews: number, queued: number, classified: number, bodies: number }[]
+	folders: { id: number, accountId: number, name: string, specialUse: string[], serverMessages: number, serverUnread: number, cached: boolean, syncing: boolean, stored: number, kept: number, previews: number, queued: number, classified: number, bodies: number, inTriage?: boolean }[]
 	jobs: { name: string, accountId: number | null, lastRun: number, running: boolean, duration: number }[]
+	/** V4-28: mail classified by an older question set, and what redoing it would cost. Older servers: absent. */
+	outdated?: { version: string, count: number, perMailEur: number, estimateEur: number }
 }
 export const triageStatus = () => mail<TriageStatus>('/triage/status')
 export const triageFor = (ids: number[]) => ids.length ? mail<Record<string, Triage>>(`/triage/messages?ids=${ids.join(',')}`) : Promise.resolve({} as Record<string, Triage>)
@@ -399,6 +401,12 @@ export async function correctTriage(body: Record<string, unknown>): Promise<{ co
 }
 export const reclassify = (id: number) => mail<{ queued: boolean, classified: boolean, reason: string | null, triage: Triage | null }>(`/triage/messages/${id}/reclassify`, { method: 'POST' })
 export const setTriageEnabled = (enabled: boolean) => mail<{ enabled: boolean }>('/triage/enabled', { method: 'PUT', body: { enabled } })
+/** V4-28: the folders of one account to classify. Empty list = nothing from this account. */
+export const setTriageFolders = (accountId: number, mailboxIds: number[]) =>
+	mail<{ accountId: number, mailboxIds: number[] }>('/triage/folders', { method: 'PUT', body: { accountId, mailboxIds } })
+/** V4-28: queue up to `max` mails classified by an older question set, as backlog. */
+export const triageBackfill = (max: number) =>
+	mail<{ queued: number, remaining: number, max: number, estimateEur: number }>('/triage/backfill', { method: 'POST', body: { max } })
 
 export const categoryLabels: Record<string, string> = {
 	personal: 'Personal', work: 'Work', etudes: 'Studies', admin: 'Admin', orders: 'Orders', security: 'Security',

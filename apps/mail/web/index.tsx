@@ -534,7 +534,7 @@ function TriageLine({ t, busy, dbId, onTriage }: { t?: Triage | null, busy: bool
 	}
 	if (t.queue === 'pending') return <p className="ml-triage"><Icon name="schedule" /> Waiting to be classified{t.attempts ? ` (tried ${t.attempts}×: ${t.error ?? 'error'})` : ''}</p>
 	if (t.queue === 'parked') return <p className="ml-triage ml-triage--error"><Icon name="warning" /> Classification gave up: {t.error ?? 'unknown error'}. Use ⋮ › Reclassify to try again.</p>
-	return <p className="ml-triage"><Icon name="label" /> Not classified (only Inbox and Spam are classified automatically). Use ⋮ › Reclassify.</p>
+	return <p className="ml-triage"><Icon name="label" /> Not classified (its folder is not one of the classified ones — Mail status › Folders). Use ⋮ › Reclassify.</p>
 }
 
 /** "Wrong, it's …": fixes this mail now and teaches the classifier for this sender (V4-10). */

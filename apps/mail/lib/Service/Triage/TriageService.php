@@ -37,7 +37,8 @@ use Throwable;
  * Backend: app config `triage_backend` = ai | tollgate; unset = tollgate when a
  * tollgate token exists (existing installs keep working), else ai.
  *
- * Pipeline: enqueue() finds inbox/spam mail not seen yet -> mail_triage_queue
+ * Pipeline: enqueue() finds mail not seen yet in the classified folders (the
+ * inbox and spam folder, or the folders chosen per account: V4-28) -> mail_triage_queue
  * (pending) -> classify() fetches the text over IMAP (peek), asks the
  * decisions API, stores mail_triage and marks the queue row done. New mail
  * goes first; the backlog runs newest first under its own daily € cap.
@@ -45,6 +46,12 @@ use Throwable;
  */
 class TriageService {
 	public const STATE_KEY = 'triage_state';
+	/** App config key: folders to classify, per account id (V4-28). */
+	public const FOLDERS_KEY = 'triage_folders';
+	/** Never queue more than this in one catch-up, whatever is asked (V4-28). */
+	public const BACKFILL_MAX = 500;
+	/** A mail the owner classified by hand: its model, never overwritten by a catch-up. */
+	public const CORRECTED_BY_USER = 'corrected-by-user';
 
 	/** @var array<int, \Horde_Imap_Client_Socket> One IMAP login per account per run: Gmail locks out frequent logins. */
 	private array $imap = [];
@@ -175,30 +182,134 @@ class TriageService {
 		return ['version' => (string)$d['version'], 'model' => (string)($d['model'] ?? 'gpt-6-luna'), 'questions' => $d['questions']];
 	}
 
-	/** @return list<Mailbox> Inbox and spam folders: the mail worth classifying. */
+	/** @return list<Mailbox> The folders worth classifying: the ones chosen per account, Inbox and Spam by default. */
 	private function triageMailboxes(): array {
 		$qb = $this->db->getQueryBuilder();
 		$rows = $qb->select('id')->from('mail_mailboxes')->executeQuery()->fetchAll();
 		$boxes = $this->mailboxes->findByIds(array_map(static fn ($r) => (int)$r['id'], $rows));
-		return array_values(array_filter($boxes, static fn (Mailbox $b) => $b->isInbox() || $b->isSpecialUse(Horde_Imap_Client::SPECIALUSE_JUNK)));
+		$choice = $this->folderChoice();
+		return array_values(array_filter($boxes, static function (Mailbox $b) use ($choice) {
+			$picked = $choice[$b->getAccountId()] ?? null;
+			return $picked === null ? self::isDefaultFolder($b) : in_array($b->getId(), $picked, true);
+		}));
+	}
+
+	/** What gets classified when nobody chose: the inbox and the spam folder. */
+	private static function isDefaultFolder(Mailbox $b): bool {
+		return self::isDefaultFolderRow($b->getName(), json_decode($b->getSpecialUse() ?? '[]', true) ?: []);
 	}
 
 	/**
-	 * Queue every inbox/spam mail not queued yet. Scans only mail_messages rows
-	 * newer than the last scan, so a run after the first is cheap.
+	 * The same rule from a mail_mailboxes row, for the status page: one rule, one
+	 * place, so the page cannot disagree with the pipeline about which folders
+	 * are classified.
+	 *
+	 * @param list<string> $specialUse
+	 */
+	public static function isDefaultFolderRow(string $name, array $specialUse): bool {
+		$junk = ltrim(strtolower(Horde_Imap_Client::SPECIALUSE_JUNK), '\\');
+		return strtolower($name) === 'inbox'
+			|| in_array($junk, array_map(static fn ($v) => ltrim(strtolower((string)$v), '\\'), $specialUse), true);
+	}
+
+	/**
+	 * Folders to classify, per account id (V4-28). An account with no entry
+	 * falls back to Inbox and Spam, which is all the pipeline ever classified
+	 * before; an entry with an empty list means "classify nothing here", which
+	 * is a choice and is kept as one.
+	 *
+	 * @return array<int, list<int>>
+	 */
+	public function folderChoice(): array {
+		$raw = json_decode($this->appConfig->getValueString(Application::APP_ID, self::FOLDERS_KEY, '{}'), true);
+		if (!is_array($raw)) {
+			return [];
+		}
+		$out = [];
+		foreach ($raw as $account => $ids) {
+			if (!is_array($ids)) {
+				continue;
+			}
+			$out[(int)$account] = array_values(array_unique(array_map('intval', array_filter($ids, 'is_numeric'))));
+		}
+		return $out;
+	}
+
+	/**
+	 * The folders of one account to classify, chosen by the person who owns the
+	 * account. Ids that are not this account's folders are dropped rather than
+	 * trusted, so this endpoint cannot be used to read or touch anyone else's
+	 * mail. A folder added here is scanned from its oldest mail, as backlog
+	 * (see enqueue()), so choosing one cannot eat today's budget for new mail.
+	 *
+	 * @param list<int> $mailboxIds
+	 * @return list<int> what was stored
+	 * @throws DoesNotExistException when the account is not this user's
+	 */
+	public function setClassifiedFolders(string $userId, int $accountId, array $mailboxIds): array {
+		$qb = $this->db->getQueryBuilder();
+		$own = $qb->select('id')->from('mail_accounts')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($accountId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId)))
+			->executeQuery()->fetchOne();
+		if ($own === false) {
+			throw new DoesNotExistException("account $accountId");
+		}
+		$qb = $this->db->getQueryBuilder();
+		$mine = array_map('intval', $qb->select('id')->from('mail_mailboxes')
+			->where($qb->expr()->eq('account_id', $qb->createNamedParameter($accountId, IQueryBuilder::PARAM_INT)))
+			->executeQuery()->fetchAll(\PDO::FETCH_COLUMN));
+		$keep = array_values(array_intersect(array_unique(array_map('intval', $mailboxIds)), $mine));
+		$choice = $this->folderChoice();
+		$choice[$accountId] = $keep;
+		$this->appConfig->setValueString(Application::APP_ID, self::FOLDERS_KEY, json_encode($choice) ?: '{}');
+		return $keep;
+	}
+
+	/**
+	 * Per-folder scan cursor: ['upTo' => highest mail_messages.id seen there,
+	 * 'done' => its first full scan is over].
+	 *
+	 * Until V4-28 one global cursor covered the only two folders ever scanned
+	 * (Inbox and Spam). The first run of this code hands that cursor to those
+	 * two, once -- the presence of the 'boxes' key is the marker -- and a folder
+	 * chosen later starts at 0 with 'done' false, so its existing mail is
+	 * queued as backlog instead of passing for new mail.
+	 *
+	 * @param list<Mailbox> $boxes
+	 * @return array<int, array{upTo: int, done: bool}>
+	 */
+	private function boxCursors(array $boxes): array {
+		$state = $this->state();
+		$raw = $state['boxes'] ?? null;
+		$seed = !is_array($raw);
+		$legacy = (int)($state['scannedUpTo'] ?? 0);
+		$legacyDone = (bool)($state['firstScanDone'] ?? false);
+		$out = [];
+		foreach ($boxes as $b) {
+			if ($seed) {
+				$inherits = $legacyDone && self::isDefaultFolder($b);
+				$out[$b->getId()] = ['upTo' => $inherits ? $legacy : 0, 'done' => $inherits];
+				continue;
+			}
+			$c = $raw[(string)$b->getId()] ?? null;
+			$c = is_array($c) ? $c : [];
+			$out[$b->getId()] = ['upTo' => (int)($c['upTo'] ?? 0), 'done' => (bool)($c['done'] ?? false)];
+		}
+		return $out;
+	}
+
+	/**
+	 * Queue every mail of the classified folders that is not queued yet. Each
+	 * folder keeps its own cursor (see boxCursors()), so a run after the first
+	 * is cheap and a folder chosen later is scanned from its oldest mail.
 	 */
 	public function enqueue(): int {
 		$boxes = $this->triageMailboxes();
 		if ($boxes === []) {
 			return 0;
 		}
-		$accountOf = [];
-		foreach ($boxes as $b) {
-			$accountOf[$b->getId()] = $b->getAccountId();
-		}
-		$state = $this->state();
-		$upTo = (int)($state['scannedUpTo'] ?? 0);
-		$firstDone = (bool)($state['firstScanDone'] ?? false);
+		$cursors = $this->boxCursors($boxes);
 		$now = $this->time->getTime();
 		$recent = $now - $this->settings()['newDays'] * 86400;
 
@@ -208,57 +319,164 @@ class TriageService {
 		}
 
 		$added = 0;
-		while (true) {
-			$qb = $this->db->getQueryBuilder();
-			$rows = $qb->select('id', 'mailbox_id', 'message_id', 'sent_at')
-				->from('mail_messages')
-				->where($qb->expr()->gt('id', $qb->createNamedParameter($upTo, IQueryBuilder::PARAM_INT)))
-				->andWhere($qb->expr()->in('mailbox_id', $qb->createNamedParameter(array_keys($accountOf), IQueryBuilder::PARAM_INT_ARRAY)))
-				->orderBy('id', 'ASC')
-				->setMaxResults(1000)
-				->executeQuery()->fetchAll();
-			if ($rows === []) {
-				break;
-			}
-			$this->db->beginTransaction();
-			try {
-				foreach ($rows as $r) {
-					$upTo = max($upTo, (int)$r['id']);
-					$accountId = $accountOf[(int)$r['mailbox_id']];
-					$hash = self::hash($r['message_id'], (int)$r['id']);
-					$key = "$accountId:$hash";
-					if (isset($known[$key])) {
-						// Seen before (other folder, or resynced): remember the newest db id.
-						$u = $this->db->getQueryBuilder();
-						$u->update('mail_triage_queue')->set('db_id', $u->createNamedParameter((int)$r['id'], IQueryBuilder::PARAM_INT))
-							->where($u->expr()->eq('account_id', $u->createNamedParameter($accountId, IQueryBuilder::PARAM_INT)))
-							->andWhere($u->expr()->eq('msg_hash', $u->createNamedParameter($hash)))
-							->executeStatement();
-						continue;
-					}
-					$known[$key] = true;
-					$sentAt = (int)$r['sent_at'];
-					$i = $this->db->getQueryBuilder();
-					$i->insert('mail_triage_queue')->values([
-						'account_id' => $i->createNamedParameter($accountId, IQueryBuilder::PARAM_INT),
-						'msg_hash' => $i->createNamedParameter($hash),
-						'db_id' => $i->createNamedParameter((int)$r['id'], IQueryBuilder::PARAM_INT),
-						'priority' => $i->createNamedParameter(($firstDone || $sentAt >= $recent) ? 1 : 0, IQueryBuilder::PARAM_INT),
-						'sent_at' => $i->createNamedParameter($sentAt, IQueryBuilder::PARAM_INT),
-						'status' => $i->createNamedParameter('pending'),
-						'enqueued_at' => $i->createNamedParameter($now, IQueryBuilder::PARAM_INT),
-						'updated_at' => $i->createNamedParameter($now, IQueryBuilder::PARAM_INT),
-					])->executeStatement();
-					$added++;
+		foreach ($boxes as $box) {
+			$accountId = $box->getAccountId();
+			$upTo = $cursors[$box->getId()]['upTo'];
+			// Before the first full scan of this folder, mail older than newDays is
+			// backlog (priority 0, its own daily cap); after it, anything new here
+			// really is new mail.
+			$firstDone = $cursors[$box->getId()]['done'];
+			while (true) {
+				$qb = $this->db->getQueryBuilder();
+				$rows = $qb->select('id', 'message_id', 'sent_at')
+					->from('mail_messages')
+					->where($qb->expr()->gt('id', $qb->createNamedParameter($upTo, IQueryBuilder::PARAM_INT)))
+					->andWhere($qb->expr()->eq('mailbox_id', $qb->createNamedParameter($box->getId(), IQueryBuilder::PARAM_INT)))
+					->orderBy('id', 'ASC')
+					->setMaxResults(1000)
+					->executeQuery()->fetchAll();
+				if ($rows === []) {
+					break;
 				}
-				$this->db->commit();
-			} catch (Throwable $e) {
-				$this->db->rollBack();
-				throw $e;
+				$this->db->beginTransaction();
+				try {
+					foreach ($rows as $r) {
+						$upTo = max($upTo, (int)$r['id']);
+						$hash = self::hash($r['message_id'], (int)$r['id']);
+						$key = "$accountId:$hash";
+						if (isset($known[$key])) {
+							// Seen before (other folder, or resynced): remember the newest db id.
+							$u = $this->db->getQueryBuilder();
+							$u->update('mail_triage_queue')->set('db_id', $u->createNamedParameter((int)$r['id'], IQueryBuilder::PARAM_INT))
+								->where($u->expr()->eq('account_id', $u->createNamedParameter($accountId, IQueryBuilder::PARAM_INT)))
+								->andWhere($u->expr()->eq('msg_hash', $u->createNamedParameter($hash)))
+								->executeStatement();
+							continue;
+						}
+						$known[$key] = true;
+						$sentAt = (int)$r['sent_at'];
+						$i = $this->db->getQueryBuilder();
+						$i->insert('mail_triage_queue')->values([
+							'account_id' => $i->createNamedParameter($accountId, IQueryBuilder::PARAM_INT),
+							'msg_hash' => $i->createNamedParameter($hash),
+							'db_id' => $i->createNamedParameter((int)$r['id'], IQueryBuilder::PARAM_INT),
+							'priority' => $i->createNamedParameter(($firstDone || $sentAt >= $recent) ? 1 : 0, IQueryBuilder::PARAM_INT),
+							'sent_at' => $i->createNamedParameter($sentAt, IQueryBuilder::PARAM_INT),
+							'status' => $i->createNamedParameter('pending'),
+							'enqueued_at' => $i->createNamedParameter($now, IQueryBuilder::PARAM_INT),
+							'updated_at' => $i->createNamedParameter($now, IQueryBuilder::PARAM_INT),
+						])->executeStatement();
+						$added++;
+					}
+					$this->db->commit();
+				} catch (Throwable $e) {
+					$this->db->rollBack();
+					throw $e;
+				}
 			}
+			$cursors[$box->getId()] = ['upTo' => $upTo, 'done' => true];
 		}
-		$this->saveState(['scannedUpTo' => $upTo, 'firstScanDone' => true, 'lastScan' => $now]);
+		$boxState = [];
+		foreach ($cursors as $id => $c) {
+			$boxState[(string)$id] = $c;
+		}
+		// Folders dropped from the choice keep their cursor: chosen again, they are
+		// not rescanned from scratch.
+		$kept = $this->state()['boxes'] ?? [];
+		// $boxState first: on a folder present in both, the cursor from this run wins.
+		$this->saveState(['boxes' => $boxState + (is_array($kept) ? $kept : []), 'lastScan' => $now]);
 		return $added;
+	}
+
+	/**
+	 * Mail classified by an older question set, and what redoing it would cost
+	 * (V4-28). Mail the owner corrected by hand is left out: a catch-up must
+	 * never overwrite the answer a person gave. Mail already waiting in the
+	 * queue is left out too -- it will be redone anyway.
+	 *
+	 * @param int[] $accountIds
+	 * @return array{version: string, count: int, perMailEur: float, estimateEur: float}
+	 */
+	private function outdatedFor(array $accountIds): array {
+		$version = $this->questions()['version'];
+		if ($accountIds === []) {
+			return ['version' => $version, 'count' => 0, 'perMailEur' => 0.0, 'estimateEur' => 0.0];
+		}
+		$q = $this->outdatedQuery($accountIds, $version);
+		$count = (int)$q->select($q->func()->count('*'))->executeQuery()->fetchOne();
+
+		// What one mail costs: the average of the last classifications, which is
+		// measured rather than guessed. Nothing priced yet (fresh install, or the
+		// tollgate path): estimate from the text actually sent.
+		$s = $this->settings();
+		$qb = $this->db->getQueryBuilder();
+		$costs = array_map('floatval', $qb->select('cost_eur')->from('mail_triage')
+			->where($qb->expr()->in('account_id', $qb->createNamedParameter($accountIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->gt('cost_eur', $qb->createNamedParameter(0)))
+			->orderBy('classified_at', 'DESC')->setMaxResults(100)
+			->executeQuery()->fetchAll(\PDO::FETCH_COLUMN));
+		$perMail = $costs !== []
+			? array_sum($costs) / count($costs)
+			: (ceil($s['bodyChars'] / 4) + 500) / 1e6 * $s['pricePerMUsd'] * $s['usdToEur'];
+		return ['version' => $version, 'count' => $count, 'perMailEur' => $perMail, 'estimateEur' => $count * $perMail];
+	}
+
+	/**
+	 * Mail classified by an older question set, for this user's accounts.
+	 * @return array{version: string, count: int, perMailEur: float, estimateEur: float}
+	 */
+	public function outdated(string $userId): array {
+		return $this->outdatedFor(array_map(static fn (Account $a) => $a->getId(), $this->accounts->findByUserId($userId)));
+	}
+
+	/**
+	 * The queue rows of mail classified by an older question set. Shared by the
+	 * count and the catch-up so the number shown is the number redone.
+	 *
+	 * @param int[] $accountIds
+	 */
+	private function outdatedQuery(array $accountIds, string $version): IQueryBuilder {
+		$qb = $this->db->getQueryBuilder();
+		$qb->from('mail_triage', 't')
+			->join('t', 'mail_triage_queue', 'q', $qb->expr()->andX($qb->expr()->eq('q.account_id', 't.account_id'), $qb->expr()->eq('q.msg_hash', 't.msg_hash')))
+			->where($qb->expr()->in('t.account_id', $qb->createNamedParameter($accountIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->neq('t.version', $qb->createNamedParameter($version)))
+			->andWhere($qb->expr()->neq('t.model', $qb->createNamedParameter(self::CORRECTED_BY_USER)))
+			->andWhere($qb->expr()->neq('q.status', $qb->createNamedParameter('pending')));
+		return $qb;
+	}
+
+	/**
+	 * Queue up to $limit of those mails again, newest first, as backlog
+	 * (priority 0) so today's backlog cap governs what it spends (V4-28).
+	 * Explicit action only: nothing calls this on its own.
+	 *
+	 * @return array{queued: int, remaining: int, max: int, estimateEur: float}
+	 */
+	public function requeueOutdated(string $userId, int $limit): array {
+		$limit = max(1, min($limit, self::BACKFILL_MAX));
+		$ids = array_map(static fn (Account $a) => $a->getId(), $this->accounts->findByUserId($userId));
+		if ($ids === []) {
+			return ['queued' => 0, 'remaining' => 0, 'max' => $limit, 'estimateEur' => 0.0];
+		}
+		$version = $this->questions()['version'];
+		$rows = $this->outdatedQuery($ids, $version)->select('q.id')
+			->orderBy('q.sent_at', 'DESC')->setMaxResults($limit)->executeQuery()->fetchAll(\PDO::FETCH_COLUMN);
+		$queue = array_map('intval', $rows);
+		if ($queue !== []) {
+			$now = $this->time->getTime();
+			$u = $this->db->getQueryBuilder();
+			$u->update('mail_triage_queue')
+				->set('status', $u->createNamedParameter('pending'))
+				->set('priority', $u->createNamedParameter(0, IQueryBuilder::PARAM_INT))
+				->set('attempts', $u->createNamedParameter(0, IQueryBuilder::PARAM_INT))
+				->set('last_error', $u->createNamedParameter(null))
+				->set('updated_at', $u->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+				->where($u->expr()->in('id', $u->createNamedParameter($queue, IQueryBuilder::PARAM_INT_ARRAY)))
+				->executeStatement();
+		}
+		$left = $this->outdatedFor($ids);
+		return ['queued' => count($queue), 'remaining' => $left['count'], 'max' => $limit, 'estimateEur' => count($queue) * $left['perMailEur']];
 	}
 
 	/** Log out of every IMAP connection this run opened. */
@@ -1240,12 +1458,17 @@ class TriageService {
 					$mine[$k]['classified'] = (int)$r['n'];
 				}
 			}
+			$choice = $this->folderChoice();
 			foreach ($boxes as $b) {
 				$c = $counts[(int)$b['id']] ?? [];
 				$lock = max((int)$b['sync_new_lock'], (int)$b['sync_changed_lock'], (int)$b['sync_vanished_lock']);
+				$su = json_decode((string)$b['special_use'], true) ?: [];
+				$picked = $choice[(int)$b['account_id']] ?? null;
 				$folders[] = [
 					'id' => (int)$b['id'], 'accountId' => (int)$b['account_id'], 'name' => $b['name'],
-					'specialUse' => json_decode((string)$b['special_use'], true) ?: [],
+					'specialUse' => $su,
+					// Whether this folder's mail gets classified (V4-28).
+					'inTriage' => $picked === null ? self::isDefaultFolderRow((string)$b['name'], $su) : in_array((int)$b['id'], $picked, true),
 					'serverMessages' => (int)$b['messages'], 'serverUnread' => (int)$b['unseen'],
 					'cached' => $b['sync_new_token'] !== null, 'syncing' => $lock > $now - 300,
 					'stored' => ($c['analyzed'] ?? 0) + ($c['raw'] ?? 0), 'previews' => $c['analyzed'] ?? 0,
@@ -1335,6 +1558,7 @@ class TriageService {
 			'recent' => $recent,
 			'problems' => $parked,
 			'folders' => $folders,
+			'outdated' => $this->outdatedFor($ids),
 			'copy' => $copy,
 			'jobs' => $jobs,
 			'sync' => $this->syncStatus($ids),

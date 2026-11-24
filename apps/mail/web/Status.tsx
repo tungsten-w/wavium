@@ -3,9 +3,9 @@
 // Mail status: the whole pipeline at a glance, from IMAP sync to classification.
 import { useCallback, useEffect, useState } from 'react'
 import { relativeTime } from '@atrium/sdk'
-import { Card, NavToggle, Progress, Spinner, Switch, toast } from '@atrium/ui'
+import { Button, Card, Checkbox, NavToggle, Progress, Spinner, Switch, toast } from '@atrium/ui'
 import { MailFlow } from './MailFlow'
-import { categoryLabels, DEFAULT_CURATED_HIDES, filterCategories, loadCuratedHides, saveCuratedHides, setTriageEnabled, triageStatus, urgencyLabels, type TriageStatus } from './api'
+import { categoryLabels, DEFAULT_CURATED_HIDES, filterCategories, loadCuratedHides, saveCuratedHides, setTriageEnabled, setTriageFolders, triageBackfill, triageStatus, urgencyLabels, type TriageStatus } from './api'
 
 const stateText: Record<string, [string, string]> = {
 	running: ['Classifying', 'ok'],
@@ -54,6 +54,8 @@ export function MailStatus({ onCuratedChange, onShowCategory }: { onCuratedChang
 	const [hides, setHides] = useState<string[]>([...DEFAULT_CURATED_HIDES])
 	useEffect(() => { loadCuratedHides().then(setHides).catch(() => {}) }, [])
 	const [busy, setBusy] = useState(false)
+	/** Folder whose "Classified" box is being saved (0 = none). */
+	const [folder, setFolder] = useState(0)
 	const load = useCallback(() => triageStatus().then(setS).catch((e) => toast.error(e instanceof Error ? e.message : String(e))), [])
 	useEffect(() => {
 		void load()
@@ -76,6 +78,22 @@ export function MailStatus({ onCuratedChange, onShowCategory }: { onCuratedChang
 	const toggle = async (on: boolean) => {
 		setBusy(true)
 		try { await setTriageEnabled(on); await load() } catch (e) { toast.error(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+	}
+	// V4-28: which folders of this account get classified. The whole list of the
+	// account is sent, so unchecking the inbox is a real choice and not "nothing
+	// chosen" (which would fall back to Inbox and Spam).
+	const toggleFolder = async (f: TriageStatus['folders'][number]) => {
+		const next = s.folders.filter((x) => x.accountId === f.accountId && (x.id === f.id ? !x.inTriage : x.inTriage)).map((x) => x.id)
+		setFolder(f.id)
+		try { await setTriageFolders(f.accountId, next); await load() } catch (e) { toast.error(e instanceof Error ? e.message : String(e)) } finally { setFolder(0) }
+	}
+	const catchUp = async (howMany: number) => {
+		setBusy(true)
+		try {
+			const r = await triageBackfill(howMany)
+			toast(r.queued ? `${r.queued} mails queued${r.remaining ? `, ${r.remaining} still on the old question set` : ''}.` : 'Nothing to catch up.')
+			await load()
+		} catch (e) { toast.error(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
 	}
 
 	return <div className="ml-st">
@@ -128,6 +146,12 @@ export function MailStatus({ onCuratedChange, onShowCategory }: { onCuratedChang
 			<Progress value={s.spent.todayBackfillEur / s.settings.capBackfillEur} />
 			<p className="ml-st__muted">This month: {eur(s.spent.monthEur)}. Days reset at midnight ({s.settings.timezone}). {s.settings.backend === 'tollgate' ? 'tollgate’s monthly budget applies on top.' : 'Estimated from tokens; the caps in Settings > AI apply on top.'}</p>
 		</Card>
+
+		{(s.outdated?.count ?? 0) > 0 && <Card className="ml-st__card ml-st__wide">
+			<h2>Catch up</h2>
+			<p className="ml-st__muted">{s.outdated!.count} mails were sorted by an older set of questions ({s.outdated!.version} is the current one), so they may be in the wrong category. Redoing them costs about {eur(s.outdated!.estimateEur)} in all ({eur(s.outdated!.perMailEur)} each) and runs as backlog, under today’s {eur(s.settings.capBackfillEur)} backlog budget — a few hundred a day, not all at once. Mail you corrected by hand is left alone.</p>
+			<Button disabled={busy} onClick={() => void catchUp(100)}>Redo {Math.min(s.outdated!.count, 100)} now</Button>
+		</Card>}
 
 		<Card className="ml-st__card">
 			<h2>Last 14 days</h2>
@@ -184,11 +208,13 @@ export function MailStatus({ onCuratedChange, onShowCategory }: { onCuratedChang
 
 		<Card className="ml-st__card ml-st__wide">
 			<h2>Folders</h2>
-			<p className="ml-st__muted">Per folder: what the mail server has, what Wavium’s list holds, and how many mails Wavium has a full copy of (body text, never attachments) and has classified. “Of” counts the mails queued for classification (Inbox and Spam).</p>
-			<table className="ml-st__table"><thead><tr><th>Folder</th><th>On server</th><th>In Wavium (list)</th><th>Body stored</th><th>Classified</th><th>Previews ready</th><th>State</th></tr></thead>
+			<p className="ml-st__muted">Per folder: whether its mail is classified, what the mail server has, what Wavium’s list holds, and how many mails Wavium has a full copy of (body text, never attachments) and has classified. Tick “Classify” to sort another folder: its mail already there is picked up as backlog, under the backlog budget below. Untouched, Wavium classifies the Inbox and Spam.</p>
+			<table className="ml-st__table"><thead><tr><th>Folder</th><th>Classify</th><th>On server</th><th>In Wavium (list)</th><th>Body stored</th><th>Classified</th><th>Previews ready</th><th>State</th></tr></thead>
 				<tbody>{s.folders.map((f) => {
 					const account = s.accounts.find((a) => a.id === f.accountId)
-					return <tr key={f.id}><td>{f.name}{s.accounts.length > 1 && <small className="ml-st__muted"> · {account?.email}</small>}</td><td>{f.serverMessages}</td><td>{f.cached ? f.stored : '–'}{f.kept > 0 && <small className="ml-st__muted" title="Kept in Wavium after the server stopped holding them"> ({f.kept} only in Wavium)</small>}</td><td>{f.queued ? `${f.bodies} of ${f.queued}` : "–"}</td><td>{f.queued ? `${f.classified} of ${f.queued}` : "–"}</td>
+					return <tr key={f.id}><td>{f.name}{s.accounts.length > 1 && <small className="ml-st__muted"> · {account?.email}</small>}</td>
+						<td><Checkbox checked={f.inTriage ?? false} disabled={folder === f.id} aria-label={`Classify ${f.name}`} onChange={() => void toggleFolder(f)} /></td>
+						<td>{f.serverMessages}</td><td>{f.cached ? f.stored : '–'}{f.kept > 0 && <small className="ml-st__muted" title="Kept in Wavium after the server stopped holding them"> ({f.kept} only in Wavium)</small>}</td><td>{f.queued ? `${f.bodies} of ${f.queued}` : "–"}</td><td>{f.queued ? `${f.classified} of ${f.queued}` : "–"}</td>
 						<td>{f.stored ? `${Math.round((f.previews / f.stored) * 100)}%` : '–'}</td><td>{f.syncing ? 'Syncing' : f.cached ? 'Synced' : 'Not synced yet (opens on first visit)'}</td></tr>
 				})}</tbody></table>
 		</Card>

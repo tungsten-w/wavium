@@ -1,15 +1,17 @@
 // SPDX-FileCopyrightText: 2026 Wavium contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// What a non-admin is told about classification (V4-26). The switch spends the
+// What a non-admin is told about classification (V4-26), and which folders get
+// classified at all plus catching up an older question set (V4-28). The switch spends the
 // instance's AI budget, so it stays admin-only; before this, everyone else saw
 // nothing on the Mail status page and could not tell whether their mail was
 // being sorted, or why it was not.
 import '../../../core/web/testing/dom'
 import { afterEach, expect, test } from 'vitest'
-import { cleanup, getByText, render } from '../../../core/web/testing/render'
+import { fakeServer } from '../../../core/web/testing/fakeServer'
+import { cleanup, click, getButton, getByText, queryByText, render, waitFor } from '../../../core/web/testing/render'
 import type { TriageStatus } from './api'
-import { ClassificationLine } from './Status'
+import { ClassificationLine, MailStatus } from './Status'
 
 afterEach(() => { cleanup() })
 
@@ -33,4 +35,86 @@ test('a provider exists but it is off: points at this page, not at Settings', as
 	const { container } = await render(<ClassificationLine settings={settings({})} />)
 	expect(getByText(container, /turn it on from this page/)).toBeTruthy()
 	expect(container.textContent).not.toContain('Settings > AI')
+})
+
+// --- V4-28: choosing the folders to classify, and catching up an old question set.
+
+const folder = (over: Partial<TriageStatus['folders'][number]>): TriageStatus['folders'][number] => ({
+	id: 1, accountId: 1, name: 'INBOX', specialUse: [], serverMessages: 3, serverUnread: 0, cached: true,
+	syncing: false, stored: 3, kept: 0, previews: 3, queued: 3, classified: 3, bodies: 3, inTriage: true, ...over,
+})
+
+const fullStatus = (over: Partial<TriageStatus> = {}): TriageStatus => ({
+	now: 1_800_000_000, canManage: true, settings: settings({ enabled: true }),
+	state: { state: 'idle', pausedUntil: null, lastRun: 1_799_999_000, lastOk: 1_799_999_000, lastScan: 1_799_999_000, lastError: null, lastErrorAt: null },
+	spent: { todayEur: 0.01, todayBackfillEur: 0, monthEur: 0.2 },
+	queue: { pendingNew: 0, pendingBacklog: 0, done: 3, parked: 0 },
+	accounts: [{ id: 1, email: 'alice@wavium.test', name: 'Alice', pendingNew: 0, pendingBacklog: 0, done: 3, parked: 0 }],
+	categories: [], flows: [], urgency: [], daily: [], recent: [], problems: [], copy: [],
+	folders: [folder({}), folder({ id: 2, name: 'Perso', inTriage: false, queued: 0, classified: 0, bodies: 0 })],
+	jobs: [], ...over,
+})
+
+test('ticking a folder sends the account’s whole list, so unticking the inbox is a real choice', async () => {
+	const server = fakeServer()
+		.on('GET', '/apps/mail/api/triage/status', () => fullStatus())
+		.on('GET', '/apps/mail/api/preferences/curated-hides', () => ({ value: '[]' }))
+		.on('PUT', '/apps/mail/api/triage/folders', () => ({ accountId: 1, mailboxIds: [1, 2] }))
+	try {
+		const { container } = await render(<MailStatus />)
+		const perso = await waitFor(() => container.querySelector<HTMLInputElement>('[aria-label="Classify Perso"]'))
+		expect(perso.checked).toBe(false)
+		expect(container.querySelector<HTMLInputElement>('[aria-label="Classify INBOX"]')!.checked).toBe(true)
+
+		await click(perso)
+
+		await waitFor(() => server.calls('PUT', '/apps/mail/api/triage/folders').length === 1)
+		expect(server.calls('PUT', '/apps/mail/api/triage/folders')[0].body).toEqual({ accountId: 1, mailboxIds: [1, 2] })
+	} finally { server.restore() }
+})
+
+test('unticking the inbox sends the rest of the account’s folders, not an empty list by accident', async () => {
+	const server = fakeServer()
+		.on('GET', '/apps/mail/api/triage/status', () => fullStatus({ folders: [folder({}), folder({ id: 2, name: 'Perso', inTriage: true })] }))
+		.on('GET', '/apps/mail/api/preferences/curated-hides', () => ({ value: '[]' }))
+		.on('PUT', '/apps/mail/api/triage/folders', () => ({ accountId: 1, mailboxIds: [2] }))
+	try {
+		const { container } = await render(<MailStatus />)
+		const inbox = await waitFor(() => container.querySelector<HTMLInputElement>('[aria-label="Classify INBOX"]'))
+
+		await click(inbox)
+
+		await waitFor(() => server.calls('PUT', '/apps/mail/api/triage/folders').length === 1)
+		expect(server.calls('PUT', '/apps/mail/api/triage/folders')[0].body).toEqual({ accountId: 1, mailboxIds: [2] })
+	} finally { server.restore() }
+})
+
+test('an older question set: the count, the cost and one bounded catch-up', async () => {
+	const server = fakeServer()
+		.on('GET', '/apps/mail/api/triage/status', () => fullStatus({ outdated: { version: 'mail-v3', count: 320, perMailEur: 0.0002, estimateEur: 0.064 } }))
+		.on('GET', '/apps/mail/api/preferences/curated-hides', () => ({ value: '[]' }))
+		.on('POST', '/apps/mail/api/triage/backfill', () => ({ queued: 100, remaining: 220, max: 100, estimateEur: 0.02 }))
+	try {
+		const { container } = await render(<MailStatus />)
+		const card = await waitFor(() => getByText(container, 'Catch up').closest('.at-card') as HTMLElement)
+		expect(card.textContent).toContain('320 mails were sorted by an older set of questions')
+		expect(card.textContent).toContain('€0.06')
+		expect(card.textContent).toContain('corrected by hand is left alone')
+
+		await click(getButton(card, 'Redo 100 now'))
+
+		await waitFor(() => server.calls('POST', '/apps/mail/api/triage/backfill').length === 1)
+		expect(server.calls('POST', '/apps/mail/api/triage/backfill')[0].body).toEqual({ max: 100 })
+	} finally { server.restore() }
+})
+
+test('nothing to catch up: no card, no button to press by mistake', async () => {
+	const server = fakeServer()
+		.on('GET', '/apps/mail/api/triage/status', () => fullStatus({ outdated: { version: 'mail-v3', count: 0, perMailEur: 0.0002, estimateEur: 0 } }))
+		.on('GET', '/apps/mail/api/preferences/curated-hides', () => ({ value: '[]' }))
+	try {
+		const { container } = await render(<MailStatus />)
+		await waitFor(() => getByText(container, 'Folders'))
+		expect(queryByText(container, 'Catch up')).toBeNull()
+	} finally { server.restore() }
 })

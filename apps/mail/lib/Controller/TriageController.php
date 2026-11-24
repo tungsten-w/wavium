@@ -96,6 +96,42 @@ class TriageController extends Controller {
 		}
 	}
 
+	/**
+	 * The folders of one account to classify (V4-28): ?accountId=1&mailboxIds[]=2
+	 * Not admin-only -- these are the person's own folders, and nothing is
+	 * classified from an account that is not theirs.
+	 */
+	#[NoAdminRequired]
+	public function setFolders(int $accountId, array $mailboxIds = []): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		try {
+			$kept = $this->triage->setClassifiedFolders($this->userId, $accountId, array_values(array_map('intval', $mailboxIds)));
+		} catch (DoesNotExistException) {
+			return new JSONResponse(['message' => 'Account not found'], Http::STATUS_NOT_FOUND);
+		}
+		return new JSONResponse(['accountId' => $accountId, 'mailboxIds' => $kept]);
+	}
+
+	/**
+	 * Catch up mail classified by an older question set (V4-28). Bounded and
+	 * explicit: it queues at most `max` mails, as backlog, so the daily backlog
+	 * cap decides how fast they are actually redone.
+	 *
+	 * The parameter is not called `limit`: the framework range-checks any
+	 * controller parameter of that name against 1..500 and answers 500 when it
+	 * is out of range (Dispatcher::ensureParameterValueSatisfiesRange), instead
+	 * of letting the service clamp it.
+	 */
+	#[NoAdminRequired]
+	public function backfill(int $max = 100): JSONResponse {
+		if ($this->userId === null) {
+			return new JSONResponse([], Http::STATUS_UNAUTHORIZED);
+		}
+		return new JSONResponse($this->triage->requeueOutdated($this->userId, $max));
+	}
+
 	/** Turn the pipeline on or off (admins: it spends the server's AI budget). */
 	public function setEnabled(bool $enabled): JSONResponse {
 		$this->triage->setEnabled($enabled);

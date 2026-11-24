@@ -241,3 +241,41 @@ diagnosis was made against their live instance. Read-only — `SELECT`s,
 container logs, deployed files — no write, no mail sent, no credential read.
 Without it the real cause would have been guesswork, because the dev stack
 cannot reproduce the condition.
+
+## 2026-11-24 — V4-28: the cheapest bug to write is the one that spends money
+
+Two halves of the same card: let a person choose which folders get classified,
+and let them redo mail sorted by an older set of questions. The first half is a
+setting; the risk is in the second.
+
+The interesting part was neither. `enqueue()` kept one cursor for the whole
+instance (`scannedUpTo`) because it only ever scanned two folders. Add a folder
+to that and there are exactly two outcomes, both wrong: the folder's mail is
+older than the cursor and is never seen, or the cursor is reset and a thousand
+old mails are queued as *new* mail — the lane whose budget is the whole daily
+cap, spent in one pass. The fix was to give each folder its own cursor and let a
+folder with no cursor start at zero in the backlog lane, which is what the very
+first scan of the inbox already did. The one-time hand-over of the old global
+cursor to Inbox and Spam is guarded by the presence of the new key, so no
+instance rescans what it already classified. A test pins both directions: mail
+already in a folder chosen later is backlog, the next mail to arrive there is
+new mail.
+
+The catch-up leaves two things alone: mail the owner corrected by hand — a
+re-run must never overwrite a person's answer — and mail already queued. It
+prices itself from the average of the last hundred real classifications, so the
+page can say "about €0.0006" before anything runs, and a hard cap of 500 per
+call sits on top of the daily backlog cap.
+
+Then the dev stack found what six green unit tests could not. `POST /triage/backfill`
+with `max` 9999 answered **500**: the framework range-checks any controller
+parameter *named* `limit` against 1..500 and throws before the controller runs,
+so the service's own clamp never happened. Renaming the parameter fixed it.
+Lesson kept in `docs/lessons.md`: a parameter name can carry framework
+behaviour, and a clamp is only tested if the value reaches the code that clamps.
+
+Verification followed V4-23's rule: every test was checked by breaking the code
+it guards — four mutations of the service, two of the UI, each failing exactly
+the tests meant to catch it — and the whole thing was then run against the live
+dev instance, including a staged old question set with one mail marked as
+corrected by hand.

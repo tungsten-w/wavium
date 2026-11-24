@@ -478,6 +478,16 @@ return [
 			'verb' => 'PUT'
 		],
 		[
+			'name' => 'triage#setFolders',
+			'url' => '/api/triage/folders',
+			'verb' => 'PUT'
+		],
+		[
+			'name' => 'triage#backfill',
+			'url' => '/api/triage/backfill',
+			'verb' => 'POST'
+		],
+		[
 			'name' => 'outbox#send',
 			'url' => '/api/outbox/{id}',
 			'verb' => 'POST'
