@@ -279,3 +279,56 @@ it guards — four mutations of the service, two of the UI, each failing exactly
 the tests meant to catch it — and the whole thing was then run against the live
 dev instance, including a staged old question set with one mail marked as
 corrected by hand.
+
+## 2026-11-24 — V4-34: the status page said "on" for a pipeline that could not dial out
+
+This session started as an inventory, not a task: find what works in Wavium and
+repair what does not. The inventory is in
+`reports/INCIDENT-2026-11-24-disques.md` section 12. One thing it found is worth
+keeping here, because the shape of the bug is more interesting than the fix.
+
+Classification had 3401 mails queued and 0 classified. Not a subtle failure: the
+queue's own `last_error` column held the answer in plain text, `cURL error 7 ...
+for http://127.0.0.1/agent/v1/internal/ai/triage`. Nobody had read it, because
+nothing surfaced it — the Mail status page showed the pipeline as enabled, which
+it was, and said nothing about it being unable to reach anything.
+
+`ATRIUM_SERVER_URL` sat in the `x-app` environment block of
+`deploy/wavium/compose.yaml`, shared by `app` and `cron` through a YAML anchor.
+`http://127.0.0.1:80` is correct for `app`, which runs Bun in the same
+container. The triage worker runs in `cron`, where nothing listens on port 80.
+A value that is right for one consumer of a shared block and wrong for the
+other: the anchor made the mistake invisible, because the line reads correctly
+wherever you look at it.
+
+The same inspection found `deploy/compose.yaml` declaring no
+`ATRIUM_SERVER_URL` at all, falling back to the default `http://web:8080` — the
+dev stack's service name, in a stack whose services are `app`, `cron`, `db`,
+`redis`. Two stacks, two different ways to be unreachable, both silent.
+
+Both now name `app`: from the `app` container the service name resolves to
+itself, so one value is right everywhere and there is no second copy to drift.
+The test asserts the invariant rather than the value — declared, not loopback,
+and naming a service of that same file — so it catches both failures and any
+third one of the same family. Checked by breaking the code in both directions.
+
+Two lessons worth carrying:
+
+- **A queue that records why it failed is worth little if nothing reads the
+  column.** The queue had been failing since before the disk incident: the
+  `pre-v42` backup of 2026-11-23 already held 3398 pending rows, 0 classified
+  and 0 AI providers. Classification had never once run in production.
+- **A YAML anchor hides per-consumer assumptions.** `127.0.0.1` carries an
+  implicit "in this container", and an anchor copies the text without the
+  assumption. Service names carry no such assumption, which is why the fix is
+  also the simpler configuration.
+
+Deployed the same evening, on the owner's instruction: `atrium:v4.2` built from
+`night/V4-34` (`6fabe4e1c54d`, `WITH_DAILY_TODO=1`), which carries V4-24 through
+V4-28 as well — none of them had ever been built into an image, so the live
+instance had been running `atrium:v4.1` from 2026-11-23 while five finished
+tasks sat in branches. `mail_message_tag` (V4-24) went from absent to live:
+`tools/list` returns 24 tools instead of 23, and the handler validates its
+input. No migration to run (same `OC_Version`, so the entrypoint's code sync
+and `occ upgrade` reported "No upgrade required"), which also means the
+rollback is a plain image swap. A verified backup was taken first.
