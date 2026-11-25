@@ -360,3 +360,37 @@ leftover was gitignored, which is exactly why nobody saw it.
 
 Not deployed: the color fixes are PHP and web code and need an image, which is
 the owner's call. The tagging tonight needs none of it.
+
+## 2026-11-25 — V4-36 and V4-37: a stale list, and a pipeline with no "now"
+
+Two lessons from one night, both about the gap between a thing being true and
+a person being able to see that it is true.
+
+Six mail folders the external sorter needed "did not exist". They existed on
+the mail server the whole time — a raw LIST returned all 21 boxes while the
+database held 15. The trap was in the diagnosis, not the fix: `occ
+mail:account:sync` without `-f` silently skips the folder sync for two hours,
+so my first measurement said "the folders are not on IMAP either" and pointed
+at the wrong hypothesis. The lesson is to read what a command *refuses* to do
+before trusting what it reports. A guard that returns early is an answer about
+the guard, not about the world.
+
+The owner's own attempt had really failed, and failed in the worst shape: the
+`CREATE` reached the server, a later step threw, so the call was reported as a
+failure *and* the resynchronisation at the end of that same function never ran.
+A half-success that reports total failure is worse than either, because it
+teaches the person that the feature does not work while quietly doing half of
+it. Which step throws is still unproven — naming it needs a write to a real
+mailbox — so it is written up as a task with a reproduction recipe instead of
+being guessed at in a commit message.
+
+Then V4-37, which is the same shape seen from the other side. The
+classification pipeline only ever ran from a five-minute cron job, so every
+action a person could take — switch it on, add a provider, pick a folder — was
+answered by silence. The button that fixes it is thirty lines; the part worth
+remembering is that it clears the backoff pause first. A pause exists to stop a
+*job* hammering a failing service, and the moment a human presses a button is
+exactly the moment the old pause is least relevant. One press, one attempt, and
+the backoff arms itself again.
+
+Deployed together as atrium:v4.3 with V4-35's tag colours.
