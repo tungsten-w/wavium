@@ -3,6 +3,21 @@
 Wavium (formerly Atrium) is a hard fork of Nextcloud 34.0.5. Versions are
 tagged in git (`v1`, `v2`, ...).
 
+## v4.4
+
+- **You can talk to your own agents, from Wavium.** An agent like
+  `claude-mail` runs on your machine with its own AI and used to be reachable
+  only from a terminal. The assistant panel now has a "Talking to" picker:
+  pick the agent, write to it like you would to a colleague, and its answer
+  comes back in the same thread. Settings > AI lists the agents you can talk
+  to, with a button to open the conversation -- they bring their own AI, so
+  this works even with no provider configured.
+- The panel says where your message actually is -- waiting to be picked up,
+  picked up and being worked on, or "paused, so it will not read this" --
+  instead of showing a typing indicator it would have to invent.
+- An agent that fails, times out or says nothing tells you so in the thread,
+  rather than leaving you waiting.
+
 ## v4.3
 
 - **Mail: "Run now".** Classification used to start only on its own schedule,

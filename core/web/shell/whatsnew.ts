@@ -23,6 +23,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
 	{
+		version: 'v4.4',
+		date: '2026-11-25',
+		headline: 'Your own agents get a chat window.',
+		items: [
+			'Talk to your own agents from Wavium: pick one in the assistant panel, write to it like to a colleague, and its answer comes back in the same thread.',
+			'Settings > AI lists the agents you can talk to. They bring their own AI, so this works even with no provider configured.',
+			'The panel says where your message is -- waiting to be picked up, being worked on, or not read because the agent is paused -- instead of inventing a typing indicator.',
+			'An agent that fails or takes too long says so in the thread, instead of leaving you waiting.',
+		],
+	},
+	{
 		version: 'v4.3',
 		date: '2026-11-25',
 		headline: 'Mail sorting comes alive: a Run now button, and tags you can actually see.',
