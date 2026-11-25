@@ -1,0 +1,37 @@
+# systemd --user unit for chat-loop.sh (V4-39). Copy to
+# ~/.config/systemd/user/wavium-chat.service, fill in the three paths and the
+# URL, then:
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now wavium-chat
+# `loginctl enable-linger $USER` once, so it survives a reboot and a logout.
+#
+# Point ExecStart at a COPY of the script, not at a file in a git working tree:
+# a service must not break because the repository changed branch.
+[Unit]
+Description=Wavium chat loop (an agent answers from inside Wavium)
+After=network-online.target
+
+[Service]
+Type=simple
+Environment=WAVIUM_URL=https://wavium.example:8443
+Environment=WAVIUM_AGENT=claude-mail
+Environment=WAVIUM_AGENT_TOKEN_FILE=%h/claude-mail/token
+Environment=WAVIUM_CHAT_DIR=%h/.wavium-chat/claude-mail
+# QUOTE any value containing a space. systemd splits an unquoted Environment=
+# on whitespace, so `--cacert /path` arrives as `--cacert` with no argument and
+# every poll fails. Caddy's own CA root works here:
+#   docker compose exec caddy cat /data/caddy/pki/authorities/local/root.crt
+# Verifying is better than skipping; use -k only if there is nothing to verify.
+Environment="WAVIUM_CURL_OPTS=--cacert %h/.wavium-chat/caddy-root.crt"
+# cron and systemd both give almost no PATH, and `claude` is not on it (V4-25).
+Environment=PATH=%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=%h
+# The working directory is the agent's identity on some dashboards, which is
+# why brief.sh sets it too.
+WorkingDirectory=%h/claude-mail
+ExecStart=%h/.wavium-chat/chat-loop.sh
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target

@@ -50,8 +50,17 @@ WAVIUM_AGENT_TOKEN_FILE=$HOME/claude-mail/token \
 services/agentchat/chat-loop.sh
 ```
 
-Under `systemd --user`, or from cron with `@reboot`. One instance at a time: it
-takes a lock and leaves quietly if another copy holds it.
+Under `systemd --user` (`wavium-chat.service.example` here), or from cron with
+`@reboot`. One instance at a time: it takes a lock and leaves quietly if
+another copy holds it.
+
+Two traps worth knowing, both met while installing this for real:
+
+- **Quote any `Environment=` value containing a space.** systemd splits an
+  unquoted one on whitespace, so `--cacert /path` arrives as `--cacert` with no
+  argument and every poll fails.
+- **Point the unit at a copy of the script**, not at the file in a git working
+  tree, or changing branch stops the service.
 
 | Variable | Default | What for |
 | --- | --- | --- |
