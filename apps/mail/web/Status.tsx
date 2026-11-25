@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { relativeTime } from '@atrium/sdk'
 import { Button, Card, Checkbox, NavToggle, Progress, Spinner, Switch, toast } from '@atrium/ui'
 import { MailFlow } from './MailFlow'
-import { categoryLabels, DEFAULT_CURATED_HIDES, filterCategories, loadCuratedHides, saveCuratedHides, setTriageEnabled, setTriageFolders, triageBackfill, triageStatus, urgencyLabels, type TriageStatus } from './api'
+import { categoryLabels, DEFAULT_CURATED_HIDES, filterCategories, loadCuratedHides, saveCuratedHides, setTriageEnabled, setTriageFolders, triageBackfill, triageRun, triageStatus, urgencyLabels, type TriageStatus } from './api'
 
 const stateText: Record<string, [string, string]> = {
 	running: ['Classifying', 'ok'],
@@ -79,6 +79,21 @@ export function MailStatus({ onCuratedChange, onShowCategory }: { onCuratedChang
 		setBusy(true)
 		try { await setTriageEnabled(on); await load() } catch (e) { toast.error(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
 	}
+	// V4-37: "Run now". The pipeline otherwise waits for the five-minute cron,
+	// which makes turning it on, adding a provider or fixing a folder feel like
+	// nothing happened. Every answer says something: what ran, or why it did not.
+	const runNow = async () => {
+		setBusy(true)
+		try {
+			const r = await triageRun()
+			if (r.reason === 'busy') toast('A run is already going; nothing started twice.')
+			else if (r.reason === 'disabled') toast('Classification is off. Turn it on first.')
+			else if (r.classified > 0) toast(`${r.classified} mail${r.classified > 1 ? 's' : ''} classified${r.queued > 0 ? `, ${r.queued} newly queued` : ''}.`)
+			else if (r.lastError) toast.error(`Nothing classified: ${r.lastError}`)
+			else toast(r.queued > 0 ? `${r.queued} mails queued, nothing classified yet.` : 'Nothing left to classify.')
+			await load()
+		} catch (e) { toast.error(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+	}
 	// V4-28: which folders of this account get classified. The whole list of the
 	// account is sent, so unchecking the inbox is a real choice and not "nothing
 	// chosen" (which would fall back to Inbox and Spam).
@@ -103,7 +118,10 @@ export function MailStatus({ onCuratedChange, onShowCategory }: { onCuratedChang
 			<div className="ml-st__pipe">
 				<div className={`ml-st__state ml-st__state--${tone}`}><span className="ml-st__dot" />{label}</div>
 				{s.canManage
-					? <Switch label="Classification" checked={s.settings.enabled} disabled={busy || !s.settings.configured} onChange={(e) => void toggle(e.target.checked)} />
+					? <div className="ml-st__controls">
+						<Switch label="Classification" checked={s.settings.enabled} disabled={busy || !s.settings.configured} onChange={(e) => void toggle(e.target.checked)} />
+						<Button variant="tonal" busy={busy} disabled={busy || !s.settings.enabled || !s.settings.configured} onClick={() => void runNow()}>Run now</Button>
+					</div>
 					: <ClassificationLine settings={s.settings} />}
 			</div>
 			<dl className="ml-st__facts">

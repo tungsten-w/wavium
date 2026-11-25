@@ -401,6 +401,12 @@ export async function correctTriage(body: Record<string, unknown>): Promise<{ co
 }
 export const reclassify = (id: number) => mail<{ queued: boolean, classified: boolean, reason: string | null, triage: Triage | null }>(`/triage/messages/${id}/reclassify`, { method: 'POST' })
 export const setTriageEnabled = (enabled: boolean) => mail<{ enabled: boolean }>('/triage/enabled', { method: 'PUT', body: { enabled } })
+/**
+ * V4-37: run the pipeline now instead of waiting for the five-minute cron.
+ * `ran: false` with a reason is a normal answer, not a failure.
+ */
+export const triageRun = () => mail<{ ran: boolean, reason: string | null, queued: number, classified: number, state: string, lastError: string | null }>(
+	'/triage/run', { method: 'POST' })
 /** V4-28: the folders of one account to classify. Empty list = nothing from this account. */
 export const setTriageFolders = (accountId: number, mailboxIds: number[]) =>
 	mail<{ accountId: number, mailboxIds: number[] }>('/triage/folders', { method: 'PUT', body: { accountId, mailboxIds } })

@@ -154,6 +154,8 @@
 .ml-st__card { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .ml-st__card h2 { margin: 0; font-size: 16px; font-weight: 500; }
 .ml-st__pipe { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* The switch and "Run now" stay together, opposite the state (V4-37). */
+.ml-st__controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .ml-st__state { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 500; }
 .ml-st__dot { width: 12px; height: 12px; border-radius: 50%; background: var(--at-outline); }
 .ml-st__state--ok .ml-st__dot { background: #2e9d5b; box-shadow: 0 0 0 4px color-mix(in srgb, #2e9d5b 25%, transparent); }

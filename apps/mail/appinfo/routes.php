@@ -473,6 +473,11 @@ return [
 			'verb' => 'POST',
 		],
 		[
+			'name' => 'triage#run',
+			'url' => '/api/triage/run',
+			'verb' => 'POST',
+		],
+		[
 			'name' => 'triage#setEnabled',
 			'url' => '/api/triage/enabled',
 			'verb' => 'PUT'

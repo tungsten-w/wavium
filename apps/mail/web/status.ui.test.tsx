@@ -8,6 +8,7 @@
 // being sorted, or why it was not.
 import '../../../core/web/testing/dom'
 import { afterEach, expect, test } from 'vitest'
+import { Snackbars } from '@atrium/ui'
 import { fakeServer } from '../../../core/web/testing/fakeServer'
 import { cleanup, click, getButton, getByText, queryByText, render, waitFor } from '../../../core/web/testing/render'
 import type { TriageStatus } from './api'
@@ -116,5 +117,97 @@ test('nothing to catch up: no card, no button to press by mistake', async () => 
 		const { container } = await render(<MailStatus />)
 		await waitFor(() => getByText(container, 'Folders'))
 		expect(queryByText(container, 'Catch up')).toBeNull()
+	} finally { server.restore() }
+})
+
+// --- V4-37: "Run now". The pipeline waits for the five-minute cron otherwise,
+// so turning it on, adding a provider or fixing a folder looked like nothing
+// happened at all.
+
+// The shell mounts <Snackbars /> next to the app (core/web/shell/main.tsx); a
+// test that reads a toast has to mount it too.
+const shownToasts = () => [...document.querySelectorAll('.at-snackbar')].map((el) => el.textContent ?? '')
+
+test('Run now classifies at once and says how many', async () => {
+	const server = fakeServer()
+		.on('GET', '/apps/mail/api/triage/status', () => fullStatus({ queue: { pendingNew: 7, pendingBacklog: 0, done: 3, parked: 0 } }))
+		.on('GET', '/apps/mail/api/preferences/curated-hides', () => ({ value: '[]' }))
+		.on('POST', '/apps/mail/api/triage/run', () => ({ ran: true, reason: null, queued: 2, classified: 4, state: 'idle', lastError: null }))
+	try {
+		const { container } = await render(<><MailStatus /><Snackbars /></>)
+		await click(await waitFor(() => getButton(container, 'Run now')))
+
+		await waitFor(() => server.calls('POST', '/apps/mail/api/triage/run').length === 1)
+		const message = await waitFor(() => shownToasts().find((t) => t.includes('classified')))
+		expect(message).toContain('4 mails classified')
+		expect(message).toContain('2 newly queued')
+		// The page reloads after a run, so the figures on screen are the new ones.
+		expect(server.calls('GET', '/apps/mail/api/triage/status').length).toBeGreaterThan(1)
+	} finally { server.restore() }
+})
+
+test('a run already going is said as such, not left looking like a dead button', async () => {
+	const server = fakeServer()
+		.on('GET', '/apps/mail/api/triage/status', () => fullStatus())
+		.on('GET', '/apps/mail/api/preferences/curated-hides', () => ({ value: '[]' }))
+		.on('POST', '/apps/mail/api/triage/run', () => ({ ran: false, reason: 'busy', queued: 0, classified: 0, state: 'running', lastError: null }))
+	try {
+		const { container } = await render(<><MailStatus /><Snackbars /></>)
+		await click(await waitFor(() => getButton(container, 'Run now')))
+
+		expect(await waitFor(() => shownToasts().find((t) => t.includes('already going')))).toBeTruthy()
+	} finally { server.restore() }
+})
+
+test('nothing classified: the reason is shown, not an empty success', async () => {
+	const server = fakeServer()
+		.on('GET', '/apps/mail/api/triage/status', () => fullStatus())
+		.on('GET', '/apps/mail/api/preferences/curated-hides', () => ({ value: '[]' }))
+		.on('POST', '/apps/mail/api/triage/run', () => ({
+			ran: true, reason: null, queued: 0, classified: 0, state: 'not_configured',
+			lastError: 'No AI for mail triage: no AI provider is configured. Add one in Settings > AI.',
+		}))
+	try {
+		const { container } = await render(<><MailStatus /><Snackbars /></>)
+		await click(await waitFor(() => getButton(container, 'Run now')))
+
+		const message = await waitFor(() => shownToasts().find((t) => t.includes('no AI provider is configured')))
+		expect(message).toContain('Nothing classified')
+	} finally { server.restore() }
+})
+
+test('the pipeline is off: the button is there but cannot be pressed', async () => {
+	const server = fakeServer()
+		.on('GET', '/apps/mail/api/triage/status', () => fullStatus({ settings: settings({ enabled: false }) }))
+		.on('GET', '/apps/mail/api/preferences/curated-hides', () => ({ value: '[]' }))
+	try {
+		const { container } = await render(<MailStatus />)
+		const button = await waitFor(() => getButton(container, 'Run now') as HTMLButtonElement)
+		expect(button.disabled).toBe(true)
+
+		await click(button)
+
+		expect(server.calls('POST', '/apps/mail/api/triage/run')).toEqual([])
+	} finally { server.restore() }
+})
+
+test('no AI provider at all: still nothing to press', async () => {
+	const server = fakeServer()
+		.on('GET', '/apps/mail/api/triage/status', () => fullStatus({ settings: settings({ enabled: true, configured: false }) }))
+		.on('GET', '/apps/mail/api/preferences/curated-hides', () => ({ value: '[]' }))
+	try {
+		const { container } = await render(<MailStatus />)
+		expect((await waitFor(() => getButton(container, 'Run now') as HTMLButtonElement)).disabled).toBe(true)
+	} finally { server.restore() }
+})
+
+test('a reader without the right to spend the budget gets no button', async () => {
+	const server = fakeServer()
+		.on('GET', '/apps/mail/api/triage/status', () => fullStatus({ canManage: false }))
+		.on('GET', '/apps/mail/api/preferences/curated-hides', () => ({ value: '[]' }))
+	try {
+		const { container } = await render(<MailStatus />)
+		await waitFor(() => getByText(container, /Classification is on/))
+		expect(queryByText(container, 'Run now')).toBeNull()
 	} finally { server.restore() }
 })

@@ -132,6 +132,18 @@ class TriageController extends Controller {
 		return new JSONResponse($this->triage->requeueOutdated($this->userId, $max));
 	}
 
+	/**
+	 * Run the pipeline now instead of waiting for the next cron tick (V4-37).
+	 *
+	 * Admin-only, like the on/off switch above it and for the same reason: it
+	 * spends the instance's AI budget. Answers 200 with `ran: false` when there
+	 * is nothing to do (pipeline off, or a run already going) -- pressing a
+	 * button at the wrong moment is not an error.
+	 */
+	public function run(): JSONResponse {
+		return new JSONResponse($this->triage->runNow());
+	}
+
 	/** Turn the pipeline on or off (admins: it spends the server's AI budget). */
 	public function setEnabled(bool $enabled): JSONResponse {
 		$this->triage->setEnabled($enabled);

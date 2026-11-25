@@ -176,6 +176,50 @@ class TriageService {
 		return md5($messageId !== null && $messageId !== '' ? $messageId : "db:$dbId");
 	}
 
+	/**
+	 * One run, because a person pressed "Run now" on the Mail status page (V4-37).
+	 *
+	 * The same work the cron job does, with two differences.
+	 *
+	 * It clears `pausedUntil` first. A pause exists to stop the job hammering an
+	 * AI that keeps failing; a person pressing a button once is not hammering,
+	 * and runClassify arms the backoff again by itself if this attempt fails
+	 * too. Without this, the button would answer "nothing happened" for up to
+	 * 30 minutes after a transient failure, which is exactly when somebody
+	 * wants to press it.
+	 *
+	 * And it refuses while the pipeline is off, so the button can never
+	 * classify behind a human's "no" (the UI disables it too; this is the part
+	 * that does not depend on the UI being right).
+	 *
+	 * @param int $seconds How long the run may take. It answers an HTTP request,
+	 *                     so it has to be shorter than the web server's timeout.
+	 * @return array{ran: bool, reason: string|null, queued: int, classified: int, state: string, lastError: string|null}
+	 */
+	public function runNow(int $seconds = 20): array {
+		$answer = function (bool $ran, ?string $reason, int $queued = 0, int $classified = 0) {
+			$state = $this->state();
+			return [
+				'ran' => $ran, 'reason' => $reason, 'queued' => $queued, 'classified' => $classified,
+				'state' => (string)($state['state'] ?? ''),
+				'lastError' => isset($state['lastError']) ? (string)$state['lastError'] : null,
+			];
+		};
+		if (!$this->settings()['enabled']) {
+			return $answer(false, 'disabled');
+		}
+		if ((int)($this->state()['pausedUntil'] ?? 0) > 0) {
+			$this->saveState(['pausedUntil' => 0]);
+		}
+		$r = $this->run($this->time->getTime() + max(1, $seconds));
+		if ($r === null) {
+			// The cron job, or another press, is already in it. Not an error:
+			// the work is being done, just not by this request.
+			return $answer(false, 'busy');
+		}
+		return $answer(true, null, $r['queued'], $r['classified']);
+	}
+
 	/** @return array{version: string, model: string, questions: list<mixed>} */
 	private function questions(): array {
 		$d = json_decode((string)file_get_contents(__DIR__ . '/questions.json'), true);
