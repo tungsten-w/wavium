@@ -13,6 +13,7 @@ import { CURRENT } from './whatsnew'
 import { bannerHidden, hideBanner, useDemo, type DemoInfo } from './demo'
 import { findApp, importApp, navApps, type AppIndex, type AppManifest } from './apps'
 import { Assistant } from './Assistant'
+import { OPEN_EVENT } from './chatModel'
 import { LegacyFrame } from './LegacyFrame'
 import { Search } from './Search'
 import { Settings } from './settings/Settings'
@@ -39,10 +40,23 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 	const home = allApps.find((a) => a.id === 'dashboard' || a.app === 'dashboard')?.href ?? apps[0]?.href ?? '/settings/user'
 	const [picker, setPicker] = useState(false)
 	const [assistant, setAssistant] = useState(readAssistantOpen)
+	// Settings > AI can ask for the panel on one agent (V4-39), from the same page.
+	const [talkTo, setTalkTo] = useState<string | undefined>(undefined)
 	const toggleAssistant = (open: boolean) => {
 		setAssistant(open)
+		if (!open) setTalkTo(undefined)
 		try { localStorage.setItem(ASSISTANT_KEY, open ? '1' : '0') } catch { /* not remembered */ }
 	}
+	useEffect(() => {
+		const open = (e: Event) => {
+			const uid = (e as CustomEvent<{ uid?: string }>).detail?.uid
+			if (!uid) return
+			setTalkTo(uid)
+			toggleAssistant(true)
+		}
+		window.addEventListener(OPEN_EVENT, open)
+		return () => window.removeEventListener(OPEN_EVENT, open)
+	}, [])
 
 	useEffect(() => {
 		if (pathname === '/' || pathname === '/index.php' || pathname === '/index.php/') {
@@ -103,7 +117,7 @@ export function Shell({ session, index }: { session: Session, index: AppIndex })
 				</div>
 			</header>
 			<div className={`shell-body${pathname.startsWith('/apps/dashboard') ? ' shell-body--bare' : ''}${assistant ? ' shell-body--assistant' : ''}`}>{body}</div>
-			{assistant && <Assistant onClose={() => toggleAssistant(false)} />}
+			{assistant && <Assistant onClose={() => toggleAssistant(false)} startWith={talkTo} />}
 			<Dialog open={picker} title="Apps" onClose={() => setPicker(false)}>
 				<div className="shell-picker">
 					{apps.map((a) => (

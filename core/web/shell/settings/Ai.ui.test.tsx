@@ -8,6 +8,7 @@ import { afterEach, beforeEach, expect, test } from 'vitest'
 import type { Session } from '@atrium/sdk'
 import { fakeServer, type FakeServer } from '../../testing/fakeServer'
 import { cleanup, click, getButton, getByText, getField, queryByText, render, type, waitFor } from '../../testing/render'
+import { OPEN_EVENT, WHO_KEY } from '../chatModel'
 import { Ai } from './Ai'
 import type { AiOverview, ProviderView } from './aiModel'
 
@@ -25,11 +26,15 @@ const prov = (p: Partial<ProviderView>): ProviderView => ({
 
 let server: FakeServer
 let state: AiOverview
+let talkable: Array<{ uid: string, name: string, paused: boolean, waiting: number, lastAt: number }>
 
 beforeEach(() => {
 	server = fakeServer()
 	state = { isAdmin: false, personalProviders: true, kinds, instance: [prov({})], mine: [], defaultProvider: null, instanceDefault: null, effectiveDefault: 'aip_i' } as AiOverview
 	server.on('GET', '/agent/v1/ai/settings', () => state)
+	// The page also asks which of the user's own agents they can talk to (V4-39).
+	talkable = []
+	server.on('GET', '/agent/v1/chat', () => ({ agents: talkable }))
 })
 afterEach(() => { cleanup(); server.restore() })
 
@@ -114,4 +119,22 @@ test('no provider at all: says AI features stay off', async () => {
 	const { container } = await render(<Ai session={session} />)
 	await waitFor(() => getByText(container, 'Your admin has not set up an AI provider.'))
 	expect(getByText(container, 'No usable provider: AI features stay off.')).toBeTruthy()
+})
+
+test('an agent you can talk to gets a row here, and the button opens the panel on it', async () => {
+	talkable = [{ uid: 'claude-mail', name: 'Claude Mail', paused: false, waiting: 2, lastAt: 1795600000 }]
+	const asked: string[] = []
+	window.addEventListener(OPEN_EVENT, (e) => asked.push((e as CustomEvent<{ uid: string }>).detail.uid))
+	const { container } = await render(<Ai session={session} />)
+	await waitFor(() => getByText(container, 'Claude Mail'))
+	expect(getByText(container, '2 messages it has not picked up yet.')).toBeTruthy()
+	await click(getButton(container, 'Talk to Claude Mail'))
+	expect([asked, localStorage.getItem(WHO_KEY)]).toEqual([['claude-mail'], 'claude-mail'])
+	expect(server.unhandled).toEqual([])
+})
+
+test('no agents, no card: the page looks exactly as it did before', async () => {
+	const { container } = await render(<Ai session={session} />)
+	await waitFor(() => getByText(container, 'Team Claude'))
+	expect(queryByText(container, 'Your own agents')).toBeNull()
 })

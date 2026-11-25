@@ -394,3 +394,40 @@ exactly the moment the old pause is least relevant. One press, one attempt, and
 the backoff arms itself again.
 
 Deployed together as atrium:v4.3 with V4-35's tag colours.
+
+## 2026-11-25, V4-39: the direction of the connection
+
+The owner wanted to talk to `claude-mail` from Wavium rather than from a
+terminal. The feature sounds like a chat window. Almost all of the work was one
+decision that has nothing to do with chat: which side opens the connection.
+
+The obvious design is a bridge — Wavium calls the agent on the host, the answer
+streams back. It is also the expensive one. The app containers sit on a network
+marked `internal: true` and have no route to the host; a bridge means opening
+one, putting a listener on the owner's machine, and shipping a shared secret
+into a container whose job is to serve web pages. And the agent's credentials
+are a *personal Claude subscription*: a container would either have to hold
+them or lose the machine the agent works on.
+
+Turning it around costs one thing — there is no push, so the answer arrives
+when the agent next checks in — and that cost turned out to be imaginary. A
+real agent run takes tens of seconds whatever happens, so a ten-second poll is
+not what the person waits for. What they actually need is to know *where* their
+message is, which is why the panel says "waiting to be picked up", "picked up
+and being worked on", or "paused, so it will not read this", and never shows a
+typing indicator it would have to invent.
+
+Two smaller things worth keeping.
+
+The first runner I wrote parsed JSON with `python3`, which the test container
+does not have — so the script could not be tested, which is how scripts like
+this rot. Rather than skip the test I added a plain-text pair of routes beside
+the JSON tools, and the runner now needs nothing but `curl`. The dependency was
+the bug; the test was just the thing that noticed.
+
+And the dev stack earned its keep again. Everything passed — 424 server tests,
+262 web tests, lint — and `make up` then refused to boot: I had put
+`agentChat.ts` next to `AgentChat.tsx`, two files differing only in case. No
+unit test can see that, and on a case-insensitive filesystem it is not a
+warning but a broken checkout. Renamed to `chatModel.ts`, the convention the
+shell already had.

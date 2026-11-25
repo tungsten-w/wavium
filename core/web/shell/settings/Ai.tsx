@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@atrium/sdk'
 import { Badge, Button, Card, Checkbox, Dialog, EmptyState, Select, Spinner, Switch, TextField, confirmDialog, toast } from '@atrium/ui'
+import { chatApi, talkTo, type TalkableAgent } from '../chatModel'
 import { aiApi } from './aiApi'
 import {
 	type AiOverview, type ConnectionTest, defaultChoices, emptyForm, formError, formFromView, keyHelp, kindLabels, keyText,
@@ -98,6 +99,7 @@ export function Ai(_: { session: Session }) {
 									: 'No usable provider: AI features stay off.'}
 							</p>
 						</Card>
+						<TalkToAgents />
 					</>}
 			{editing && data && (
 				<ProviderDialog
@@ -258,5 +260,42 @@ function ProviderDialog({ data, scope, provider, onClose, onSaved }: {
 				{error && <p className="settings-bad" role="alert">{error}</p>}
 			</div>
 		</Dialog>
+	)
+}
+
+/**
+ * The agents you can talk to instead of an AI provider (V4-39). An agent like
+ * `claude-mail` runs on your own machine on its own subscription: talking to it
+ * costs nothing here and works with no provider configured at all, which is why
+ * it belongs on this page next to the ones that do need a key.
+ */
+function TalkToAgents() {
+	const [agents, setAgents] = useState<TalkableAgent[] | null>(null)
+	useEffect(() => {
+		let gone = false
+		void chatApi.agents().then((r) => { if (!gone) setAgents(r.agents) }).catch(() => { if (!gone) setAgents([]) })
+		return () => { gone = true }
+	}, [])
+	if (!agents || agents.length === 0) return null
+	return (
+		<Card className="settings-block">
+			<h3>Your own agents</h3>
+			<p className="at-muted settings-note">
+				These run on their own, with their own AI. Write to one like you would to a colleague: it reads
+				when it next checks in and answers in the assistant panel. No provider above is used.
+			</p>
+			<ul className="ai-agents">
+				{agents.map((a) => (
+					<li key={a.uid} className="settings-row">
+						<div className="ai-agents__who">
+							<strong>{a.name}</strong>
+							{a.paused && <> <Badge>paused</Badge></>}
+							{a.waiting > 0 && <p className="at-muted settings-note">{a.waiting} message{a.waiting > 1 ? 's' : ''} it has not picked up yet.</p>}
+						</div>
+						<Button variant="tonal" onClick={() => talkTo(a.uid)}>Talk to {a.name}</Button>
+					</li>
+				))}
+			</ul>
+		</Card>
 	)
 }

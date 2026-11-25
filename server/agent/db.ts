@@ -211,6 +211,25 @@ const MIGRATIONS: Migration[] = [
 			await db.q(`ALTER TABLE ${db.t('atrium_agent_settings')} ADD COLUMN quiet TEXT`)
 		},
 	},
+	{
+		// Talking to an agent from Wavium (V4-39): one thread per agent, both
+		// directions. `taken_at` is when the agent picked an owner message up,
+		// so a message is answered once even if the agent runs twice.
+		id: 5,
+		up: async (db) => {
+			const { id } = ddl(db)
+			const T = db.t('atrium_agent_chat')
+			await db.q(`CREATE TABLE IF NOT EXISTS ${T} (
+				id ${id},
+				agent_uid VARCHAR(64) NOT NULL,
+				owner_uid VARCHAR(64) NOT NULL,
+				role VARCHAR(8) NOT NULL,
+				body TEXT NOT NULL,
+				created_at BIGINT NOT NULL,
+				taken_at BIGINT)`)
+			await db.q(`CREATE INDEX IF NOT EXISTS ${db.t('atrium_agent_chat_thread')} ON ${T} (agent_uid, id)`)
+		},
+	},
 ]
 
 export async function migrate(db: Db): Promise<void> {

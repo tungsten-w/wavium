@@ -33,7 +33,11 @@ test('config.php parsing', () => {
 test('migrations are idempotent', async () => {
 	await migrate(db)
 	const rows = await db.q<{ v: string }>(`SELECT v FROM oc_atrium_agent_meta WHERE k = 'schema'`)
-	expect(rows[0].v).toBe('4')
+	expect(rows[0].v).toBe('5')
+	// The newest table is there and usable after migrating twice, which is what
+	// "idempotent" has to mean for a CREATE TABLE IF NOT EXISTS plus an index.
+	await db.q(`INSERT INTO oc_atrium_agent_chat (agent_uid, owner_uid, role, body, created_at) VALUES ('a', 'o', 'owner', 'hi', 1)`)
+	expect(await db.q(`SELECT body FROM oc_atrium_agent_chat`)).toEqual([{ body: 'hi' }])
 })
 
 test('schema validation', () => {

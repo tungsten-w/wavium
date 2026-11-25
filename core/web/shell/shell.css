@@ -215,6 +215,11 @@ html, body, #atrium { height: 100%; }
 .ai-actions { white-space: nowrap; }
 .ai-actions > * { vertical-align: middle; }
 .ai-form { display: grid; gap: 12px; min-width: min(480px, 80vw); }
+/* The agents you can talk to (V4-39): one row each, the button on the right. */
+.ai-agents { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.ai-agents .settings-row { align-items: center; justify-content: space-between; }
+.ai-agents__who { min-width: 0; }
+.ai-agents__who p { margin: 2px 0 0; }
 .ai-form p { margin: 0; }
 @media (max-width: 600px) { .ai-actions { white-space: normal; } .ai-table tr { display: grid; } }
 .settings-summary { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 12px 16px; border-radius: var(--at-radius-m); font-weight: 500; }
@@ -345,6 +350,10 @@ html, body, #atrium { height: 100%; }
 .assistant__approval { border: 1px solid var(--at-outline-variant, rgba(127,127,127,.35)); border-radius: 10px; padding: 8px 10px; font-size: 13px; }
 .assistant__approval-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
 .assistant__error { color: var(--at-error, #b3261e); }
+/* Who the panel is talking to (V4-39), and where an unanswered message is. */
+.assistant__who { min-width: 0; flex: 0 1 auto; }
+.assistant__who .at-field__input, .assistant__who select { font-weight: 600; }
+.assistant__waiting { margin: 0; font-size: 13px; align-self: flex-start; }
 .assistant__form { display: flex; gap: 8px; align-items: flex-end; padding: 10px 12px; border-top: 1px solid var(--at-outline-variant, rgba(127,127,127,.25)); }
 .assistant__form .at-field { flex: 1; }
 @media (min-width: 1100px) { .shell-body--assistant { margin-right: 416px; } }

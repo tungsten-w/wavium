@@ -8,14 +8,29 @@
 // Approve / Reject. Logic in assistantModel.ts; server: server/agent/assistant.
 import { useEffect, useRef, useState } from 'react'
 import { linkHandler, requestToken } from '@atrium/sdk'
-import { Button, IconButton, TextArea } from '@atrium/ui'
+import { Button, IconButton, Select, TextArea } from '@atrium/ui'
+import { AgentChat } from './AgentChat'
+import { chatApi, readWho, saveWho, type TalkableAgent } from './chatModel'
 import { applyEvent, parseSse, type Step, toMessages, toolLabel, type Turn } from './assistantModel'
 import { api } from './settings/agentsApi'
 
 type AssistantTurn = Extract<Turn, { role: 'assistant' }>
 const blank = (): AssistantTurn => ({ role: 'assistant', text: '', steps: [], done: false, error: null, note: null })
 
-export function Assistant({ onClose }: { onClose: () => void }) {
+export function Assistant({ onClose, startWith }: { onClose: () => void, startWith?: string }) {
+	// Who the panel is talking to: the built-in assistant, or one of the user's
+	// own agents (V4-39). Agents it cannot find are ignored, so an instance
+	// with none at all looks exactly as it did before.
+	const [agents, setAgents] = useState<TalkableAgent[]>([])
+	const [who, setWho] = useState<string>(() => startWith ?? readWho())
+	useEffect(() => {
+		let gone = false
+		void chatApi.agents().then((r) => { if (!gone) setAgents(r.agents) }).catch(() => { /* none to talk to */ })
+		return () => { gone = true }
+	}, [])
+	useEffect(() => { if (startWith) setWho(startWith) }, [startWith])
+	const pick = (next: string) => { setWho(next); saveWho(next) }
+	const agent = agents.find((a) => a.uid === who) ?? null
 	const [turns, setTurns] = useState<Turn[]>([])
 	const [draft, setDraft] = useState('')
 	const [busy, setBusy] = useState(false)
@@ -83,11 +98,18 @@ export function Assistant({ onClose }: { onClose: () => void }) {
 	return (
 		<aside className="assistant" aria-label="Assistant">
 			<div className="assistant__head">
-				<strong>Assistant</strong>
+				{agents.length === 0
+					? <strong>Assistant</strong>
+					: <Select className="assistant__who" label="Talking to" value={agent ? agent.uid : 'assistant'} onChange={(e) => pick(e.target.value)}>
+						<option value="assistant">Assistant</option>
+						{agents.map((a) => <option key={a.uid} value={a.uid}>{a.name}{a.waiting > 0 ? ` (${a.waiting} waiting)` : ''}</option>)}
+					</Select>}
 				<span style={{ flex: 1 }} />
-				{turns.length > 0 && !busy && <Button variant="text" size="s" onClick={() => setTurns([])}>New chat</Button>}
+				{!agent && turns.length > 0 && !busy && <Button variant="text" size="s" onClick={() => setTurns([])}>New chat</Button>}
 				<IconButton icon="close" label="Close the assistant" onClick={onClose} />
 			</div>
+			{agent && <AgentChat agent={agent} />}
+			{!agent && <>
 			<div className="assistant__log">
 				{turns.length === 0 && <p className="at-muted">Ask about your mail, files, calendar, tasks, contacts or notes, or ask it to do something. It acts as your "Assistant" agent: sending, deleting and sharing wait for your OK here.</p>}
 				{turns.map((t, i) => t.role === 'user'
@@ -117,6 +139,7 @@ export function Assistant({ onClose }: { onClose: () => void }) {
 				{busy ? <Button type="button" variant="tonal" onClick={() => abort.current?.abort()}>Stop</Button>
 					: <Button type="submit" icon="send" disabled={!draft.trim()}>Send</Button>}
 			</form>
+			</>}
 		</aside>
 	)
 }
