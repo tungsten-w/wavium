@@ -81,6 +81,13 @@ class TagMapper extends QBMapper {
 			$tag = $this->getTagByImapLabel($tag->getImapLabel(), $userId);
 		} catch (DoesNotExistException $e) {
 			$tag->setUserId($userId);
+			// Atrium: a tag discovered as an IMAP keyword on the mail server
+			// (IMAPMessage::getTags) carries no color, and the column defaults to
+			// '#fff' -- a white chip on a white background, i.e. a tag the owner
+			// cannot see. Give it one, so every tag has a color.
+			if (self::hasNoColor($tag->getColor())) {
+				$tag->setColor(self::colorFor($tag->getImapLabel()));
+			}
 			$tag = $this->insert($tag);
 		}
 
@@ -174,6 +181,36 @@ class TagMapper extends QBMapper {
 			$queryResult->closeCursor();
 		}
 		return $messageIds;
+	}
+
+	/**
+	 * Atrium: the colors a discovered tag can get, the same list the Tags dialog
+	 * offers for a tag the owner creates by hand (apps/mail/web/Tags.tsx).
+	 */
+	public const DISCOVERED_COLORS = ['#0b6aa8', '#2e7d32', '#c62828', '#ef6c00', '#6a1b9a', '#00838f'];
+
+	/** Whether a stored color means "nobody chose one" ('#fff' is the column default). */
+	public static function hasNoColor(?string $color): bool {
+		$c = strtolower(trim((string)$color));
+		return $c === '' || $c === 'white' || preg_match('/^#(f{3,4}|f{6}|f{8})$/', $c) === 1;
+	}
+
+	/**
+	 * Which palette entry a label gets. Same arithmetic as colorIndex() in
+	 * apps/mail/web/Tags.tsx, over the bytes of the label with A-Z lowered and
+	 * nothing else, so the same keyword gets the same color on both sides.
+	 */
+	public static function colorIndex(string $imapLabel): int {
+		$h = 0;
+		$label = strtr($imapLabel, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
+		for ($i = 0, $n = strlen($label); $i < $n; $i++) {
+			$h = ($h * 31 + ord($label[$i])) % 0x7fffffff;
+		}
+		return $h % count(self::DISCOVERED_COLORS);
+	}
+
+	public static function colorFor(string $imapLabel): string {
+		return self::DISCOVERED_COLORS[self::colorIndex($imapLabel)];
 	}
 
 	/**

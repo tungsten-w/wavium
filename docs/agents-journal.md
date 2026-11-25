@@ -332,3 +332,31 @@ tasks sat in branches. `mail_message_tag` (V4-24) went from absent to live:
 input. No migration to run (same `OC_Version`, so the entrypoint's code sync
 and `occ upgrade` reported "No upgrade required"), which also means the
 rollback is a plain image swap. A verified backup was taken first.
+
+## 2026-11-24 — V4-35: a tag nobody could see, and a build that broke the tests
+
+The question was whether the tag system works before handing claude-mail a
+night of sorting. It does — a tag written, read back and removed on the live
+instance, with no AI anywhere in the path. What did not work was the colors,
+and in a way no test could have caught by looking at code alone: 668 of the
+676 tagged mails carried a tag whose color was the column default, `#fff`,
+drawn as white text over 14% white. The feature was complete, the data was
+right, and the owner saw nothing. It took reading the live rows to find it.
+
+Two lessons.
+
+A column default is a decision. `mail_tags.color DEFAULT '#fff'` reads as
+harmless until something inserts a row without choosing, and then the default
+*is* the choice — here, for 99% of the rows. The fix had to go in both places:
+the writer, so new tags get a color, and the reader, so the rows already
+written become visible without a migration.
+
+A build that leaves its context behind poisons the test run. `deploy/build.sh`
+extracted the tree into `deploy/src` and kept it; `bun test server/` matches
+any path containing `server/`, so every server test ran twice, the second time
+against a tree the same script had stripped of `deploy/`. `make test` had been
+red since yesterday evening's image, on a tree where nothing was wrong. The
+leftover was gitignored, which is exactly why nobody saw it.
+
+Not deployed: the color fixes are PHP and web code and need an image, which is
+the owner's call. The tagging tonight needs none of it.

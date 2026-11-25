@@ -140,6 +140,9 @@
 .ml-tag--danger { background: var(--at-error); color: var(--at-on-error, #fff); }
 .ml-tag--act { background: var(--at-tertiary-container, var(--at-secondary-container)); color: var(--at-on-tertiary-container, var(--at-on-secondary-container)); }
 .ml-tag--personal, .ml-tag--work, .ml-tag--etudes { background: var(--at-primary-container); color: var(--at-on-primary-container); }
+.ml-tag--spam { background: var(--at-error-container, #fdd); color: var(--at-on-error-container, #600); }
+/* "Promotion" is the ads category under the name the agent uses (V4-24). */
+.ml-tag--ads { background: var(--at-secondary-container); color: var(--at-on-secondary-container); }
 .ml-message--selected .ml-tag--cat { background: color-mix(in srgb, currentColor 12%, transparent); color: inherit; }
 
 /* Mail status page */

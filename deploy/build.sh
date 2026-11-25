@@ -14,7 +14,12 @@ commit=$(git -C "$repo" rev-parse HEAD)
 tag=${commit:0:12}
 # Snapshot the working tree through a temporary index (the real index is untouched).
 index=$(mktemp)
-trap 'rm -f "$index"' EXIT
+# src/ is the Docker build context, not an output: 400+ MB of a second copy of
+# the repo, inside the repo. `make test-server` runs `bun test server/`, and
+# that filter matches any path containing server/ -- including
+# deploy/src/server/, so a leftover snapshot runs every server test twice,
+# against a tree whose deploy/ this script has just removed. Clean it up.
+trap 'rm -f "$index"; rm -rf "$here/src"' EXIT
 # --git-path: works in a worktree too (.git is a file there).
 cp "$(git -C "$repo" rev-parse --path-format=absolute --git-path index)" "$index"
 GIT_INDEX_FILE="$index" git -C "$repo" add -A
