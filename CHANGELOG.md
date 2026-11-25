@@ -3,6 +3,49 @@
 Wavium (formerly Atrium) is a hard fork of Nextcloud 34.0.5. Versions are
 tagged in git (`v1`, `v2`, ...).
 
+## v4.3
+
+- **Mail: "Run now".** Classification used to start only on its own schedule,
+  up to five minutes after you turned it on, picked a folder or added an AI
+  key -- so every one of those looked like nothing had happened. The button
+  next to the Classification switch runs it immediately and says what came of
+  it: how many mails were classified, how many are queued, or why nothing
+  happened. One press also clears a backoff pause: a pause exists to stop the
+  schedule hammering an AI that keeps failing, and a person pressing once is
+  not hammering.
+- **Fixed: tags were painted white on white.** A tag Wavium discovered on the
+  mail server carried no colour, and the column it is stored in defaults to
+  white -- so 668 of the 676 tagged mails showed a white chip on a white
+  background, a tag you could not see. Every tag now gets a colour, the ones
+  already stored included, and the two tags an agent can set that had no
+  colour of their own (spam, promotion) got one.
+- **Agents can tag mail.** An agent could read the classifier's answer and
+  star a mail; that was its whole write access. It can now set and remove the
+  five tags, which is what sorting mail actually needs.
+- **Fixed: classification could never reach the AI.** On both production
+  stacks the queue failed on every mail with "cURL error 7: Failed to connect
+  to 127.0.0.1 port 80" -- the classifier asked the web server for its own AI
+  settings over a loopback address that answers nothing inside a container.
+  3401 mails had been waiting.
+- **Classification turns itself on when an AI provider is added**, instead of
+  staying off behind a switch only an admin ever sees. Everything built on it
+  -- Curated, the category chips, "Needs action", "Why is this mail here?" --
+  was dead with it.
+- **You choose which folders are classified**, per account. The pipeline only
+  ever looked at Inbox and Spam. Changing the question set also re-asks about
+  mail already classified, instead of leaving an account's history on the old
+  questions forever.
+- **A category for school and university** (`etudes`): a timetable, an exam
+  result and a tax notice used to come out as the same thing. The four labels
+  that no mail could ever carry -- school, finance, calendar, unknown -- are
+  gone from the interface.
+- **Fixed: the twice-daily mail brief failed silently under cron.** It died
+  with "failed to run command 'claude'" and left the previous brief in place,
+  so there was nothing to notice.
+- Build: a release build no longer leaves a 478 MB copy of the repository
+  inside the repository, which had been making the test suite run twice
+  against a half-stripped tree.
+
 ## v4.2
 
 - **Fixed: a mail account you had just connected looked empty.** Mail listed

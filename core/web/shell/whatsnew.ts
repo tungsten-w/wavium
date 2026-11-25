@@ -23,6 +23,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
 	{
+		version: 'v4.3',
+		date: '2026-11-25',
+		headline: 'Mail sorting comes alive: a Run now button, and tags you can actually see.',
+		items: [
+			'Mail: "Run now", next to the Classification switch, sorts your mail straight away instead of waiting up to five minutes -- and says how many it did, or why it did none.',
+			'Fixed: tags were painted white on white. 668 of 676 tagged mails showed a chip you could not see. Every tag has a colour now, the ones already stored included.',
+			'Agents can tag your mail, not just star it -- which is what sorting it actually needs.',
+			'Fixed: classification could never reach the AI. 3401 mails had been waiting on an error on every single one.',
+			'Classification turns itself on when you add an AI provider, instead of staying off behind a switch you never saw.',
+			'You choose which folders get classified. Before, only Inbox and Spam were ever looked at.',
+			'A category for school and university, and the four labels no mail could ever carry are gone.',
+			'Fixed: the twice-daily mail brief died silently under cron and left the old one in place.',
+		],
+	},
+	{
 		version: 'v4.2',
 		date: '2026-11-23',
 		headline: 'Mail: your messages show up, and the filters tell you what they are doing.',
